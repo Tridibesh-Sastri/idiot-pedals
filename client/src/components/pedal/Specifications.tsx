@@ -11,23 +11,27 @@ export const Specifications: React.FC = () => {
     { label: 'Input Impedance', value: '500k Ohm (Guitar pickup friendly)', icon: Volume2 },
     { label: 'Output Impedance', value: '10k Ohm (Drives long pedal chains cleanly)', icon: Volume2 },
     { label: 'Enclosure Material', value: 'Die-cast Aluminum Chassis (Hammond 1590B footprint)', icon: Box },
-    { label: 'Finish', value: 'Powder-coated Warm Ivory with dual-coat screen printing', icon: Box },
+    { label: 'Finish', value: 'Powder-coated Matte Obsidian with Neon Orange screenprint', icon: Box },
     { label: 'Dimensions', value: '112 mm (L) × 60 mm (W) × 31 mm (H)', icon: Box },
     { label: 'Weight', value: '260 g (Rugged tour-grade road stability)', icon: Gauge },
-    { label: 'Origin', value: 'Hand-assembled & bench-tested in Kolkata, India', icon: ShieldCheck },
+    { label: 'Origin', value: 'Hand-assembled & bench-tested in Burdwan, India', icon: ShieldCheck },
   ];
 
   return (
-    <section className="py-20 bg-[#171513]/50 border-t border-[#8C857A]/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-xs font-mono-tech uppercase tracking-widest text-[#D91E18] font-bold block mb-2">
+    <section id="specs" className="py-28 bg-[#0B0E14] border-t border-white/10 relative overflow-hidden">
+      {/* Background bloom */}
+      <div className="absolute bottom-10 left-1/3 w-[500px] h-[300px] bg-[#FF5E1E]/5 blur-[150px] pointer-events-none rounded-full" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
+          <span className="text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E] font-bold block">
             Technical Data Sheet
           </span>
-          <h2 className="text-3xl sm:text-4xl font-cinzel font-black tracking-tight text-[#F3EFE6] mb-3">
+          <h2 className="text-3xl sm:text-5xl font-editorial font-normal tracking-tight text-[#F6F4EE]">
             Hardware Specifications
           </h2>
-          <p className="text-xs sm:text-sm text-[#8C857A]">
+          <p className="text-xs sm:text-sm text-[#8E98A8] font-light leading-relaxed">
             Every component specified for low noise, reliable road performance, and consistent musical harmonic response.
           </p>
         </div>
@@ -38,16 +42,16 @@ export const Specifications: React.FC = () => {
             return (
               <div
                 key={i}
-                className="p-4 bg-[#0B0B0A] border border-[#8C857A]/20 rounded-xl flex items-start gap-3.5"
+                className="p-5 bg-[#121722]/80 border border-white/10 rounded-2xl flex items-start gap-4 backdrop-blur-xl hover:border-[#FF5E1E]/40 transition-colors"
               >
-                <div className="p-2 rounded-lg bg-[#171513] text-[#D91E18] shrink-0 border border-[#8C857A]/20">
-                  <Icon size={16} />
+                <div className="p-2.5 rounded-xl bg-[#161C28] text-[#FF5E1E] shrink-0 border border-white/10 glow-neon-subtle">
+                  <Icon size={18} />
                 </div>
-                <div className="space-y-0.5">
-                  <span className="text-[11px] font-mono-tech text-[#8C857A] uppercase tracking-wider block">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono-tech text-[#8E98A8] uppercase tracking-wider block">
                     {spec.label}
                   </span>
-                  <span className="text-xs sm:text-sm font-semibold text-[#F3EFE6]">
+                  <span className="text-xs sm:text-sm font-semibold text-[#F6F4EE] font-mono-tech">
                     {spec.value}
                   </span>
                 </div>

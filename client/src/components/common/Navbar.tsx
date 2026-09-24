@@ -5,127 +5,132 @@ import { IdiotPedalsLogo } from './IdiotPedalsLogo';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 
-export const Navbar: React.FC = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
+interface NavbarProps {
+  forceVisible?: boolean;
+  isScrubCompleted?: boolean;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCompleted = false }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const { totalQuantity, setIsCartOpen } = useCart();
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Navbar is always visible — no scroll animation hiding it
+  const isVisible = true;
+
   const navLinks = [
-    { name: 'Neon Fuzz Box', path: '/product' },
-    { name: 'Audio Demo', path: '/#demo' },
-    { name: 'Workbench Story', path: '/about' },
-    { name: 'Support', path: '/contact' },
+    { name: 'Product', path: '/product' },
+    { name: 'About', path: '/about' },
+    { name: 'Tone Demo', path: '/#demo' },
+    { name: 'Contact', path: '/contact' },
   ];
 
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled
-            ? 'bg-[#0B0B0A]/95 backdrop-blur-md border-b border-[#8C857A]/20 py-3 shadow-xl'
-            : 'bg-gradient-to-b from-[#0B0B0A]/90 to-transparent py-5'
+        className={`fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-6xl transition-all duration-700 ease-out ${
+          isVisible
+            ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
+            : 'opacity-0 -translate-y-8 scale-95 pointer-events-none'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D91E18]">
-              <IdiotPedalsLogo variant="dark" size="sm" />
-            </Link>
+        <div className="bg-[#121722]/85 hover:bg-[#121722]/95 backdrop-blur-2xl border border-white/10 rounded-full px-5 sm:px-8 py-3 sm:py-3.5 shadow-2xl flex items-center justify-between gap-4">
+          
+          {/* Brand Logo */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 group focus:outline-none"
+            aria-label="IDIOT Pedals Home"
+          >
+            <IdiotPedalsLogo variant="dark" size="sm" />
+          </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              {navLinks.map((link) => (
+          {/* Desktop Nav Links */}
+          <nav className="hidden md:flex items-center gap-7 text-xs font-mono-tech tracking-[0.2em] uppercase text-[#8E98A8]">
+            {navLinks.map((link) => {
+              const isActive = location.pathname === link.path;
+              return (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`text-sm font-medium tracking-wide uppercase transition-colors relative py-1 ${
-                    location.pathname === link.path
-                      ? 'text-[#F3EFE6] font-semibold'
-                      : 'text-[#8C857A] hover:text-[#F3EFE6]'
+                  className={`transition-colors duration-200 hover:text-[#FF5E1E] ${
+                    isActive ? 'text-[#FF5E1E] font-bold' : 'text-[#F6F4EE]/80'
                   }`}
                 >
                   {link.name}
-                  {location.pathname === link.path && (
-                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#D91E18]" />
-                  )}
                 </Link>
-              ))}
-            </nav>
+              );
+            })}
+          </nav>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 sm:gap-5">
-              {/* Account Link */}
-              <Link
-                to={isAuthenticated ? '/account' : '/login'}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold tracking-wider uppercase text-[#8C857A] hover:text-[#F3EFE6] transition-colors rounded-lg border border-[#8C857A]/20 hover:border-[#8C857A]/40"
-                aria-label="User Account"
-              >
-                <UserIcon size={16} className={isAuthenticated ? 'text-[#D91E18]' : ''} />
-                <span className="hidden sm:inline">
-                  {isAuthenticated ? (user?.name?.split(' ')[0] || 'Account') : 'Login'}
-                </span>
-              </Link>
-
-              {/* Cart Button */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="relative flex items-center justify-center w-10 h-10 rounded-lg bg-[#171513] border border-[#8C857A]/30 text-[#F3EFE6] hover:border-[#D91E18] transition-colors"
-                aria-label={`Open Cart (${totalQuantity} items)`}
-              >
-                <ShoppingBag size={18} />
-                {totalQuantity > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1 bg-[#D91E18] text-white text-[11px] font-black rounded-full flex items-center justify-center shadow-md">
-                    {totalQuantity}
-                  </span>
-                )}
-              </button>
-
-              {/* Quick Buy CTA - Desktop */}
-              <Link
-                to="/product"
-                className="hidden lg:inline-flex items-center gap-2 px-4 py-2 bg-[#D91E18] hover:bg-[#b51712] text-white text-xs font-bold tracking-widest uppercase rounded transition-colors shadow-sm"
-              >
-                Buy Now
-                <ArrowRight size={14} />
-              </Link>
-
-              {/* Mobile Hamburger */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2 text-[#F3EFE6] hover:text-[#D91E18] transition-colors"
-                aria-label="Toggle navigation menu"
-              >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            
+            {/* Meta Location Tag */}
+            <div className="hidden lg:flex items-center gap-2 text-xs font-mono-tech text-[#8E98A8] tracking-widest uppercase border-r border-white/10 pr-4">
+              <span>India</span>
+              <span className="text-[#FF5E1E]">——</span>
+              <span className="text-[#F6F4EE]">INR ₹</span>
             </div>
+
+            {/* User Account */}
+            <Link
+              to={isAuthenticated ? '/account' : '/login'}
+              className="hidden sm:flex items-center gap-2 text-xs font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] px-2.5 py-1.5 rounded-full hover:bg-white/5 transition-colors"
+              aria-label="User Account"
+            >
+              <UserIcon size={14} className={isAuthenticated ? 'text-[#FF5E1E]' : ''} />
+              <span className="text-[11px]">
+                {isAuthenticated ? (user?.name?.split(' ')[0] || 'Account') : 'Sign In'}
+              </span>
+            </Link>
+
+            {/* Bag / Cart Counter */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#161C28] hover:bg-[#1A2232] border border-white/10 text-xs font-mono-tech tracking-widest text-[#F6F4EE] transition-all cursor-pointer"
+              aria-label={`Open Bag (${totalQuantity} items)`}
+            >
+              <ShoppingBag size={14} className="text-[#FF5E1E]" />
+              <span>Bag [{totalQuantity}]</span>
+            </button>
+
+            {/* Primary View Catalog Action */}
+            <Link
+              to="/product"
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold tracking-[0.2em] uppercase shadow-lg shadow-[#FF5E1E]/25 transition-all glow-neon-subtle"
+            >
+              <span>View Catalog</span>
+              <ArrowRight size={12} />
+            </Link>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-[#F6F4EE] hover:text-[#FF5E1E] transition-colors"
+              aria-label="Toggle Navigation Menu"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Slide-down / Overlay Menu */}
+      {/* Mobile Drawer Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#0B0B0A]/95 backdrop-blur-xl pt-24 px-6 md:hidden flex flex-col justify-between pb-10 animate-in fade-in duration-200">
-          <div className="flex flex-col gap-6">
-            <div className="border-b border-[#8C857A]/20 pb-4 mb-2">
+        <div className="fixed inset-0 z-40 bg-[#0B0E14]/98 backdrop-blur-3xl pt-28 px-6 md:hidden flex flex-col justify-between pb-10 animate-in fade-in duration-200">
+          <div className="flex flex-col gap-5">
+            <div className="border-b border-white/10 pb-4 mb-2">
               <IdiotPedalsLogo variant="dark" size="md" />
-              <p className="text-xs text-[#8C857A] tracking-widest uppercase mt-2">
-                Handcrafted Analog Guitar Gear
+              <p className="text-xs text-[#8E98A8] font-mono-tech tracking-widest uppercase mt-2">
+                Handcrafted Analog Guitar Gear —— Burdwan
               </p>
             </div>
 
@@ -133,30 +138,31 @@ export const Navbar: React.FC = () => {
               <Link
                 key={link.name}
                 to={link.path}
-                className="text-xl font-bold tracking-tight text-[#F3EFE6] hover:text-[#D91E18] flex items-center justify-between py-2 border-b border-[#8C857A]/10"
+                className="text-2xl font-editorial tracking-wide text-[#F6F4EE] hover:text-[#FF5E1E] flex items-center justify-between py-2 border-b border-white/5"
               >
-                {link.name}
-                <ArrowRight size={18} className="text-[#8C857A]" />
+                <span>{link.name}</span>
+                <ArrowRight size={16} className="text-[#FF5E1E]" />
               </Link>
             ))}
 
             <Link
               to={isAuthenticated ? '/orders' : '/login'}
-              className="text-lg font-medium text-[#8C857A] hover:text-[#F3EFE6] flex items-center justify-between py-2"
+              className="text-sm font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] flex items-center justify-between py-2"
             >
-              My Orders & Tracking
-              <ArrowRight size={16} />
+              <span>My Orders & Tracking</span>
+              <ArrowRight size={14} />
             </Link>
           </div>
 
           <div className="space-y-4">
             <Link
-              to="/checkout"
-              className="w-full py-4 bg-[#D91E18] text-white font-bold tracking-widest uppercase text-center rounded flex items-center justify-center gap-2 text-sm shadow-lg shadow-[#D91E18]/20"
+              to="/product"
+              className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
             >
-              Buy Neon Fuzz Box — ₹2,499
+              <span>Order Neon Fuzz Box — ₹2,499</span>
+              <ArrowRight size={14} />
             </Link>
-            <p className="text-center text-xs text-[#8C857A]">
+            <p className="text-center text-[11px] font-mono-tech text-[#8E98A8]">
               Free Insured Shipping Across India • 1-Year Bench Warranty
             </p>
           </div>

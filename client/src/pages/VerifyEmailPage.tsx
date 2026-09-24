@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, ShieldCheck, Mail, ArrowRight } from 'lucide-react';
+import { Mail, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
@@ -20,25 +20,28 @@ export const VerifyEmailPage: React.FC = () => {
       showToast('Email verified successfully!');
       navigate('/account');
     } catch {
-      showToast('Please enter the 4-digit verification code.', 'error');
+      showToast('Please enter the verification code.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0A] text-[#F3EFE6] flex flex-col justify-center py-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full mx-auto bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-8 space-y-6 shadow-2xl text-center">
-        <div className="w-14 h-14 mx-auto rounded-full bg-[#0B0B0A] border border-[#8C857A]/30 flex items-center justify-center text-[#D91E18]">
+    <div className="min-h-screen bg-[#0B0E14] text-[#F6F4EE] flex flex-col justify-center py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+
+      <div className="max-w-md w-full mx-auto bg-[#121722]/80 border border-white/10 rounded-3xl p-8 sm:p-10 space-y-6 shadow-2xl text-center backdrop-blur-xl relative z-10">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-[#161C28] border border-[#FF5E1E]/30 flex items-center justify-center text-[#FF5E1E] glow-neon-subtle">
           <Mail size={24} />
         </div>
 
         <div className="space-y-1">
-          <h2 className="text-2xl font-cinzel font-black uppercase text-[#F3EFE6]">
+          <h2 className="text-3xl font-editorial font-normal uppercase text-[#F6F4EE]">
             Verify Email
           </h2>
-          <p className="text-xs text-[#8C857A]">
-            We sent a verification code to <span className="text-[#F3EFE6] font-medium">{user?.email || 'your email'}</span>.
+          <p className="text-xs text-[#8E98A8] font-mono-tech">
+            We sent a verification code to <span className="text-[#F6F4EE] font-medium">{user?.email || 'your email'}</span>.
           </p>
         </div>
 
@@ -50,22 +53,22 @@ export const VerifyEmailPage: React.FC = () => {
               placeholder="Enter Code (e.g. 7792)"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="w-full text-center tracking-widest text-lg font-mono-tech bg-[#0B0B0A] border border-[#8C857A]/30 rounded-lg py-3 text-[#F3EFE6] focus:outline-none focus:border-[#D91E18]"
+              className="w-full text-center tracking-widest text-lg font-mono-tech bg-[#0B0E14] border border-white/15 rounded-full py-3.5 text-[#F6F4EE] focus:outline-none focus:border-[#FF5E1E]"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-[#D91E18] hover:bg-[#b51712] text-white text-xs font-mono-tech font-bold uppercase rounded flex items-center justify-center gap-2 shadow-lg shadow-[#D91E18]/25"
+            className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange transition-all cursor-pointer"
           >
-            {loading ? 'Confirming...' : 'Verify Email Address'}
+            <span>{loading ? 'Confirming...' : 'Verify Email Address'}</span>
             <ArrowRight size={14} />
           </button>
         </form>
 
         <div className="pt-2">
-          <Link to="/account" className="text-xs text-[#8C857A] hover:text-[#F3EFE6]">
+          <Link to="/account" className="text-xs font-mono-tech text-[#8E98A8] hover:text-[#F6F4EE]">
             Skip for now & go to Account
           </Link>
         </div>

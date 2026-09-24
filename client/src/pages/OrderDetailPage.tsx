@@ -2,39 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  CheckCircle2,
-  Clock,
   Truck,
   ShieldCheck,
-  Package,
   MapPin,
-  ExternalLink,
   Printer,
-  HelpCircle,
 } from 'lucide-react';
 import { orderService } from '../services/orderService';
 import { Order } from '../types';
-import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
-import { useToast } from '../context/ToastContext';
 
-/**
- * OrderDetailPage Component
- *
- * Provides granular tracking information for a specific order:
- * - Chronological shipment milestones (Confirmed -> Assembled -> Shipped -> In Transit -> Delivered)
- * - Courier name and AWB tracking code with one-click clipboard copy
- * - Recipient delivery address and payment verification status
- * - Printable workshop invoice / packing slip
- */
 export const OrderDetailPage: React.FC = () => {
-  // Extract order ID parameter from URL (e.g. "IP-884210")
   const { id } = useParams<{ id: string }>();
-  const { showToast } = useToast();
-  // State: Order data record and asynchronous fetch indicator
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch the order by ID on mount or whenever the URL parameter changes
   useEffect(() => {
     const fetchOrder = async () => {
       if (!id) return;
@@ -48,17 +28,14 @@ export const OrderDetailPage: React.FC = () => {
     fetchOrder();
   }, [id]);
 
-  /**
-   * Invokes native browser print dialog for paper invoice generation
-   */
   const handlePrint = () => {
     window.print();
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0B0A] text-[#F3EFE6] flex items-center justify-center pt-20">
-        <div className="text-xs font-mono-tech text-[#8C857A]">
+      <div className="min-h-screen bg-[#0B0E14] text-[#F6F4EE] flex items-center justify-center pt-20">
+        <div className="text-xs font-mono-tech text-[#8E98A8]">
           Fetching shipment tracking data...
         </div>
       </div>
@@ -67,15 +44,15 @@ export const OrderDetailPage: React.FC = () => {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-[#0B0B0A] text-[#F3EFE6] flex flex-col items-center justify-center px-4 pt-20">
-        <div className="max-w-md w-full bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-8 text-center space-y-4">
-          <h2 className="text-xl font-bold font-cinzel text-[#F3EFE6]">Order Not Found</h2>
-          <p className="text-xs text-[#8C857A]">
+      <div className="min-h-screen bg-[#0B0E14] text-[#F6F4EE] flex flex-col items-center justify-center px-4 pt-20">
+        <div className="max-w-md w-full bg-[#121722]/80 border border-white/10 rounded-3xl p-8 text-center space-y-4 backdrop-blur-xl">
+          <h2 className="text-2xl font-editorial font-bold text-[#F6F4EE]">Order Not Found</h2>
+          <p className="text-xs text-[#8E98A8] font-mono-tech">
             We could not find an order with identifier {id}.
           </p>
           <Link
             to="/orders"
-            className="inline-block px-5 py-2.5 bg-[#D91E18] text-white text-xs font-mono-tech uppercase font-bold rounded"
+            className="inline-block px-6 py-2.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech uppercase font-bold rounded-full"
           >
             Back to Orders
           </Link>
@@ -85,38 +62,42 @@ export const OrderDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="bg-[#0B0B0A] text-[#F3EFE6] pt-24 pb-20 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="bg-[#0B0E14] text-[#F6F4EE] pt-28 pb-20 min-h-screen relative overflow-hidden">
+      {/* Glow */}
+      <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 relative z-10">
+        
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <Link
             to="/orders"
-            className="inline-flex items-center gap-2 text-xs font-mono-tech uppercase text-[#8C857A] hover:text-[#F3EFE6] transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-mono-tech uppercase text-[#8E98A8] hover:text-[#F6F4EE] transition-colors"
           >
             <ArrowLeft size={14} />
-            Back to Orders
+            <span>Back to Orders</span>
           </Link>
 
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#171513] border border-[#8C857A]/30 text-xs text-[#8C857A] hover:text-white rounded transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#121722] border border-white/15 text-xs font-mono-tech text-[#8E98A8] hover:text-white rounded-full transition-colors cursor-pointer"
           >
             <Printer size={14} />
-            Print Receipt
+            <span>Print Receipt</span>
           </button>
         </div>
 
         {/* Top Order Badge Header */}
-        <div className="bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#8C857A]/20">
+        <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
             <div>
-              <div className="text-xs font-mono-tech text-[#D91E18] font-bold uppercase tracking-wider">
+              <div className="text-xs font-mono-tech text-[#FF5E1E] font-bold uppercase tracking-wider">
                 Order Confirmed & Bench Logged
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black font-mono-tech text-[#F3EFE6] mt-1">
+              <h1 className="text-3xl font-extrabold font-mono-tech text-[#F6F4EE] mt-1">
                 {order.id}
               </h1>
-              <div className="text-xs text-[#8C857A] mt-1">
+              <div className="text-xs text-[#8E98A8] font-mono-tech mt-1">
                 Placed on {new Date(order.createdAt).toLocaleString('en-IN', {
                   dateStyle: 'medium',
                   timeStyle: 'short',
@@ -124,12 +105,12 @@ export const OrderDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="sm:text-right space-y-1">
-              <div className="text-xs font-mono-tech text-[#8C857A] uppercase">Estimated Arrival</div>
+            <div className="sm:text-right space-y-1 font-mono-tech">
+              <div className="text-xs text-[#8E98A8] uppercase">Estimated Arrival</div>
               <div className="text-sm font-bold text-emerald-400">
                 {order.estimatedDelivery || '3-4 Business Days'}
               </div>
-              <div className="text-[11px] text-[#8C857A]">
+              <div className="text-[11px] text-[#8E98A8]">
                 Courier: {order.courierName}
               </div>
             </div>
@@ -137,19 +118,19 @@ export const OrderDetailPage: React.FC = () => {
 
           {/* Tracking Number Card */}
           {order.trackingNumber && (
-            <div className="p-4 bg-[#0B0B0A] rounded-xl border border-[#8C857A]/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 bg-[#0B0E14] rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono-tech">
               <div className="flex items-center gap-3">
-                <Truck size={20} className="text-[#D91E18] shrink-0" />
+                <Truck size={20} className="text-[#FF5E1E] shrink-0" />
                 <div>
-                  <div className="text-[11px] font-mono-tech uppercase text-[#8C857A]">
+                  <div className="text-[11px] uppercase text-[#8E98A8]">
                     Live Tracking AWB Number
                   </div>
-                  <div className="text-sm font-bold font-mono-tech text-[#F3EFE6]">
+                  <div className="text-sm font-bold text-[#F6F4EE]">
                     {order.trackingNumber}
                   </div>
                 </div>
               </div>
-              <span className="text-xs text-emerald-400 font-mono-tech font-bold uppercase flex items-center gap-1">
+              <span className="text-xs text-emerald-400 font-bold uppercase flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 Live Courier Sync
               </span>
@@ -158,14 +139,13 @@ export const OrderDetailPage: React.FC = () => {
         </div>
 
         {/* Visual Shipping Journey Timeline */}
-        <div className="bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-          <h2 className="text-lg font-cinzel font-bold uppercase tracking-tight text-[#F3EFE6] pb-3 border-b border-[#8C857A]/20">
+        <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 backdrop-blur-xl">
+          <h2 className="text-xl font-editorial font-bold uppercase tracking-tight text-[#F6F4EE] pb-3 border-b border-white/10">
             Shipment Journey
           </h2>
 
-          <div className="space-y-8 relative pl-6 border-l-2 border-[#8C857A]/30 my-4 ml-3">
+          <div className="space-y-8 relative pl-6 border-l-2 border-white/15 my-4 ml-3">
             {order.timeline.map((step, idx) => {
-              const isPast = step.completed && !step.current;
               const isCurrent = step.current;
 
               return (
@@ -174,28 +154,28 @@ export const OrderDetailPage: React.FC = () => {
                   <div
                     className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-2 transition-all ${
                       isCurrent
-                        ? 'bg-[#D91E18] border-white shadow-[0_0_12px_#D91E18]'
+                        ? 'bg-[#FF5E1E] border-white shadow-[0_0_12px_#FF5E1E]'
                         : step.completed
                         ? 'bg-emerald-500 border-emerald-300'
-                        : 'bg-[#0B0B0A] border-zinc-600'
+                        : 'bg-[#0B0E14] border-zinc-600'
                     }`}
                   />
 
                   <div className="space-y-1">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <div className="text-sm font-bold text-[#F3EFE6] flex items-center gap-2">
+                      <div className="text-sm font-bold text-[#F6F4EE] flex items-center gap-2 font-mono-tech">
                         <span>{step.title}</span>
                         {isCurrent && (
-                          <span className="px-2 py-0.5 rounded bg-[#D91E18]/20 border border-[#D91E18] text-[10px] font-mono-tech text-[#D91E18] font-bold uppercase">
+                          <span className="px-2 py-0.5 rounded-full bg-[#FF5E1E]/20 border border-[#FF5E1E]/40 text-[10px] text-[#FF5E1E] font-bold uppercase">
                             Current Stage
                           </span>
                         )}
                       </div>
-                      <div className="text-xs font-mono-tech text-[#8C857A]">
+                      <div className="text-xs font-mono-tech text-[#8E98A8]">
                         {step.timestamp}
                       </div>
                     </div>
-                    <p className="text-xs text-[#8C857A] leading-relaxed">
+                    <p className="text-xs text-[#8E98A8] leading-relaxed font-light">
                       {step.description}
                     </p>
                   </div>
@@ -208,33 +188,33 @@ export const OrderDetailPage: React.FC = () => {
         {/* Items & Financial Invoice Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
           {/* Purchased Items */}
-          <div className="md:col-span-7 bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 space-y-4">
-            <h3 className="text-sm font-mono-tech uppercase tracking-wider text-[#F3EFE6] font-bold pb-2 border-b border-[#8C857A]/20">
+          <div className="md:col-span-7 bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-7 space-y-4 backdrop-blur-xl">
+            <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#F6F4EE] font-bold pb-2 border-b border-white/10">
               Purchased Gear
             </h3>
 
             <div className="space-y-4">
               {order.items.map((item) => (
                 <div key={item.id} className="flex gap-4 items-center">
-                  <div className="w-14 h-16 bg-[#F3EFE6] rounded p-2 flex flex-col items-center justify-between text-[#0B0B0A] shrink-0 border border-[#8C857A]/40">
+                  <div className="w-14 h-16 bg-[#161C28] rounded-xl p-2 flex flex-col items-center justify-between text-[#F6F4EE] shrink-0 border border-white/10 shadow-inner">
                     <div className="w-full flex justify-around">
-                      <div className="w-1.5 h-1.5 rounded-full bg-black"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-black"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-black"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#FF5E1E]"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#FF7A00]"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#FF5E1E]"></div>
                     </div>
-                    <div className="text-[8px] font-black leading-none">IDIOT</div>
-                    <div className="w-3 h-3 rounded-full bg-zinc-300 border border-zinc-500"></div>
+                    <div className="text-[8px] font-mono-tech font-bold leading-none">IDIOT</div>
+                    <div className="w-3 h-3 rounded-full bg-zinc-600 border border-zinc-400"></div>
                   </div>
 
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-[#F3EFE6]">{item.name}</div>
-                    <div className="text-xs text-[#8C857A]">{item.subtitle}</div>
-                    <div className="text-xs font-mono-tech text-[#8C857A] mt-1">
+                    <div className="text-sm font-bold font-mono-tech text-[#F6F4EE]">{item.name}</div>
+                    <div className="text-xs text-[#8E98A8]">{item.subtitle}</div>
+                    <div className="text-xs font-mono-tech text-[#8E98A8] mt-1">
                       Qty: {item.quantity} × ₹{item.price.toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="text-sm font-black font-mono-tech text-[#F3EFE6]">
+                  <div className="text-sm font-bold font-mono-tech text-[#F6F4EE]">
                     ₹{(item.price * item.quantity).toLocaleString()}
                   </div>
                 </div>
@@ -242,22 +222,22 @@ export const OrderDetailPage: React.FC = () => {
             </div>
 
             {/* Calculations */}
-            <div className="pt-4 border-t border-[#8C857A]/20 space-y-2 text-xs">
-              <div className="flex justify-between text-[#8C857A]">
+            <div className="pt-4 border-t border-white/10 space-y-2 text-xs font-mono-tech">
+              <div className="flex justify-between text-[#8E98A8]">
                 <span>Subtotal</span>
-                <span className="text-[#F3EFE6] font-mono-tech">₹{order.subtotal.toLocaleString()}</span>
+                <span className="text-[#F6F4EE]">₹{order.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-[#8C857A]">
+              <div className="flex justify-between text-[#8E98A8]">
                 <span>Insured Doorstep Shipping</span>
                 <span className="text-emerald-400 font-bold uppercase">Free</span>
               </div>
-              <div className="flex justify-between text-base font-bold pt-2 border-t border-[#8C857A]/20 text-[#F3EFE6]">
+              <div className="flex justify-between text-base font-bold pt-2 border-t border-white/10 text-[#F6F4EE]">
                 <span>Total Settled</span>
-                <span className="text-lg font-black font-mono-tech text-[#F3EFE6]">
+                <span className="text-lg font-bold text-[#F6F4EE]">
                   ₹{order.total.toLocaleString()}
                 </span>
               </div>
-              <div className="text-[11px] text-[#8C857A] pt-1">
+              <div className="text-[11px] text-[#8E98A8] pt-1">
                 Payment Method: {order.paymentMethod === 'razorpay' ? 'Razorpay Online (Paid)' : 'Cash on Delivery (Pending)'}
               </div>
             </div>
@@ -265,35 +245,35 @@ export const OrderDetailPage: React.FC = () => {
 
           {/* Delivery Address & Workbench Warranty */}
           <div className="md:col-span-5 space-y-4">
-            <div className="bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 space-y-3">
-              <h3 className="text-sm font-mono-tech uppercase tracking-wider text-[#F3EFE6] font-bold flex items-center gap-2">
-                <MapPin size={15} className="text-[#D91E18]" />
+            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 space-y-3 backdrop-blur-xl">
+              <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#F6F4EE] font-bold flex items-center gap-2">
+                <MapPin size={15} className="text-[#FF5E1E]" />
                 Delivery Address
               </h3>
-              <div className="text-xs text-[#8C857A] space-y-1">
-                <div className="font-bold text-[#F3EFE6]">{order.shippingAddress.fullName}</div>
+              <div className="text-xs font-mono-tech text-[#8E98A8] space-y-1">
+                <div className="font-bold text-[#F6F4EE]">{order.shippingAddress.fullName}</div>
                 <div>{order.shippingAddress.addressLine1}</div>
                 {order.shippingAddress.addressLine2 && <div>{order.shippingAddress.addressLine2}</div>}
                 <div>
                   {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.postalCode}
                 </div>
-                <div className="text-[#F3EFE6] font-mono-tech pt-1">
+                <div className="text-[#F6F4EE] pt-1">
                   Phone: {order.shippingAddress.phone}
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 space-y-3 text-xs text-[#8C857A]">
-              <div className="font-bold text-[#F3EFE6] flex items-center gap-2">
-                <ShieldCheck size={16} className="text-[#D91E18]" />
+            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 space-y-3 text-xs font-mono-tech text-[#8E98A8] backdrop-blur-xl">
+              <div className="font-bold text-[#F6F4EE] flex items-center gap-2">
+                <ShieldCheck size={16} className="text-[#FF5E1E]" />
                 Workbench Warranty Included
               </div>
-              <p>
+              <p className="font-light">
                 This pedal is covered for 365 days from delivery date against any component defect.
               </p>
               <Link
                 to="/contact"
-                className="inline-flex items-center gap-1.5 text-xs text-[#D91E18] font-bold hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs text-[#FF5E1E] font-bold hover:underline"
               >
                 Need assistance with this order?
               </Link>

@@ -24,7 +24,6 @@ export function PedalModel({
   onToggleEngage,
   interactive = true,
 }: PedalModelProps) {
-  // Mock motion value if none provided
   const fakeProgress = {
     get: () => 0,
     onChange: () => () => {},
@@ -32,7 +31,6 @@ export function PedalModel({
   } as unknown as MotionValue<number>;
   const progress = explodeProgress || fakeProgress;
 
-  // Transforms for explosion view
   const knobsZ = useTransform(progress, [0, 1], [32, 260]);
   const enclosureTopZ = useTransform(progress, [0, 1], [16, 130]);
   const pcbZ = useTransform(progress, [0, 1], [0, 0]);
@@ -53,13 +51,13 @@ export function PedalModel({
     >
       {/* GROUND SHADOW */}
       <motion.div
-        className="absolute inset-0 bg-black/60 blur-2xl rounded-2xl"
+        className="absolute inset-0 bg-black/80 blur-2xl rounded-2xl"
         style={{ z: -55, scale: 1.15 }}
       />
 
-      {/* BOTTOM ENCLOSURE BASE (Matte Ivory/Steel) */}
+      {/* BOTTOM ENCLOSURE BASE */}
       <motion.div
-        className="absolute inset-0 bg-[#E6E1D5] border-2 border-[#8C857A]/40 rounded-xl shadow-2xl preserve-3d"
+        className="absolute inset-0 bg-[#0E131C] border-2 border-white/10 rounded-xl shadow-2xl preserve-3d"
         style={{ z: enclosureBottomZ }}
       >
         {/* Rubber Feet at 4 corners */}
@@ -69,24 +67,24 @@ export function PedalModel({
         <div className="absolute bottom-3 right-3 w-4 h-4 bg-zinc-900 rounded-full border border-black shadow" />
 
         {/* Interior cavity */}
-        <div className="absolute inset-3 bg-[#171513] rounded-lg" style={{ transform: 'translateZ(6px)' }} />
+        <div className="absolute inset-3 bg-[#0B0E14] rounded-lg" style={{ transform: 'translateZ(6px)' }} />
       </motion.div>
 
       {/* INTERNAL CIRCUIT BOARD (PCB) */}
       <motion.div
-        className="absolute inset-4 bg-[#0F3320] border-2 border-[#1E5C38] rounded-md preserve-3d shadow-xl"
+        className="absolute inset-4 bg-[#0A1F16] border-2 border-[#1E5C38] rounded-md preserve-3d shadow-xl"
         style={{ z: pcbZ }}
       >
         {/* Copper Traces Simulation */}
-        <div className="absolute inset-2 opacity-35 bg-[repeating-linear-gradient(45deg,#34D399_0px,#34D399_1px,transparent_1px,transparent_12px)]" />
+        <div className="absolute inset-2 opacity-35 bg-[repeating-linear-gradient(45deg,#FF5E1E_0px,#FF5E1E_1px,transparent_1px,transparent_14px)]" />
 
-        {/* Dual Op-Amp (JRC4558 Vintage Clipping Stage) */}
+        {/* Dual Op-Amp / Analog Diode Clipping Stage */}
         <div
           className="absolute top-16 left-1/2 -translate-x-1/2 w-14 h-20 bg-zinc-950 border border-zinc-700 flex flex-col items-center justify-center rounded-sm shadow-md"
           style={{ transform: 'translateZ(5px)' }}
         >
-          <div className="text-[7px] text-amber-500 font-mono font-bold tracking-wider">JRC4558D</div>
-          <div className="text-[5px] text-zinc-500 font-mono">ANALOG CLIP</div>
+          <div className="text-[7px] text-[#FF5E1E] font-mono-tech font-bold tracking-wider">JRC4558D</div>
+          <div className="text-[5px] text-zinc-500 font-mono-tech">DIODE CLIP</div>
           {/* Chip IC legs */}
           <div className="absolute -left-1 top-2 w-1 h-1 bg-zinc-400" />
           <div className="absolute -left-1 top-6 w-1 h-1 bg-zinc-400" />
@@ -108,14 +106,14 @@ export function PedalModel({
           style={{ transform: 'translateZ(6px)' }}
         />
         <div
-          className="absolute bottom-20 left-6 w-5 h-9 bg-blue-800 rounded-full border border-blue-950 shadow-md"
+          className="absolute bottom-20 left-6 w-5 h-9 bg-orange-700 rounded-full border border-orange-900 shadow-md"
           style={{ transform: 'translateZ(8px)' }}
         />
         <div
-          className="absolute bottom-20 right-6 w-5 h-9 bg-blue-800 rounded-full border border-blue-950 shadow-md"
+          className="absolute bottom-20 right-6 w-5 h-9 bg-orange-700 rounded-full border border-orange-900 shadow-md"
           style={{ transform: 'translateZ(8px)' }}
         />
-        {/* 9V Battery Terminal / DC jack trace */}
+        {/* 9V Battery Terminal */}
         <div
           className="absolute bottom-6 left-1/2 -translate-x-1/2 w-10 h-10 bg-zinc-900 rounded-full border-2 border-zinc-600 flex items-center justify-center"
           style={{ transform: 'translateZ(6px)' }}
@@ -124,176 +122,149 @@ export function PedalModel({
         </div>
       </motion.div>
 
-      {/* 1/4" AUDIO JACKS (Nickel plated metal sleeves) */}
+      {/* 1/4" AUDIO JACKS */}
       <motion.div
-        className="absolute top-24 -left-5 w-5 h-12 bg-gradient-to-r from-zinc-300 to-zinc-500 rounded-l-md border-y-2 border-l-2 border-zinc-200 shadow-xl"
+        className="absolute top-24 -left-5 w-5 h-12 bg-gradient-to-r from-zinc-500 to-zinc-700 rounded-l-md border-y-2 border-l-2 border-zinc-400 shadow-xl"
         style={{ z: jacksZ, x: useTransform(jacksX, (x) => -x) }}
       >
-        <div className="absolute inset-y-2 right-1 w-1.5 bg-zinc-800 rounded-full" />
+        <div className="absolute inset-y-2 right-1 w-1.5 bg-zinc-900 rounded-full" />
       </motion.div>
       <motion.div
-        className="absolute top-24 -right-5 w-5 h-12 bg-gradient-to-l from-zinc-300 to-zinc-500 rounded-r-md border-y-2 border-r-2 border-zinc-200 shadow-xl"
+        className="absolute top-24 -right-5 w-5 h-12 bg-gradient-to-l from-zinc-500 to-zinc-700 rounded-r-md border-y-2 border-r-2 border-zinc-400 shadow-xl"
         style={{ z: jacksZ, x: jacksX }}
       >
-        <div className="absolute inset-y-2 left-1 w-1.5 bg-zinc-800 rounded-full" />
+        <div className="absolute inset-y-2 left-1 w-1.5 bg-zinc-900 rounded-full" />
       </motion.div>
 
-      {/* TOP ENCLOSURE CHASSIS (AUTHENTIC WARM IVORY #F3EFE6) */}
+      {/* TOP ENCLOSURE CHASSIS (MATTE OBSIDIAN WITH NEON ORANGE) */}
       <motion.div
-        className="absolute inset-0 bg-[#F3EFE6] rounded-xl shadow-2xl border border-[#DCD5C5] flex flex-col items-center justify-between p-6 preserve-3d overflow-hidden"
+        className="absolute inset-0 bg-[#161C28] rounded-2xl shadow-2xl border border-white/15 flex flex-col items-center justify-between p-6 preserve-3d overflow-hidden"
         style={{ z: enclosureTopZ }}
       >
-        {/* Subtle powder-coat texture overlay */}
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#171513_1px,transparent_1px)] [background-size:8px_8px] pointer-events-none" />
-
         {/* 4 Corner Screws */}
-        <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-zinc-400 border border-zinc-600 flex items-center justify-center">
-          <div className="w-1 h-[0.5px] bg-zinc-700" />
-        </div>
-        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-zinc-400 border border-zinc-600 flex items-center justify-center">
-          <div className="w-1 h-[0.5px] bg-zinc-700" />
-        </div>
-        <div className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-zinc-400 border border-zinc-600 flex items-center justify-center">
-          <div className="w-1 h-[0.5px] bg-zinc-700" />
-        </div>
-        <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-zinc-400 border border-zinc-600 flex items-center justify-center">
-          <div className="w-1 h-[0.5px] bg-zinc-700" />
-        </div>
+        <div className="absolute top-2.5 left-2.5 w-2 h-2 rounded-full bg-zinc-500 border border-zinc-700 flex items-center justify-center" />
+        <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-zinc-500 border border-zinc-700 flex items-center justify-center" />
+        <div className="absolute bottom-2.5 left-2.5 w-2 h-2 rounded-full bg-zinc-500 border border-zinc-700 flex items-center justify-center" />
+        <div className="absolute bottom-2.5 right-2.5 w-2 h-2 rounded-full bg-zinc-500 border border-zinc-700 flex items-center justify-center" />
 
         {/* Top Control Area: GAIN | TONE | VOL */}
         <div className="w-full flex justify-between px-1 pt-2">
           {/* GAIN */}
           <div className="flex flex-col items-center">
-            <div className="w-11 h-11 rounded-full border border-black/20 flex items-center justify-center relative">
-              {/* Dial markings */}
-              <div className="absolute -top-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -bottom-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -left-1 w-1 h-0.5 bg-black/40" />
-              <div className="absolute -right-1 w-1 h-0.5 bg-black/40" />
+            <div className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center relative">
+              <div className="absolute -top-1 w-0.5 h-1 bg-[#FF5E1E]" />
+              <div className="absolute -bottom-1 w-0.5 h-1 bg-white/40" />
             </div>
-            <span className="text-[10px] font-black tracking-widest text-[#0B0B0A] uppercase mt-2">
+            <span className="text-[10px] font-mono-tech font-bold tracking-widest text-[#FF5E1E] uppercase mt-2">
               GAIN
             </span>
           </div>
 
           {/* TONE */}
           <div className="flex flex-col items-center">
-            <div className="w-11 h-11 rounded-full border border-black/20 flex items-center justify-center relative">
-              <div className="absolute -top-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -bottom-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -left-1 w-1 h-0.5 bg-black/40" />
-              <div className="absolute -right-1 w-1 h-0.5 bg-black/40" />
+            <div className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center relative">
+              <div className="absolute -top-1 w-0.5 h-1 bg-amber-400" />
+              <div className="absolute -bottom-1 w-0.5 h-1 bg-white/40" />
             </div>
-            <span className="text-[10px] font-black tracking-widest text-[#0B0B0A] uppercase mt-2">
+            <span className="text-[10px] font-mono-tech font-bold tracking-widest text-amber-400 uppercase mt-2">
               TONE
             </span>
           </div>
 
           {/* VOL */}
           <div className="flex flex-col items-center">
-            <div className="w-11 h-11 rounded-full border border-black/20 flex items-center justify-center relative">
-              <div className="absolute -top-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -bottom-1 w-0.5 h-1 bg-black/40" />
-              <div className="absolute -left-1 w-1 h-0.5 bg-black/40" />
-              <div className="absolute -right-1 w-1 h-0.5 bg-black/40" />
+            <div className="w-11 h-11 rounded-full border border-white/20 flex items-center justify-center relative">
+              <div className="absolute -top-1 w-0.5 h-1 bg-[#FF7A00]" />
+              <div className="absolute -bottom-1 w-0.5 h-1 bg-white/40" />
             </div>
-            <span className="text-[10px] font-black tracking-widest text-[#0B0B0A] uppercase mt-2">
+            <span className="text-[10px] font-mono-tech font-bold tracking-widest text-[#FF7A00] uppercase mt-2">
               VOL
             </span>
           </div>
         </div>
 
-        {/* Center/Lower Brand Branding: IDIOT Pedals */}
+        {/* Center/Lower Brand: IDIOT Pedals */}
         <div className="flex flex-col items-center justify-center my-auto pt-3">
-          <div className="text-3xl font-cinzel font-black tracking-wider text-[#0B0B0A] leading-none">
+          <div className="text-3xl font-editorial font-bold tracking-wider text-[#F6F4EE] leading-none uppercase">
             IDIOT
           </div>
-          <div className="text-2xl font-script font-bold text-[#D91E18] -mt-1 -rotate-6 tracking-wide drop-shadow-sm">
+          <div className="text-2xl font-script font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF4500] -mt-1 -rotate-4 tracking-wide">
             Pedals
           </div>
-          <div className="text-[7px] font-mono-tech font-bold tracking-widest text-[#8C857A] uppercase mt-1">
+          <div className="text-[7px] font-mono-tech font-bold tracking-[0.25em] text-[#8E98A8] uppercase mt-1">
             NEON FUZZ BOX
           </div>
         </div>
 
         {/* Bottom Area: Red LED (Left) + Heavy Switch Nut (Center) */}
         <div className="w-full flex items-center justify-between px-2 pb-2">
-          {/* Red Glowing Status LED */}
+          {/* Glowing Status LED */}
           <div className="flex flex-col items-center gap-1">
             <div
               className={`w-3.5 h-3.5 rounded-full border border-red-950 transition-all duration-300 relative ${
                 isEngaged
-                  ? 'bg-[#FF2E2E] shadow-[0_0_16px_#FF2E2E,0_0_30px_rgba(217,30,24,0.8)]'
-                  : 'bg-[#501010] shadow-inner'
+                  ? 'bg-[#FF5E1E] shadow-[0_0_16px_#FF5E1E,0_0_30px_rgba(255,94,30,0.8)]'
+                  : 'bg-[#401212] shadow-inner'
               }`}
             >
               {isEngaged && (
                 <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-white rounded-full opacity-80" />
               )}
             </div>
-            <span className="text-[7px] font-bold tracking-wider text-black/50 uppercase">
+            <span className="text-[7px] font-mono-tech font-bold tracking-wider text-[#8E98A8] uppercase">
               {isEngaged ? 'ON' : 'BYPASS'}
             </span>
           </div>
 
           {/* Chrome Hex Nut for Footswitch */}
-          <div className="w-14 h-14 rounded-full border-4 border-[#C8C2B3] bg-[#E2DCCF] flex items-center justify-center shadow-inner">
-            <div className="w-9 h-9 rounded-full border border-zinc-400 bg-zinc-200" />
+          <div className="w-14 h-14 rounded-full border-4 border-zinc-700 bg-zinc-800 flex items-center justify-center shadow-inner">
+            <div className="w-9 h-9 rounded-full border border-zinc-500 bg-zinc-700" />
           </div>
 
-          {/* Balance spacer */}
           <div className="w-6" />
         </div>
       </motion.div>
 
-      {/* KNOBS & FOOTSWITCH LAYER (Raised in 3D Space) */}
+      {/* KNOBS & FOOTSWITCH LAYER */}
       <motion.div
         className="absolute inset-0 pointer-events-none preserve-3d"
         style={{ z: knobsZ }}
       >
-        {/* GAIN KNOB (Vintage pointer cap with blue dot) */}
+        {/* GAIN KNOB */}
         <div
-          className="absolute top-7 left-6 w-11 h-11 bg-zinc-900 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
+          className="absolute top-7 left-6 w-11 h-11 bg-zinc-950 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
           style={{ transform: 'translateZ(12px)' }}
         >
-          {/* Knurled grip sides */}
-          <div className="absolute inset-0 rounded-full border border-dashed border-zinc-600 opacity-60" />
-          {/* Blue Accent Pointer Indicator */}
-          <div className="w-1 h-4 bg-sky-400 absolute top-1 rounded-full shadow-[0_0_4px_#38bdf8] -rotate-45" />
+          <div className="w-1 h-4 bg-[#FF5E1E] absolute top-1 rounded-full shadow-[0_0_6px_#FF5E1E] -rotate-45" />
         </div>
 
-        {/* TONE KNOB (Vintage pointer cap with orange dot) */}
+        {/* TONE KNOB */}
         <div
-          className="absolute top-7 left-1/2 -translate-x-1/2 w-11 h-11 bg-zinc-900 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
+          className="absolute top-7 left-1/2 -translate-x-1/2 w-11 h-11 bg-zinc-950 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
           style={{ transform: 'translateZ(12px)' }}
         >
-          <div className="absolute inset-0 rounded-full border border-dashed border-zinc-600 opacity-60" />
-          {/* Orange Indicator */}
-          <div className="w-1 h-4 bg-amber-500 absolute top-1 rounded-full shadow-[0_0_4px_#f59e0b] rotate-15" />
+          <div className="w-1 h-4 bg-amber-400 absolute top-1 rounded-full shadow-[0_0_6px_#f59e0b] rotate-15" />
         </div>
 
-        {/* VOL KNOB (Vintage pointer cap with yellow dot) */}
+        {/* VOL KNOB */}
         <div
-          className="absolute top-7 right-6 w-11 h-11 bg-zinc-900 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
+          className="absolute top-7 right-6 w-11 h-11 bg-zinc-950 rounded-full shadow-2xl border-2 border-zinc-700 flex items-center justify-center preserve-3d"
           style={{ transform: 'translateZ(12px)' }}
         >
-          <div className="absolute inset-0 rounded-full border border-dashed border-zinc-600 opacity-60" />
-          {/* Yellow Indicator */}
-          <div className="w-1 h-4 bg-yellow-400 absolute top-1 rounded-full shadow-[0_0_4px_#facc15] rotate-45" />
+          <div className="w-1 h-4 bg-[#FF7A00] absolute top-1 rounded-full shadow-[0_0_6px_#FF7A00] rotate-45" />
         </div>
 
-        {/* 3PDT CHROME HEAVY-DUTY FOOTSWITCH */}
+        {/* 3PDT CHROME FOOTSWITCH */}
         <div
           onClick={interactive ? onToggleEngage : undefined}
-          className={`absolute bottom-7 left-1/2 -translate-x-1/2 w-11 h-11 bg-gradient-to-b from-zinc-200 via-zinc-400 to-zinc-500 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.6)] border-2 border-zinc-300 flex items-center justify-center preserve-3d transition-transform ${
+          className={`absolute bottom-7 left-1/2 -translate-x-1/2 w-11 h-11 bg-gradient-to-b from-zinc-300 via-zinc-500 to-zinc-600 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.6)] border-2 border-zinc-400 flex items-center justify-center preserve-3d transition-transform ${
             interactive ? 'pointer-events-auto cursor-pointer active:scale-90 hover:brightness-110' : ''
           }`}
           style={{ transform: 'translateZ(20px)' }}
           title={interactive ? 'Click to stomp footswitch' : undefined}
         >
-          {/* Chrome Spring Button Head */}
-          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-zinc-300 via-zinc-100 to-zinc-400 border border-zinc-200 shadow-inner flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full bg-zinc-200 border border-zinc-400 shadow-sm" />
+          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-zinc-400 via-zinc-200 to-zinc-500 border border-zinc-300 shadow-inner flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-zinc-300 border border-zinc-500 shadow-sm" />
           </div>
         </div>
       </motion.div>

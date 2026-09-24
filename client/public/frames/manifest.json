@@ -1,0 +1,12 @@
+{
+  "web": {
+    "count": 480,
+    "prefix": "/frames/web/frame_",
+    "suffix": ".webp"
+  },
+  "mobile": {
+    "count": 170,
+    "prefix": "/frames/mobile/frame_",
+    "suffix": ".webp"
+  }
+}

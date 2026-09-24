@@ -2,13 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   User,
-  Mail,
-  Phone,
   ShieldCheck,
   Package,
   LogOut,
   CheckCircle2,
-  AlertCircle,
   ArrowRight,
   Edit2,
   Save,
@@ -50,17 +47,17 @@ export const AccountPage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-[80vh] bg-[#0B0B0A] text-[#F3EFE6] flex flex-col items-center justify-center px-4 pt-20">
-        <div className="max-w-md w-full bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-8 text-center space-y-4 shadow-2xl">
-          <h2 className="text-xl font-bold font-cinzel text-[#F3EFE6]">
+      <div className="min-h-[80vh] bg-[#0B0E14] text-[#F6F4EE] flex flex-col items-center justify-center px-4 pt-28">
+        <div className="max-w-md w-full bg-[#121722]/80 border border-white/10 rounded-3xl p-8 text-center space-y-4 shadow-2xl backdrop-blur-xl">
+          <h2 className="text-2xl font-editorial font-bold text-[#F6F4EE]">
             Player Account Sign In
           </h2>
-          <p className="text-xs text-[#8C857A]">
+          <p className="text-xs text-[#8E98A8] font-mono-tech">
             Please sign in to access your order tracking and workbench settings.
           </p>
           <Link
             to="/login"
-            className="inline-block px-6 py-3 bg-[#D91E18] text-white text-xs font-mono-tech font-bold uppercase rounded shadow"
+            className="inline-block px-7 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech font-bold uppercase rounded-full shadow-lg shadow-[#FF5E1E]/25"
           >
             Sign In Now
           </Link>
@@ -70,38 +67,42 @@ export const AccountPage: React.FC = () => {
   }
 
   return (
-    <div className="bg-[#0B0B0A] text-[#F3EFE6] pt-24 pb-20 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="bg-[#0B0E14] text-[#F6F4EE] pt-28 pb-20 min-h-screen relative overflow-hidden">
+      {/* Glow */}
+      <div className="absolute top-20 right-10 w-[500px] h-[500px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 relative z-10">
+        
         {/* Header */}
-        <div className="border-b border-[#8C857A]/20 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="border-b border-white/10 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-cinzel font-black uppercase text-[#F3EFE6]">
+            <h1 className="text-3xl sm:text-4xl font-editorial font-normal uppercase text-[#F6F4EE]">
               Workbench Player Profile
             </h1>
-            <p className="text-xs text-[#8C857A]">
+            <p className="text-xs text-[#8E98A8] font-mono-tech">
               Manage contact details, warranty certificates, and shipment updates.
             </p>
           </div>
 
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#171513] hover:bg-[#0B0B0A] border border-[#8C857A]/30 text-xs font-mono-tech uppercase text-[#8C857A] hover:text-[#D91E18] rounded self-start sm:self-auto transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#121722] hover:bg-[#161C28] border border-white/15 text-xs font-mono-tech uppercase text-[#8E98A8] hover:text-[#FF5E1E] rounded-full self-start sm:self-auto transition-all cursor-pointer"
           >
             <LogOut size={14} />
-            Sign Out
+            <span>Sign Out</span>
           </button>
         </div>
 
         {/* Profile Card */}
-        <div className="bg-[#171513] border border-[#8C857A]/25 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b border-[#8C857A]/20">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[#0B0B0A] border-2 border-[#8C857A]/30 flex items-center justify-center text-[#D91E18]">
-                <User size={22} />
+        <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 backdrop-blur-xl">
+          <div className="flex items-center justify-between pb-4 border-b border-white/10">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#161C28] border border-[#FF5E1E]/30 flex items-center justify-center text-[#FF5E1E] glow-neon-subtle">
+                <User size={24} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-[#F3EFE6]">{user.name}</h2>
-                <span className="text-xs font-mono-tech text-[#8C857A]">
+                <h2 className="text-xl font-editorial font-bold text-[#F6F4EE]">{user.name}</h2>
+                <span className="text-xs font-mono-tech text-[#8E98A8]">
                   IDIOT Pedals Community Member
                 </span>
               </div>
@@ -109,17 +110,17 @@ export const AccountPage: React.FC = () => {
 
             <button
               onClick={() => setIsEditing(!isEditing)}
-              className="px-3 py-1.5 bg-[#0B0B0A] border border-[#8C857A]/30 rounded text-xs font-mono-tech uppercase text-[#F3EFE6] hover:border-[#D91E18] transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 bg-[#0B0E14] border border-white/15 rounded-full text-xs font-mono-tech uppercase text-[#F6F4EE] hover:border-[#FF5E1E] transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Edit2 size={12} />
-              {isEditing ? 'Cancel' : 'Edit'}
+              <span>{isEditing ? 'Cancel' : 'Edit'}</span>
             </button>
           </div>
 
           {isEditing ? (
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8C857A] block">
+                <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
                   Name
                 </label>
                 <input
@@ -127,36 +128,36 @@ export const AccountPage: React.FC = () => {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#0B0B0A] border border-[#8C857A]/30 rounded-lg px-3.5 py-2.5 text-xs text-[#F3EFE6] focus:outline-none focus:border-[#D91E18]"
+                  className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8C857A] block">
+                <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
                   Phone (for SMS tracking)
                 </label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-[#0B0B0A] border border-[#8C857A]/30 rounded-lg px-3.5 py-2.5 text-xs text-[#F3EFE6] focus:outline-none focus:border-[#D91E18]"
+                  className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2.5 bg-[#D91E18] hover:bg-[#b51712] text-white text-xs font-mono-tech font-bold uppercase rounded flex items-center gap-2 shadow"
+                className="px-6 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center gap-2 shadow-lg shadow-[#FF5E1E]/25 transition-all cursor-pointer"
               >
                 <Save size={14} />
-                {saving ? 'Saving...' : 'Save Changes'}
+                <span>{saving ? 'Saving...' : 'Save Changes'}</span>
               </button>
             </form>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 bg-[#0B0B0A] rounded-xl border border-[#8C857A]/20 space-y-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono-tech">
+              <div className="p-5 bg-[#0B0E14] rounded-2xl border border-white/10 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono-tech uppercase text-[#8C857A]">
+                  <span className="text-[11px] uppercase text-[#8E98A8]">
                     Email Address
                   </span>
                   {user.isEmailVerified ? (
@@ -166,18 +167,18 @@ export const AccountPage: React.FC = () => {
                   ) : (
                     <Link
                       to="/verify-email"
-                      className="text-[#D91E18] font-bold hover:underline text-[11px]"
+                      className="text-[#FF5E1E] font-bold hover:underline text-[11px]"
                     >
                       Verify Now
                     </Link>
                   )}
                 </div>
-                <div className="text-sm font-bold text-[#F3EFE6]">{user.email}</div>
+                <div className="text-sm font-bold text-[#F6F4EE]">{user.email}</div>
               </div>
 
-              <div className="p-4 bg-[#0B0B0A] rounded-xl border border-[#8C857A]/20 space-y-1">
+              <div className="p-5 bg-[#0B0E14] rounded-2xl border border-white/10 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono-tech uppercase text-[#8C857A]">
+                  <span className="text-[11px] uppercase text-[#8E98A8]">
                     Phone (Courier SMS)
                   </span>
                   {user.isPhoneVerified ? (
@@ -187,13 +188,13 @@ export const AccountPage: React.FC = () => {
                   ) : (
                     <Link
                       to="/verify-phone"
-                      className="text-[#D91E18] font-bold hover:underline text-[11px]"
+                      className="text-[#FF5E1E] font-bold hover:underline text-[11px]"
                     >
                       Verify OTP
                     </Link>
                   )}
                 </div>
-                <div className="text-sm font-bold text-[#F3EFE6]">{user.phone || 'Not set'}</div>
+                <div className="text-sm font-bold text-[#F6F4EE]">{user.phone || 'Not set'}</div>
               </div>
             </div>
           )}
@@ -203,34 +204,34 @@ export const AccountPage: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             to="/orders"
-            className="p-6 bg-[#171513] border border-[#8C857A]/25 rounded-2xl hover:border-[#D91E18] transition-colors flex items-center justify-between group shadow-xl"
+            className="p-6 bg-[#121722]/80 border border-white/10 rounded-3xl hover:border-[#FF5E1E]/50 transition-all flex items-center justify-between group shadow-xl backdrop-blur-xl"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#0B0B0A] border border-[#8C857A]/30 flex items-center justify-center text-[#D91E18]">
-                <Package size={18} />
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#161C28] border border-[#FF5E1E]/30 flex items-center justify-center text-[#FF5E1E] glow-neon-subtle">
+                <Package size={20} />
               </div>
               <div>
-                <div className="text-sm font-bold text-[#F3EFE6]">Shipments & Orders</div>
-                <div className="text-xs text-[#8C857A]">Track live delivery status</div>
+                <div className="text-sm font-bold text-[#F6F4EE] font-mono-tech">Shipments & Orders</div>
+                <div className="text-xs text-[#8E98A8]">Track live delivery status</div>
               </div>
             </div>
-            <ArrowRight size={16} className="text-[#8C857A] group-hover:text-white transition-colors" />
+            <ArrowRight size={16} className="text-[#8E98A8] group-hover:text-[#FF5E1E] transition-colors" />
           </Link>
 
           <Link
             to="/contact"
-            className="p-6 bg-[#171513] border border-[#8C857A]/25 rounded-2xl hover:border-[#D91E18] transition-colors flex items-center justify-between group shadow-xl"
+            className="p-6 bg-[#121722]/80 border border-white/10 rounded-3xl hover:border-[#FF5E1E]/50 transition-all flex items-center justify-between group shadow-xl backdrop-blur-xl"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#0B0B0A] border border-[#8C857A]/30 flex items-center justify-center text-[#D91E18]">
-                <ShieldCheck size={18} />
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#161C28] border border-[#FF5E1E]/30 flex items-center justify-center text-[#FF5E1E] glow-neon-subtle">
+                <ShieldCheck size={20} />
               </div>
               <div>
-                <div className="text-sm font-bold text-[#F3EFE6]">Warranty & Tech Help</div>
-                <div className="text-xs text-[#8C857A]">Direct workbench tickets</div>
+                <div className="text-sm font-bold text-[#F6F4EE] font-mono-tech">Warranty & Tech Help</div>
+                <div className="text-xs text-[#8E98A8]">Direct workbench tickets</div>
               </div>
             </div>
-            <ArrowRight size={16} className="text-[#8C857A] group-hover:text-white transition-colors" />
+            <ArrowRight size={16} className="text-[#8E98A8] group-hover:text-[#FF5E1E] transition-colors" />
           </Link>
         </div>
       </div>

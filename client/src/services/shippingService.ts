@@ -51,17 +51,17 @@ class ShippingService {
       trackingNumber,
       courier: 'Shiprocket / Blue Dart Express',
       status: 'In Transit',
-      origin: 'Kolkata Workshop, WB',
+      origin: 'Burdwan Workshop, WB',
       destination: 'Customer Destination',
       estimatedDelivery: '2 - 3 business days',
       scans: [
         {
-          location: 'Kolkata Workshop',
+          location: 'Burdwan Workshop',
           activity: 'Package dispatched from maker bench',
           timestamp: 'Yesterday 17:30',
         },
         {
-          location: 'Kolkata Hub (CCU)',
+          location: 'Burdwan Hub (BWN)',
           activity: 'Processed through sorting facility',
           timestamp: 'Yesterday 22:15',
         },

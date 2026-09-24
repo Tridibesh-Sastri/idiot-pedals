@@ -2,44 +2,70 @@
 
 @layer base {
   :root {
-    --warm-ivory: #F3EFE6;
-    --deep-black: #0B0B0A;
-    --warm-charcoal: #171513;
-    --pedal-red: #D91E18;
-    --vintage-brown: #5A3A27;
-    --soft-black: #171717;
-    --warm-gray: #8C857A;
+    --color-bg-base: #0B0E14;
+    --color-bg-surface: #121722;
+    --color-bg-card: #161C28;
+    --color-neon-orange: #FF5E1E;
+    --color-neon-amber: #FFA000;
+    --color-text-main: #F6F4EE;
+    --color-text-muted: #8E98A8;
+    --color-border-subtle: rgba(255, 255, 255, 0.08);
+    --color-border-glow: rgba(255, 94, 30, 0.35);
+  }
+
+  /* Note: Never use scroll-behavior: smooth as it fights Lenis physics */
+  html {
+    background-color: #0B0E14;
+    color: #F6F4EE;
+    scroll-behavior: auto !important;
   }
 
   body {
-    background-color: #0B0B0A;
-    color: #F3EFE6;
+    background-color: #0B0E14;
+    color: #F6F4EE;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
   }
 
   ::selection {
-    background-color: #D91E18;
+    background-color: #FF5E1E;
     color: #FFFFFF;
   }
 }
 
+/* Custom Font Utilities */
+.font-editorial {
+  font-family: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
+}
+
 .font-cinzel {
-  font-family: 'Cinzel', serif;
+  font-family: 'Cinzel', 'Instrument Serif', serif;
 }
 
 .font-script {
   font-family: 'Caveat', cursive;
 }
 
-.font-editorial {
-  font-family: 'Instrument Serif', Georgia, serif;
+.font-mono-tech {
+  font-family: 'Space Grotesk', ui-monospace, SFMono-Regular, monospace;
 }
 
-.font-mono-tech {
-  font-family: 'Space Grotesk', monospace;
+/* Custom Neon Orange Glows & Shadows */
+.glow-neon-orange {
+  box-shadow: 0 0 25px -4px rgba(255, 94, 30, 0.45);
+}
+
+.glow-neon-subtle {
+  box-shadow: 0 0 15px -3px rgba(255, 94, 30, 0.25);
+}
+
+.text-glow-orange {
+  text-shadow: 0 0 20px rgba(255, 94, 30, 0.6);
+}
+
+.bg-radial-gradient {
+  background: radial-gradient(circle at 50% 30%, rgba(255, 94, 30, 0.15), transparent 70%);
 }
 
 @layer utilities {

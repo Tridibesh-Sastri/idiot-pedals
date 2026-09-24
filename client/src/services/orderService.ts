@@ -37,7 +37,7 @@ const INITIAL_ORDERS: Order[] = [
       email: 'arjun.sen@guitarist.in',
       addressLine1: 'Flat 4B, Harmony Heights, 14 Lake Temple Road',
       addressLine2: 'Near Southern Avenue',
-      city: 'Kolkata',
+      city: 'Burdwan',
       state: 'West Bengal',
       postalCode: '700029',
       country: 'India',

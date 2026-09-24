@@ -8,7 +8,7 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
       {toasts.map((toast) => {
         const isSuccess = toast.type === 'success';
         const isError = toast.type === 'error';
@@ -16,23 +16,23 @@ export const ToastContainer: React.FC = () => {
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center justify-between gap-3 p-4 rounded shadow-2xl border text-xs font-medium transition-all duration-200 ${
+            className={`pointer-events-auto flex items-center justify-between gap-3 p-4 rounded-2xl shadow-2xl border text-xs font-mono-tech transition-all duration-200 backdrop-blur-xl ${
               isSuccess
-                ? 'bg-[#171513] text-[#F3EFE6] border-emerald-600/40'
+                ? 'bg-[#121722]/95 text-[#F6F4EE] border-emerald-500/40'
                 : isError
-                ? 'bg-[#171513] text-[#F3EFE6] border-[#D91E18]'
-                : 'bg-[#171513] text-[#F3EFE6] border-[#8C857A]/40'
+                ? 'bg-[#121722]/95 text-[#F6F4EE] border-[#FF5E1E]'
+                : 'bg-[#121722]/95 text-[#F6F4EE] border-white/20'
             }`}
           >
             <div className="flex items-center gap-2.5">
-              {isSuccess && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
-              {isError && <AlertCircle size={16} className="text-[#D91E18] shrink-0" />}
-              {!isSuccess && !isError && <Info size={16} className="text-sky-400 shrink-0" />}
-              <span>{toast.message}</span>
+              {isSuccess && <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />}
+              {isError && <AlertCircle size={16} className="text-[#FF5E1E] shrink-0" />}
+              {!isSuccess && !isError && <Info size={16} className="text-[#FF7A00] shrink-0" />}
+              <span className="font-light">{toast.message}</span>
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-[#8C857A] hover:text-[#F3EFE6] p-1 transition-colors"
+              className="text-[#8E98A8] hover:text-[#F6F4EE] p-1 transition-colors cursor-pointer"
               aria-label="Close notification"
             >
               <X size={14} />
