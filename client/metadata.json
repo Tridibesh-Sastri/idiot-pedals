@@ -1,0 +1,8 @@
+{
+  "name": "Remix IdiotPadel",
+  "description": "Affordable Price. Serious Analog Sound. Zero Pretension.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
