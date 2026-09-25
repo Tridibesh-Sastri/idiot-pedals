@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, HelpCircle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { sanitizeString } from '../lib/security';
 
 export const ContactPage: React.FC = () => {
   const { showToast } = useToast();
@@ -13,10 +14,15 @@ export const ContactPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !message) {
+    const cleanName = sanitizeString(name);
+    const cleanMessage = sanitizeString(message);
+    if (!cleanName || !email || !cleanMessage) {
       showToast('Please fill out all required fields.', 'error');
       return;
     }
+    // Store back sanitized values so renders/echoes never carry raw input
+    setName(cleanName);
+    setMessage(cleanMessage);
     setIsSubmitting(true);
     await new Promise((r) => setTimeout(r, 600));
     setIsSubmitting(false);
@@ -152,6 +158,7 @@ export const ContactPage: React.FC = () => {
                     <input
                       type="text"
                       required
+                      maxLength={100}
                       placeholder="e.g. Rahul Sharma"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -166,6 +173,7 @@ export const ContactPage: React.FC = () => {
                     <input
                       type="email"
                       required
+                      maxLength={254}
                       placeholder="guitarist@gmail.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -197,6 +205,7 @@ export const ContactPage: React.FC = () => {
                   <textarea
                     required
                     rows={4}
+                    maxLength={2000}
                     placeholder="Tell us what guitar/amp you play, or any questions about the Neon Fuzz Box..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}

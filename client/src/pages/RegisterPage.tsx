@@ -76,6 +76,7 @@ export const RegisterPage: React.FC = () => {
                 <input
                   type="text"
                   required
+                  maxLength={100}
                   placeholder="e.g. Rahul Das"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -93,6 +94,7 @@ export const RegisterPage: React.FC = () => {
                 <input
                   type="email"
                   required
+                  maxLength={254}
                   placeholder="rahul@guitarist.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -109,6 +111,7 @@ export const RegisterPage: React.FC = () => {
               <div className="relative">
                 <input
                   type="tel"
+                  maxLength={20}
                   placeholder="+91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -127,6 +130,7 @@ export const RegisterPage: React.FC = () => {
                   <input
                     type="password"
                     required
+                    maxLength={128}
                     placeholder="Min 6 chars"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -144,6 +148,7 @@ export const RegisterPage: React.FC = () => {
                   <input
                     type="password"
                     required
+                    maxLength={128}
                     placeholder="Repeat"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}

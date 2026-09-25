@@ -13,6 +13,7 @@ import { useToast } from '../context/ToastContext';
 import { orderService } from '../services/orderService';
 import { paymentService } from '../services/paymentService';
 import { ShippingAddress, PaymentMethod } from '../types';
+import { sanitizeString } from '../lib/security';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 
 export const CheckoutPage: React.FC = () => {
@@ -61,13 +62,22 @@ export const CheckoutPage: React.FC = () => {
 
     if (isProcessing) return; // Prevent double submission
 
-    const cleanName = fullName.trim();
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPhone = phone.trim().replace(/[^\d+]/g, '');
-    const cleanAddress1 = addressLine1.trim();
-    const cleanAddress2 = addressLine2.trim();
-    const cleanCity = city.trim();
-    const cleanState = state.trim();
+    // TOCTOU snapshot: freeze the cart the user is paying for at submit time.
+    // Everything below (Razorpay amount, order payload) uses this snapshot,
+    // never the live closure values across awaits.
+    const orderItems = items.map((i) => ({ ...i }));
+    const snapshotTotal = orderItems.reduce(
+      (sum, i) => sum + i.price * Math.min(5, Math.max(1, i.quantity)),
+      0
+    );
+
+    const cleanName = sanitizeString(fullName);
+    const cleanEmail = email.trim().toLowerCase().slice(0, 254);
+    const cleanPhone = phone.trim().replace(/[^\d+]/g, '').slice(0, 20);
+    const cleanAddress1 = sanitizeString(addressLine1);
+    const cleanAddress2 = sanitizeString(addressLine2);
+    const cleanCity = sanitizeString(city);
+    const cleanState = sanitizeString(state);
     const cleanPostal = postalCode.trim().replace(/\D/g, '');
 
     if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress1 || !cleanCity || !cleanPostal) {
@@ -107,7 +117,7 @@ export const CheckoutPage: React.FC = () => {
 
     try {
       if (paymentMethod === 'razorpay') {
-        const rzpOrder = await paymentService.createRazorpayOrder(total);
+        const rzpOrder = await paymentService.createRazorpayOrder(snapshotTotal);
         setIsRazorpayModalOpen(true);
 
         setTimeout(async () => {
@@ -120,7 +130,7 @@ export const CheckoutPage: React.FC = () => {
 
             const order = await orderService.createOrder({
               userId: user?.id || 'usr_guest',
-              items,
+              items: orderItems,
               shippingAddress,
               paymentMethod: 'razorpay',
               paymentId: `pay_${Date.now()}`,
@@ -139,7 +149,7 @@ export const CheckoutPage: React.FC = () => {
       } else {
         const order = await orderService.createOrder({
           userId: user?.id || 'usr_guest',
-          items,
+          items: orderItems,
           shippingAddress,
           paymentMethod: 'cod',
         });
@@ -197,6 +207,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -210,6 +221,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="tel"
                     required
+                    maxLength={20}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -221,11 +233,12 @@ export const CheckoutPage: React.FC = () => {
                 <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                   Email Address (for Invoice & Tracking Link) *
                 </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  <input
+                    type="email"
+                    required
+                    maxLength={254}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
@@ -247,6 +260,7 @@ export const CheckoutPage: React.FC = () => {
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   value={addressLine1}
                   onChange={(e) => setAddressLine1(e.target.value)}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -259,6 +273,7 @@ export const CheckoutPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  maxLength={200}
                   value={addressLine2}
                   onChange={(e) => setAddressLine2(e.target.value)}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -273,6 +288,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -286,6 +302,7 @@ export const CheckoutPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     value={state}
                     onChange={(e) => setState(e.target.value)}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
