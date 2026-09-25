@@ -1,5 +1,6 @@
 import { User } from '../types';
 import { STORAGE_KEYS, sleep } from './apiConfig';
+import { safeJsonParse } from '../lib/security';
 
 /**
  * UserService Class
@@ -14,7 +15,8 @@ class UserService {
   async getProfile(): Promise<User | null> {
     await sleep(200);
     const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-    return data ? JSON.parse(data) : null;
+    const parsed = safeJsonParse<User | null>(data, null);
+    return parsed && typeof parsed === 'object' ? parsed : null;
   }
 
   /**
@@ -28,7 +30,10 @@ class UserService {
     const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
     if (!data) throw new Error('No user currently logged in');
 
-    const currentUser: User = JSON.parse(data);
+    const currentUser = safeJsonParse<User | null>(data, null);
+    if (!currentUser || typeof currentUser !== 'object') {
+      throw new Error('No user currently logged in');
+    }
     const updatedUser: User = {
       ...currentUser,
       ...updates,

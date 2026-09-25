@@ -1,5 +1,6 @@
 import { User } from '../types';
 import { STORAGE_KEYS, sleep } from './apiConfig';
+import { safeJsonParse, secureStorage } from '../lib/security';
 
 /**
  * Data Transfer Object for user registration
@@ -45,7 +46,8 @@ class AuthService {
   private getStoredUser(): User | null {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-      return data ? JSON.parse(data) : null;
+      const parsed = safeJsonParse<User | null>(data, null);
+      return parsed && typeof parsed === 'object' ? parsed : null;
     } catch {
       return null;
     }
@@ -197,11 +199,13 @@ class AuthService {
   }
 
   /**
-   * Logs out the current user and clears session storage
+   * Logs out the current user and purges everything — tokens, profile,
+   * cart, orders, and session storage — so nothing readable survives logout.
    */
   async logout(): Promise<void> {
     await sleep(200);
     this.setStoredUser(null);
+    secureStorage.clearAuthData();
   }
 }
 

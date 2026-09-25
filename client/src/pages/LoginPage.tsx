@@ -4,6 +4,7 @@ import { ArrowRight, Lock, Mail, AlertCircle } from 'lucide-react';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { isSafeRedirectPath } from '../lib/security';
 
 export const LoginPage: React.FC = () => {
   const { login, googleLogin } = useAuth();
@@ -16,7 +17,11 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const redirectPath = (location.state as { from?: string })?.from || '/account';
+  // Open-redirect guard: only internal in-app paths are honored after login
+  const redirectPath = isSafeRedirectPath(
+    (location.state as { from?: string })?.from,
+    '/account'
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +87,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type="email"
                   required
+                  maxLength={254}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
@@ -103,6 +109,7 @@ export const LoginPage: React.FC = () => {
                 <input
                   type="password"
                   required
+                  maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
