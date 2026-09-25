@@ -59,22 +59,49 @@ export const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fullName || !email || !phone || !addressLine1 || !city || !postalCode) {
+    if (isProcessing) return; // Prevent double submission
+
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim().replace(/[^\d+]/g, '');
+    const cleanAddress1 = addressLine1.trim();
+    const cleanAddress2 = addressLine2.trim();
+    const cleanCity = city.trim();
+    const cleanState = state.trim();
+    const cleanPostal = postalCode.trim().replace(/\D/g, '');
+
+    if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress1 || !cleanCity || !cleanPostal) {
       showToast('Please fill in all required shipping fields.', 'error');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      showToast('Please enter a valid email address.', 'error');
+      return;
+    }
+
+    if (cleanPhone.replace(/\D/g, '').length < 10) {
+      showToast('Please enter a valid 10-digit phone number.', 'error');
+      return;
+    }
+
+    if (cleanPostal.length !== 6) {
+      showToast('Please enter a valid 6-digit postal PIN code.', 'error');
       return;
     }
 
     setIsProcessing(true);
 
     const shippingAddress: ShippingAddress = {
-      fullName,
-      email,
-      phone,
-      addressLine1,
-      addressLine2,
-      city,
-      state,
-      postalCode,
+      fullName: cleanName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      addressLine1: cleanAddress1,
+      addressLine2: cleanAddress2,
+      city: cleanCity,
+      state: cleanState,
+      postalCode: cleanPostal,
       country: 'India',
     };
 

@@ -48,7 +48,7 @@ export const OrderDetailPage: React.FC = () => {
         <div className="max-w-md w-full bg-white border border-[#F0D3B8] rounded-3xl p-8 text-center space-y-4 backdrop-blur-xl">
           <h2 className="text-2xl font-editorial font-bold text-[#2A1A12]">Order Not Found</h2>
           <p className="text-xs text-[#8A6A54] font-mono-tech">
-            We could not find an order with identifier {id}.
+            We could not find an order with identifier &quot;{id ? String(id).slice(0, 32).replace(/[^a-zA-Z0-9_-]/g, '') : 'unknown'}&quot;.
           </p>
           <Link
             to="/orders"

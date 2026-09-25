@@ -9,6 +9,24 @@
     <meta property="og:description" content="Handcrafted analog guitar pedals for real players. Direct from the workbench." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Security Meta Safeguards -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Client-Side Framebusting Protection against Clickjacking -->
+    <script>
+      (function() {
+        if (window.top !== window.self) {
+          try {
+            window.top.location.href = window.self.location.href;
+          } catch(e) {
+            document.documentElement.style.display = 'none';
+          }
+        }
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Caveat:wght@600;700&family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,4 +36,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -1,11 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem } from '../types';
 import { STORAGE_KEYS } from '../services/apiConfig';
+import { secureStorage, getAuthoritativePrice } from '../lib/security';
 
-/**
- * Flagship pedal product used as the default item in the cart.
- * Seeded automatically for instant demonstration of the e-commerce flow.
- */
 export const NEON_FUZZ_BOX: CartItem = {
   id: 'neon-fuzz-box',
   name: 'Neon Fuzz Box',
@@ -16,110 +13,88 @@ export const NEON_FUZZ_BOX: CartItem = {
   image: '/assets/pedal_preview.jpg',
 };
 
-/**
- * Shape of the data and operations provided by the CartContext.
- */
 interface CartContextType {
-  /** Array of active cart line items */
   items: CartItem[];
-  /** Add a product to the cart or increment its quantity */
   addItem: (item?: CartItem, quantity?: number) => void;
-  /** Remove an item from the cart by unique ID */
   removeItem: (id: string) => void;
-  /** Update quantity of an existing item */
   updateQuantity: (id: string, quantity: number) => void;
-  /** Remove all items from the cart */
   clearCart: () => void;
-  /** Calculated sum of (price * quantity) across all line items */
   subtotal: number;
-  /** Standard shipping cost (0 = free nationwide shipping) */
   shippingFee: number;
-  /** Final calculated order total (subtotal + shippingFee) */
   total: number;
-  /** Total count of individual physical pedal units in the cart */
   totalQuantity: number;
-  /** Boolean flag controlling the slide-over cart drawer visibility */
   isCartOpen: boolean;
-  /** Direct setter to show or hide the cart drawer */
   setIsCartOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-/**
- * CartProvider Component
- *
- * Manages shopping cart line items with automatic browser LocalStorage
- * persistence and reactive total calculations.
- */
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State: Cart items initialized from localStorage or default seed
+  // State: Cart items initialized with authoritative pricing verification
   const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.CART);
-      return stored ? JSON.parse(stored) : [NEON_FUZZ_BOX];
-    } catch {
-      return [NEON_FUZZ_BOX];
-    }
+    const raw = secureStorage.get<CartItem[]>(STORAGE_KEYS.CART, [NEON_FUZZ_BOX]);
+    if (!Array.isArray(raw)) return [NEON_FUZZ_BOX];
+    
+    // Sanitize and re-bind to immutable ledger prices
+    return raw.map((i) => ({
+      ...i,
+      price: getAuthoritativePrice(i.id),
+      quantity: Math.max(1, Math.min(5, Number(i.quantity) || 1)),
+    }));
   });
 
-  // State: Slide-over drawer visibility
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Sync cart contents to localStorage whenever items change
+  // Sync cart contents securely
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(items));
-    } catch {
-      // Storage unavailable or quota exceeded; fallback gracefully
-    }
+    secureStorage.set(STORAGE_KEYS.CART, items);
   }, [items]);
 
-  /**
-   * Adds an item to the cart. If the item already exists, its quantity is incremented.
-   * Also triggers the slide-over cart drawer to open.
-   */
   const addItem = (item = NEON_FUZZ_BOX, qty = 1) => {
+    const safeQty = Math.max(1, Math.min(5, qty));
     setItems((prev) => {
       const exists = prev.find((i) => i.id === item.id);
       if (exists) {
-        return prev.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity + qty } : i));
+        return prev.map((i) =>
+          i.id === item.id
+            ? { ...i, price: getAuthoritativePrice(i.id), quantity: Math.min(5, i.quantity + safeQty) }
+            : i
+        );
       }
-      return [...prev, { ...item, quantity: qty }];
+      return [...prev, { ...item, price: getAuthoritativePrice(item.id), quantity: safeQty }];
     });
     setIsCartOpen(true);
   };
 
-  /**
-   * Removes an item completely from the cart by its ID
-   */
   const removeItem = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  /**
-   * Updates an item's quantity. If the new quantity is 0 or less, the item is removed.
-   */
   const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       removeItem(id);
       return;
     }
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity } : i)));
+    const safeQty = Math.min(5, Math.max(1, quantity));
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, price: getAuthoritativePrice(i.id), quantity: safeQty } : i
+      )
+    );
   };
 
-  /**
-   * Clears all items from the cart
-   */
   const clearCart = () => {
     setItems([]);
   };
 
-  // Reactive price calculations
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = 0; // Free insured shipping nationwide for launch
+  // Authoritative price calculations — immune to devtools DOM/state manipulation
+  const subtotal = items.reduce(
+    (sum, item) => sum + getAuthoritativePrice(item.id) * Math.min(5, Math.max(1, item.quantity)),
+    0
+  );
+  const shippingFee = 0;
   const total = subtotal + shippingFee;
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalQuantity = items.reduce((sum, item) => sum + Math.min(5, Math.max(1, item.quantity)), 0);
 
   return (
     <CartContext.Provider
