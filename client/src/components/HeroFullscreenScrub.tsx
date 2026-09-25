@@ -1,19 +1,26 @@
 import React from 'react';
-import { ArrowRight, Volume2, ShieldCheck, Truck, Zap } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Truck, Zap } from 'lucide-react';
+// NOTE: Audition/Tone-Demo entry kept in code but hidden (Volume2 icon + #demo link removed from UI).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Volume2 as _Volume2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { useToast } from '../context/ToastContext';
+
+void _Volume2;
 
 interface HeroFullscreenScrubProps {
   onTransitionStateChange?: (isMidTransition: boolean, isCompleted: boolean) => void;
 }
 
 export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscreenScrubProps) {
-  const { addItem } = useCart();
-  const { showToast } = useToast();
+  const { addItem, setIsCartOpen } = useCart();
+  const navigate = useNavigate();
 
   const handleQuickAdd = () => {
+    // Direct checkout flow: add to cart silently, skip Workbench Cart drawer
     addItem();
-    showToast('Neon Fuzz Box added to workbench cart!');
+    setIsCartOpen(false);
+    navigate('/checkout');
   };
 
   return (
@@ -73,13 +80,13 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                 <span>Buy Neon Fuzz Box</span>
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
-              <a
-                href="#demo"
-                className="px-7 py-4 bg-[#0B0E14] hover:bg-[#1A2232] text-white text-sm font-mono-tech font-semibold tracking-[0.2em] uppercase rounded-full flex items-center gap-2 transition-all shadow-lg cursor-pointer"
-              >
-                <Volume2 size={14} className="text-[#FF5E1E]" />
-                <span>Audition Tone</span>
-              </a>
+              {/*
+                HIDDEN FROM WEBSITE (kept in code): Tone Demo entry.
+                <a href="#demo" className="...">
+                  <_Volume2 size={14} ... />
+                  <span>Audition Tone</span>
+                </a>
+              */}
             </div>
 
             <div className="flex items-center gap-6 pt-2 text-xs font-mono-tech text-[#64748B] font-medium">
@@ -160,7 +167,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
           </div>
 
           {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 gap-2.5">
             <button
               onClick={handleQuickAdd}
               className="py-[14px] bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-[13px] font-mono-tech font-black tracking-[0.1em] uppercase rounded-xl shadow-[0_4px_24px_rgba(255,94,30,0.55)] flex items-center justify-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
@@ -168,13 +175,13 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
               <span>Buy Now</span>
               <ArrowRight size={14} />
             </button>
-            <a
-              href="#demo"
-              className="py-[14px] bg-black/60 backdrop-blur-md text-white text-[13px] font-mono-tech font-bold tracking-[0.1em] uppercase rounded-xl border border-white/20 flex items-center justify-center gap-1.5 active:scale-95 transition-transform shadow-md cursor-pointer"
-            >
-              <Volume2 size={13} className="text-[#FF5E1E]" />
-              <span>Audition</span>
-            </a>
+            {/*
+              HIDDEN FROM WEBSITE (kept in code): Tone Demo / Audition entry.
+              <a href="#demo" className="...">
+                <_Volume2 size={13} ... />
+                <span>Audition</span>
+              </a>
+            */}
           </div>
 
           {/* Guarantee strip */}

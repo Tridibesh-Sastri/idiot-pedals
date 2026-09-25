@@ -12,7 +12,9 @@ import { SmoothScroll } from './components/SmoothScroll';
 // Common Global Layout Components
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
-import { CartDrawer } from './components/common/CartDrawer';
+// NOTE (hidden 2026-09-25): Bag/Cart drawer kept in code but never mounted on the website.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { CartDrawer as _CartDrawer } from './components/common/CartDrawer';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 
@@ -35,7 +37,8 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { AccountPage } from './pages/AccountPage';
 
 /**
- * Root Application Component with Lenis Smooth Scrolling and Editorial Dark/Neon UI
+ * Root Application Component with Lenis Smooth Scrolling and Light Editorial UI
+ * (white / warm paper + neon orange — absorbed from the landing hero)
  */
 export default function App() {
   return (
@@ -47,8 +50,8 @@ export default function App() {
               {/* Resets window scroll position smoothly when route changes */}
               <ScrollToTop />
 
-              {/* Main Application Shell with obsidian black and neon orange accents */}
-              <div className="min-h-screen bg-[#0B0E14] text-[#F6F4EE] selection:bg-[#FF5E1E] selection:text-white flex flex-col font-sans">
+              {/* Main Application Shell with warm cream and molten orange accents */}
+              <div className="min-h-screen bg-[#FFF8F1] text-[#2A1A12] selection:bg-[#FF5E1E] selection:text-white flex flex-col font-sans">
                 
                 {/* Dynamic Global Navbar */}
                 <Navbar />
@@ -79,8 +82,10 @@ export default function App() {
                   </Routes>
                 </main>
 
-                {/* Global Overlays: Slide-over Cart Drawer & Floating Toast Notifications */}
-                <CartDrawer />
+                {/* Global Overlays: Floating Toast Notifications */}
+                {/* HIDDEN FROM WEBSITE (kept in code): <_CartDrawer /> is never mounted,
+                    so the Bag/cart drawer does not load at all. Buy flow goes direct to /checkout. */}
+                {/* <_CartDrawer /> */}
                 <ToastContainer />
 
                 {/* Global Brand Footer */}

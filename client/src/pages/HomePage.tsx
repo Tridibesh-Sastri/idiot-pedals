@@ -1,52 +1,66 @@
 import React from 'react';
 import { HeroFullscreenScrub } from '../components/HeroFullscreenScrub';
-import { SoundDemoSection } from '../components/pedal/SoundDemoSection';
-import { PedalPhotoGallery } from '../components/pedal/PedalPhotoGallery';
+// NOTE (hidden 2026-09-25): Product + Tone Demo sections kept in code but hidden from website.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { SoundDemoSection as _SoundDemoSection } from '../components/pedal/SoundDemoSection';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { PedalPhotoGallery as _PedalPhotoGallery } from '../components/pedal/PedalPhotoGallery';
 import { ControlsOverview } from '../components/pedal/ControlsOverview';
 import { Specifications } from '../components/pedal/Specifications';
 // Keep ExplodedView in the code as requested
 import { ExplodedView as _ExplodedView } from '../components/ExplodedView';
 import { useCart } from '../context/CartContext';
-import { useToast } from '../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
+// Keep hidden-section references so imports stay in code without rendering
+void _SoundDemoSection;
+void _PedalPhotoGallery;
+void _ExplodedView;
+
 export const HomePage: React.FC = () => {
-  const { addItem } = useCart();
-  const { showToast } = useToast();
+  const { addItem, setIsCartOpen } = useCart();
+  const navigate = useNavigate();
 
   const handleQuickAdd = () => {
+    // Direct checkout flow: add to cart silently, skip Workbench Cart drawer
     addItem();
-    showToast('Neon Fuzz Box added to workbench cart!');
+    setIsCartOpen(false);
+    navigate('/checkout');
   };
 
   return (
-    <div className="bg-[#0B0E14] text-[#F6F4EE]">
+    <div className="bg-[#FFF8F1] text-[#2A1A12]">
       {/* ================= STATIC HERO ================= */}
       <HeroFullscreenScrub />
 
-      {/* ================= HARDWARE SHOWCASE GALLERY ================= */}
-      <div className="relative z-10 bg-[#0B0E14]">
-        <PedalPhotoGallery />
-      </div>
+      {/*
+        HIDDEN FROM WEBSITE (kept in code):
+        - <PedalPhotoGallery />  (Product / Hardware Showcase Gallery)
+        - <SoundDemoSection />   (Tone Demo / Audio Test Bench)
+        Uncomment below to restore them on the landing page.
+      */}
+      {/* <div className="relative z-10 bg-[#0B0E14]">
+        <_PedalPhotoGallery />
+      </div> */}
 
-      {/* ================= AUDIO TEST BENCH ================= */}
-      <div id="demo" className="relative z-10 bg-[#0B0E14]">
-        <SoundDemoSection />
-      </div>
+      {/* <div id="demo" className="relative z-10 bg-[#0B0E14]">
+        <_SoundDemoSection />
+      </div> */}
 
       {/* ================= CONTROLS BREAKDOWN ================= */}
-      <div className="relative z-10 bg-[#0B0E14]">
+      <div id="controls" className="relative z-10 bg-[#FFF8F1] scroll-mt-28">
         <ControlsOverview />
       </div>
 
       {/* ================= SPECIFICATIONS DATA SHEET ================= */}
-      <div className="relative z-10 bg-[#0B0E14]">
+      <div className="relative z-10 bg-[#FFF8F1]">
         <Specifications />
       </div>
 
       {/* ================= MANIFESTO / WORKSHOP TEASER ================= */}
-      <section className="py-28 bg-[#0E131C] border-t border-white/10 relative overflow-hidden">
+      <section id="workshop" className="py-28 bg-white border-t border-[#F0D3B8] relative overflow-hidden scroll-mt-28">
         {/* Subtle Ambient Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#FF5E1E]/10 blur-[140px] pointer-events-none rounded-full" />
 
@@ -58,11 +72,11 @@ export const HomePage: React.FC = () => {
             <span className="w-8 h-px bg-[#FF5E1E]" />
           </div>
 
-          <h2 className="text-4xl sm:text-6xl font-editorial tracking-tight text-[#F6F4EE]">
+          <h2 className="text-4xl sm:text-6xl font-editorial tracking-tight text-[#2A1A12]">
             Hand-wired for tone purists who refuse the boutique tax.
           </h2>
 
-          <p className="max-w-2xl mx-auto text-[#8E98A8] text-base sm:text-lg font-sans leading-relaxed">
+          <p className="max-w-2xl mx-auto text-[#8A6A54] text-base sm:text-lg font-sans leading-relaxed">
             Every IDIOT pedal is hand-soldered, individually biased, and spectrum-tested in small batches of 25 units. Built to survive tour vans and bedroom jam sessions alike.
           </p>
 
@@ -75,7 +89,7 @@ export const HomePage: React.FC = () => {
             </button>
             <Link
               to="/about"
-              className="px-8 py-4 bg-white/5 hover:bg-white/10 text-[#F6F4EE] border border-white/15 text-xs font-mono-tech tracking-[0.2em] uppercase rounded-full transition-all flex items-center gap-2"
+              className="px-8 py-4 bg-[#FFF1E6] hover:bg-[#FFE8D3] text-[#2A1A12] border border-[#F0D3B8] text-xs font-mono-tech tracking-[0.2em] uppercase rounded-full transition-all flex items-center gap-2"
             >
               <span>Our Workshop Story</span>
               <ArrowRight size={14} className="text-[#FF5E1E]" />

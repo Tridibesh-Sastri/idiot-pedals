@@ -62,11 +62,11 @@ export const CartDrawer: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsCartOpen(false);
-                    navigate('/product');
+                    navigate('/checkout');
                   }}
                   className="px-6 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech font-bold tracking-[0.2em] uppercase rounded-full shadow-lg shadow-[#FF5E1E]/25 transition-all glow-neon-subtle cursor-pointer"
                 >
-                  Explore Neon Fuzz Box
+                  Buy Neon Fuzz Box
                 </button>
               </div>
             ) : (

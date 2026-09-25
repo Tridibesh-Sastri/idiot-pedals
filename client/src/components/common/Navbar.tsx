@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingBag, User as UserIcon, Menu, X, ArrowRight } from 'lucide-react';
+import { User as UserIcon, Menu, X, ArrowRight } from 'lucide-react';
+// NOTE (hidden 2026-09-25): Bag/cart UI removed from website; cart logic kept in code.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ShoppingBag as _ShoppingBag } from 'lucide-react';
 import { IdiotPedalsLogo } from './IdiotPedalsLogo';
-import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+
+void _ShoppingBag;
 
 interface NavbarProps {
   forceVisible?: boolean;
@@ -13,24 +17,37 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCompleted = false }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { totalQuantity, setIsCartOpen } = useCart();
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  // Close mobile menu on route change
+  // Close mobile menu on route change (pathname or hash, e.g. /#controls)
   useEffect(() => {
     setIsMobileMenuOpen(false);
-  }, [location.pathname]);
+  }, [location.pathname, location.hash]);
 
   // Navbar is always visible — no scroll animation hiding it
   const isVisible = true;
 
   const navLinks = [
-    { name: 'Product', path: '/product' },
+    // HIDDEN FROM WEBSITE (kept in code):
+    // { name: 'Product', path: '/product' },
+    // { name: 'Tone Demo', path: '/#demo' },
+    { name: 'Home', path: '/' },
+    { name: 'Controls', path: '/#controls' },
+    { name: 'Specs', path: '/#specs' },
     { name: 'About', path: '/about' },
-    { name: 'Tone Demo', path: '/#demo' },
     { name: 'Contact', path: '/contact' },
   ];
+
+  const isLinkActive = (path: string) => {
+    if (path.includes('#')) {
+      return `${location.pathname}${location.hash}` === path;
+    }
+    if (path === '/') {
+      return location.pathname === '/' && !location.hash;
+    }
+    return location.pathname === path;
+  };
 
   return (
     <>
@@ -46,22 +63,24 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
           {/* Brand Logo */}
           <Link
             to="/"
-            className="flex items-center gap-2 group focus:outline-none"
+            className="flex items-center gap-2 group focus:outline-none shrink-0"
             aria-label="IDIOT Pedals Home"
           >
             <IdiotPedalsLogo variant="dark" size="sm" />
           </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-7 text-xs font-mono-tech tracking-[0.2em] uppercase text-[#8E98A8]">
+          {/* Desktop Nav Links — balanced 5-link editorial row with active orange pill */}
+          <nav className="hidden md:flex items-center gap-1 lg:gap-2 text-xs font-mono-tech tracking-[0.18em] uppercase">
             {navLinks.map((link) => {
-              const isActive = location.pathname === link.path;
+              const isActive = isLinkActive(link.path);
               return (
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`transition-colors duration-200 hover:text-[#FF5E1E] ${
-                    isActive ? 'text-[#FF5E1E] font-bold' : 'text-[#F6F4EE]/80'
+                  className={`px-3.5 lg:px-4 py-2 rounded-full transition-all duration-200 ${
+                    isActive
+                      ? 'bg-[#FF5E1E]/15 text-[#FF5E1E] font-bold ring-1 ring-[#FF5E1E]/40'
+                      : 'text-[#F6F4EE]/80 hover:text-[#FF5E1E] hover:bg-white/5'
                   }`}
                 >
                   {link.name}
@@ -71,10 +90,10 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
           </nav>
 
           {/* Right Action Controls */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+
             {/* Meta Location Tag */}
-            <div className="hidden lg:flex items-center gap-2 text-xs font-mono-tech text-[#8E98A8] tracking-widest uppercase border-r border-white/10 pr-4">
+            <div className="hidden lg:flex items-center gap-2 text-xs font-mono-tech text-[#8E98A8] tracking-widest uppercase border-r border-white/10 pr-3">
               <span>India</span>
               <span className="text-[#FF5E1E]">——</span>
               <span className="text-[#F6F4EE]">INR ₹</span>
@@ -92,22 +111,19 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
               </span>
             </Link>
 
-            {/* Bag / Cart Counter */}
-            <button
-              onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#161C28] hover:bg-[#1A2232] border border-white/10 text-xs font-mono-tech tracking-widest text-[#F6F4EE] transition-all cursor-pointer"
-              aria-label={`Open Bag (${totalQuantity} items)`}
-            >
-              <ShoppingBag size={14} className="text-[#FF5E1E]" />
-              <span>Bag [{totalQuantity}]</span>
-            </button>
+            {/* HIDDEN FROM WEBSITE (kept in code): Bag / Cart button removed —
+                <button onClick={() => setIsCartOpen(true)} ...>
+                  <_ShoppingBag size={14} ... />
+                  <span>Bag [totalQuantity]</span>
+                </button>
+            */}
 
-            {/* Primary View Catalog Action */}
+            {/* Primary Buy Action (direct checkout; Product catalog hidden but kept in code: /product) */}
             <Link
-              to="/product"
+              to="/checkout"
               className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold tracking-[0.2em] uppercase shadow-lg shadow-[#FF5E1E]/25 transition-all glow-neon-subtle"
             >
-              <span>View Catalog</span>
+              <span>Buy Now</span>
               <ArrowRight size={12} />
             </Link>
 
@@ -138,6 +154,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
               <Link
                 key={link.name}
                 to={link.path}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className="text-2xl font-editorial tracking-wide text-[#F6F4EE] hover:text-[#FF5E1E] flex items-center justify-between py-2 border-b border-white/5"
               >
                 <span>{link.name}</span>
@@ -147,6 +164,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
 
             <Link
               to={isAuthenticated ? '/orders' : '/login'}
+              onClick={() => setIsMobileMenuOpen(false)}
               className="text-sm font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] flex items-center justify-between py-2"
             >
               <span>My Orders & Tracking</span>
@@ -156,7 +174,8 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
 
           <div className="space-y-4">
             <Link
-              to="/product"
+              to="/checkout"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
             >
               <span>Order Neon Fuzz Box — ₹2,499</span>

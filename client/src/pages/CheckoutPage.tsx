@@ -36,20 +36,20 @@ export const CheckoutPage: React.FC = () => {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-[80vh] bg-[#0B0E14] text-[#F6F4EE] flex flex-col items-center justify-center px-4 pt-28">
-        <div className="max-w-md w-full bg-[#121722]/80 border border-white/10 rounded-3xl p-8 text-center space-y-4 shadow-2xl backdrop-blur-xl">
-          <IdiotPedalsLogo variant="dark" size="sm" />
-          <h2 className="text-2xl font-editorial font-bold text-[#F6F4EE]">
+      <div className="min-h-[80vh] bg-[#FFF8F1] text-[#2A1A12] flex flex-col items-center justify-center px-4 pt-28">
+        <div className="max-w-md w-full bg-white border border-[#F0D3B8] rounded-3xl p-8 text-center space-y-4 shadow-2xl backdrop-blur-xl">
+          <IdiotPedalsLogo variant="light" size="sm" />
+          <h2 className="text-2xl font-editorial font-bold text-[#2A1A12]">
             No Items in Checkout
           </h2>
-          <p className="text-xs text-[#8E98A8] font-mono-tech">
+          <p className="text-xs text-[#8A6A54] font-mono-tech">
             Add the Neon Fuzz Box to your workbench cart before heading to checkout.
           </p>
           <Link
-            to="/product"
+            to="/"
             className="inline-block px-8 py-3.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech font-bold uppercase rounded-full shadow-lg shadow-[#FF5E1E]/25"
           >
-            Go To Product Page
+            Back To Home
           </Link>
         </div>
       </div>
@@ -129,21 +129,21 @@ export const CheckoutPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#0B0E14] text-[#F6F4EE] pt-28 pb-20 overflow-hidden relative">
+    <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 overflow-hidden relative">
       {/* Glow */}
-      <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+      <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-[#FF5E1E]/10 blur-[160px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="mb-8 border-b border-white/10 pb-5 flex items-center justify-between">
+        <div className="mb-8 border-b border-[#F0D3B8] pb-5 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-editorial font-normal uppercase text-[#F6F4EE]">
+            <h1 className="text-3xl sm:text-4xl font-editorial font-normal uppercase text-[#2A1A12]">
               Direct Workbench Checkout
             </h1>
-            <p className="text-xs text-[#8E98A8] font-mono-tech">
+            <p className="text-xs text-[#8A6A54] font-mono-tech">
               100% Secure Checkout • Direct from Burdwan Audio Workshop
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-400 font-mono-tech">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-600 font-mono-tech">
             <Lock size={14} />
             <span>256-Bit Encrypted</span>
           </div>
@@ -154,8 +154,8 @@ export const CheckoutPage: React.FC = () => {
           <div className="lg:col-span-7 space-y-6">
             
             {/* Step 1: Customer Info */}
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#F6F4EE] font-bold pb-2 border-b border-white/10">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
                 <span className="w-5 h-5 rounded-full bg-[#FF5E1E] text-white flex items-center justify-center text-[10px] font-mono-tech">
                   1
                 </span>
@@ -164,7 +164,7 @@ export const CheckoutPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Full Name *
                   </label>
                   <input
@@ -172,12 +172,12 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Phone (for Delivery SMS) *
                   </label>
                   <input
@@ -185,13 +185,13 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                   Email Address (for Invoice & Tracking Link) *
                 </label>
                 <input
@@ -199,14 +199,14 @@ export const CheckoutPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                  className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
             </div>
 
             {/* Step 2: Shipping Destination */}
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#F6F4EE] font-bold pb-2 border-b border-white/10">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
                 <span className="w-5 h-5 rounded-full bg-[#FF5E1E] text-white flex items-center justify-center text-[10px] font-mono-tech">
                   2
                 </span>
@@ -214,7 +214,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                   Address Line 1 (Flat, House, Building, Street) *
                 </label>
                 <input
@@ -222,25 +222,25 @@ export const CheckoutPage: React.FC = () => {
                   required
                   value={addressLine1}
                   onChange={(e) => setAddressLine1(e.target.value)}
-                  className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                  className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                   Address Line 2 (Landmark, Area, Sector)
                 </label>
                 <input
                   type="text"
                   value={addressLine2}
                   onChange={(e) => setAddressLine2(e.target.value)}
-                  className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                  className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     City *
                   </label>
                   <input
@@ -248,12 +248,12 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     State *
                   </label>
                   <input
@@ -261,12 +261,12 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     PIN Code *
                   </label>
                   <input
@@ -275,15 +275,15 @@ export const CheckoutPage: React.FC = () => {
                     maxLength={6}
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
               </div>
             </div>
 
             {/* Step 3: Payment Options */}
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#F6F4EE] font-bold pb-2 border-b border-white/10">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
                 <span className="w-5 h-5 rounded-full bg-[#FF5E1E] text-white flex items-center justify-center text-[10px] font-mono-tech">
                   3
                 </span>
@@ -296,14 +296,14 @@ export const CheckoutPage: React.FC = () => {
                   onClick={() => setPaymentMethod('razorpay')}
                   className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
                     paymentMethod === 'razorpay'
-                      ? 'bg-[#161C28] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                      : 'bg-[#0B0E14] border-white/10 text-[#8E98A8] hover:border-white/20'
+                      ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
+                      : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <CreditCard size={18} className="text-[#FF5E1E]" />
-                      <span className="text-xs font-bold font-mono-tech text-[#F6F4EE]">
+                      <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">
                         Razorpay Secure
                       </span>
                     </div>
@@ -311,7 +311,7 @@ export const CheckoutPage: React.FC = () => {
                       className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                         paymentMethod === 'razorpay'
                           ? 'border-[#FF5E1E] bg-[#FF5E1E]'
-                          : 'border-white/30'
+                          : 'border-[#E4C3A5]'
                       }`}
                     >
                       {paymentMethod === 'razorpay' && (
@@ -319,7 +319,7 @@ export const CheckoutPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <p className="text-[11px] text-[#8E98A8] font-light">
+                  <p className="text-[11px] text-[#8A6A54] font-light">
                     UPI (GPay / PhonePe / Paytm), Credit / Debit Cards, Netbanking.
                   </p>
                 </label>
@@ -329,14 +329,14 @@ export const CheckoutPage: React.FC = () => {
                   onClick={() => setPaymentMethod('cod')}
                   className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
                     paymentMethod === 'cod'
-                      ? 'bg-[#161C28] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                      : 'bg-[#0B0E14] border-white/10 text-[#8E98A8] hover:border-white/20'
+                      ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
+                      : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <Banknote size={18} className="text-[#FF5E1E]" />
-                      <span className="text-xs font-bold font-mono-tech text-[#F6F4EE]">
+                      <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">
                         Cash on Delivery
                       </span>
                     </div>
@@ -344,7 +344,7 @@ export const CheckoutPage: React.FC = () => {
                       className={`w-4 h-4 rounded-full border flex items-center justify-center ${
                         paymentMethod === 'cod'
                           ? 'border-[#FF5E1E] bg-[#FF5E1E]'
-                          : 'border-white/30'
+                          : 'border-[#E4C3A5]'
                       }`}
                     >
                       {paymentMethod === 'cod' && (
@@ -352,7 +352,7 @@ export const CheckoutPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <p className="text-[11px] text-[#8E98A8] font-light">
+                  <p className="text-[11px] text-[#8A6A54] font-light">
                     Pay cash upon delivery to the Blue Dart express courier.
                   </p>
                 </label>
@@ -362,8 +362,8 @@ export const CheckoutPage: React.FC = () => {
 
           {/* Right Column: Order Summary, Trust Badges, Submit */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 backdrop-blur-xl">
-              <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#F6F4EE] font-bold pb-3 border-b border-white/10">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 backdrop-blur-xl">
+              <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold pb-3 border-b border-[#F0D3B8]">
                 Order Summary
               </h3>
 
@@ -371,7 +371,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-4">
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-3.5 items-center">
-                    <div className="w-12 h-14 bg-[#161C28] rounded-xl p-1.5 flex flex-col items-center justify-between text-[#F6F4EE] shrink-0 border border-white/10 shadow-inner">
+                    <div className="w-12 h-14 bg-[#FFF1E6] rounded-xl p-1.5 flex flex-col items-center justify-between text-[#2A1A12] shrink-0 border border-[#F0D3B8] shadow-inner">
                       <div className="w-full flex justify-around">
                         <div className="w-1.5 h-1.5 rounded-full bg-[#FF5E1E]"></div>
                         <div className="w-1.5 h-1.5 rounded-full bg-[#FF7A00]"></div>
@@ -382,15 +382,15 @@ export const CheckoutPage: React.FC = () => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-[#F6F4EE] font-mono-tech truncate">
+                      <div className="text-xs font-bold text-[#2A1A12] font-mono-tech truncate">
                         {item.name}
                       </div>
-                      <div className="text-[11px] text-[#8E98A8]">
+                      <div className="text-[11px] text-[#8A6A54]">
                         Qty: {item.quantity} × ₹{item.price.toLocaleString()}
                       </div>
                     </div>
 
-                    <div className="text-xs font-bold font-mono-tech text-[#F6F4EE]">
+                    <div className="text-xs font-bold font-mono-tech text-[#2A1A12]">
                       ₹{(item.price * item.quantity).toLocaleString()}
                     </div>
                   </div>
@@ -398,20 +398,20 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               {/* Calculation Breakdown */}
-              <div className="space-y-2 pt-4 border-t border-white/10 text-xs font-mono-tech">
-                <div className="flex justify-between text-[#8E98A8]">
+              <div className="space-y-2 pt-4 border-t border-[#F0D3B8] text-xs font-mono-tech">
+                <div className="flex justify-between text-[#8A6A54]">
                   <span>Subtotal</span>
-                  <span className="text-[#F6F4EE]">₹{subtotal.toLocaleString()}</span>
+                  <span className="text-[#2A1A12]">₹{subtotal.toLocaleString()}</span>
                 </div>
 
-                <div className="flex justify-between text-[#8E98A8]">
+                <div className="flex justify-between text-[#8A6A54]">
                   <span>Insured Express Shipping</span>
-                  <span className="text-emerald-400 font-bold uppercase text-[11px]">Free</span>
+                  <span className="text-emerald-600 font-bold uppercase text-[11px]">Free</span>
                 </div>
 
-                <div className="flex justify-between text-base font-bold pt-3 border-t border-white/10 text-[#F6F4EE]">
+                <div className="flex justify-between text-base font-bold pt-3 border-t border-[#F0D3B8] text-[#2A1A12]">
                   <span>Total Amount</span>
-                  <span className="text-xl font-extrabold text-[#F6F4EE]">
+                  <span className="text-xl font-extrabold text-[#2A1A12]">
                     ₹{total.toLocaleString()}
                   </span>
                 </div>
@@ -434,8 +434,8 @@ export const CheckoutPage: React.FC = () => {
               </button>
 
               {/* Delivery Assurance */}
-              <div className="p-4 bg-[#0B0E14] rounded-2xl border border-white/10 text-[11px] text-[#8E98A8] space-y-1 font-mono-tech">
-                <div className="flex items-center gap-2 text-[#F6F4EE] font-medium">
+              <div className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] text-[11px] text-[#8A6A54] space-y-1 font-mono-tech">
+                <div className="flex items-center gap-2 text-[#2A1A12] font-medium">
                   <Truck size={14} className="text-[#FF5E1E]" />
                   <span>Estimated Arrival: 2 - 4 Business Days</span>
                 </div>
@@ -451,22 +451,22 @@ export const CheckoutPage: React.FC = () => {
       {/* RAZORPAY MODAL POPUP SIMULATOR */}
       {isRazorpayModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="bg-[#0B0E14] border border-[#FF5E1E]/40 rounded-3xl p-8 max-w-sm w-full text-center space-y-4 shadow-2xl glow-neon-subtle animate-in zoom-in-95 duration-150">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#161C28] border border-[#FF5E1E]/30 flex items-center justify-center text-[#FF5E1E] glow-neon-subtle">
+          <div className="bg-white border border-[#FF5E1E]/40 rounded-3xl p-8 max-w-sm w-full text-center space-y-4 shadow-2xl glow-neon-subtle animate-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#FF7A00] to-[#FF4500] border border-[#FF5E1E]/30 flex items-center justify-center text-white shadow-lg shadow-[#FF5E1E]/30">
               <Lock size={22} className="animate-pulse" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-bold font-mono-tech text-[#F6F4EE]">
+              <h3 className="text-base font-bold font-mono-tech text-[#2A1A12]">
                 Razorpay Checkout Gateway
               </h3>
-              <p className="text-xs text-[#8E98A8] font-mono-tech">
+              <p className="text-xs text-[#8A6A54] font-mono-tech">
                 Verifying token for ₹{total.toLocaleString()} INR...
               </p>
             </div>
-            <div className="w-full bg-[#121722] h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-[#F5E3D2] h-2 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#FF7A00] to-[#FF4500] animate-pulse w-3/4 rounded-full" />
             </div>
-            <div className="text-[11px] text-[#8E98A8] font-mono-tech">
+            <div className="text-[11px] text-[#8A6A54] font-mono-tech">
               Connecting to secure bank servers...
             </div>
           </div>

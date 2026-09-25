@@ -175,22 +175,22 @@ export const SoundDemoSection: React.FC = () => {
   };
 
   return (
-    <section id="demo" className="py-28 bg-[#0B0E14] border-t border-white/10 relative overflow-hidden">
+    <section id="demo" className="py-28 bg-[#FFF8F1] border-t border-[#F0D3B8] relative overflow-hidden">
       {/* Background ambient glow */}
-      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+      <div className="absolute top-1/3 right-10 w-[500px] h-[500px] bg-[#FF5E1E]/10 blur-[160px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#121722] border border-[#FF5E1E]/30 rounded-full text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E] shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-[#FF5E1E]/30 rounded-full text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E] shadow-sm">
             <Zap size={13} className="text-[#FF5E1E]" />
             Live Tone Test Bench
           </div>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-editorial font-normal tracking-tight text-[#F6F4EE]">
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-editorial font-normal tracking-tight text-[#2A1A12]">
             Hear The Real Difference
           </h2>
-          <p className="text-sm sm:text-base text-[#8E98A8] font-light leading-relaxed">
+          <p className="text-sm sm:text-base text-[#8A6A54] font-light leading-relaxed">
             Listen to clean bypass tone vs. the rich analog saturation of the Neon Fuzz Box. Adjust potentiometers live to hear the diode stage clip.
           </p>
         </div>
@@ -202,12 +202,12 @@ export const SoundDemoSection: React.FC = () => {
           <div className="lg:col-span-5 space-y-6">
             
             {/* Presets List */}
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 shadow-xl space-y-4 backdrop-blur-xl">
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                <span className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#F6F4EE] font-bold">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 shadow-xl space-y-4 backdrop-blur-xl">
+              <div className="flex items-center justify-between pb-3 border-b border-[#F0D3B8]">
+                <span className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold">
                   Preset Riffs
                 </span>
-                <span className="text-[11px] font-mono-tech text-[#8E98A8]">
+                <span className="text-[11px] font-mono-tech text-[#8A6A54]">
                   Click to Audition
                 </span>
               </div>
@@ -221,19 +221,19 @@ export const SoundDemoSection: React.FC = () => {
                       onClick={() => handleSelectPreset(preset)}
                       className={`w-full p-4 rounded-2xl text-left transition-all border cursor-pointer ${
                         isActive
-                          ? 'bg-[#161C28] border-[#FF5E1E] text-[#F6F4EE] shadow-lg shadow-[#FF5E1E]/15 glow-neon-subtle'
-                          : 'bg-[#0E131C]/60 border-white/5 text-[#8E98A8] hover:text-[#F6F4EE] hover:bg-[#161C28]/60 hover:border-white/10'
+                          ? 'bg-white border-[#FF5E1E] text-[#2A1A12] shadow-lg shadow-[#FF5E1E]/15 glow-neon-subtle'
+                          : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:text-[#2A1A12] hover:bg-[#FFE8D3] hover:border-[#F0D3B8]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className={`text-sm font-mono-tech font-bold ${isActive ? 'text-[#FF5E1E]' : 'text-[#F6F4EE]'}`}>
+                        <span className={`text-sm font-mono-tech font-bold ${isActive ? 'text-[#FF5E1E]' : 'text-[#2A1A12]'}`}>
                           {preset.name}
                         </span>
-                        <span className="text-[10px] font-mono-tech text-[#8E98A8] px-2 py-0.5 rounded-full bg-[#0B0E14] border border-white/5">
+                        <span className="text-[10px] font-mono-tech text-[#8A6A54] px-2 py-0.5 rounded-full bg-[#FFF1E6] border border-[#F0D3B8]">
                           {preset.style}
                         </span>
                       </div>
-                      <p className="text-xs text-[#8E98A8] line-clamp-1 mt-1.5 font-light">
+                      <p className="text-xs text-[#8A6A54] line-clamp-1 mt-1.5 font-light">
                         {preset.description}
                       </p>
                     </button>
@@ -243,9 +243,9 @@ export const SoundDemoSection: React.FC = () => {
             </div>
 
             {/* Live Circuit Knobs (GAIN, TONE, VOL) */}
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 shadow-xl space-y-6 backdrop-blur-xl">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 shadow-xl space-y-6 backdrop-blur-xl">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#F6F4EE] font-bold flex items-center gap-2">
+                <span className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold flex items-center gap-2">
                   <Sliders size={14} className="text-[#FF5E1E]" />
                   Analog Potentiometers
                 </span>
@@ -257,7 +257,7 @@ export const SoundDemoSection: React.FC = () => {
               {/* GAIN Slider */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-mono-tech">
-                  <span className="font-semibold text-[#F6F4EE] flex items-center gap-2">
+                  <span className="font-semibold text-[#2A1A12] flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#FF5E1E] shadow-[0_0_6px_#FF5E1E]" />
                     GAIN (Saturation)
                   </span>
@@ -270,14 +270,14 @@ export const SoundDemoSection: React.FC = () => {
                   value={gain}
                   onChange={(e) => setGain(Number(e.target.value))}
                   disabled={isBypassed}
-                  className="w-full h-2 bg-[#0B0E14] rounded-full appearance-none cursor-pointer accent-[#FF5E1E] disabled:opacity-30"
+                  className="w-full h-2 bg-[#FFF1E6] rounded-full appearance-none cursor-pointer accent-[#FF5E1E] disabled:opacity-30"
                 />
               </div>
 
               {/* TONE Slider */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-mono-tech">
-                  <span className="font-semibold text-[#F6F4EE] flex items-center gap-2">
+                  <span className="font-semibold text-[#2A1A12] flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
                     TONE (Harmonic Cutoff)
                   </span>
@@ -290,14 +290,14 @@ export const SoundDemoSection: React.FC = () => {
                   value={tone}
                   onChange={(e) => setTone(Number(e.target.value))}
                   disabled={isBypassed}
-                  className="w-full h-2 bg-[#0B0E14] rounded-full appearance-none cursor-pointer accent-amber-400 disabled:opacity-30"
+                  className="w-full h-2 bg-[#FFF1E6] rounded-full appearance-none cursor-pointer accent-amber-400 disabled:opacity-30"
                 />
               </div>
 
               {/* VOL Slider */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-mono-tech">
-                  <span className="font-semibold text-[#F6F4EE] flex items-center gap-2">
+                  <span className="font-semibold text-[#2A1A12] flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#FF7A00]" />
                     VOLUME (Master Output)
                   </span>
@@ -309,43 +309,43 @@ export const SoundDemoSection: React.FC = () => {
                   max="100"
                   value={volume}
                   onChange={(e) => setVolume(Number(e.target.value))}
-                  className="w-full h-2 bg-[#0B0E14] rounded-full appearance-none cursor-pointer accent-[#FF7A00]"
+                  className="w-full h-2 bg-[#FFF1E6] rounded-full appearance-none cursor-pointer accent-[#FF7A00]"
                 />
               </div>
             </div>
           </div>
 
           {/* Right Column: Oscilloscope Visualizer & A/B Bypass Switch */}
-          <div className="lg:col-span-7 bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-8 backdrop-blur-xl">
+          <div className="lg:col-span-7 bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-8 backdrop-blur-xl">
             
             {/* A/B Switch Banner */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-[#0B0E14] rounded-2xl border border-white/10">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8]">
               <div className="flex items-center gap-3.5">
                 <div
                   className={`w-4 h-4 rounded-full transition-all duration-300 ${
                     !isBypassed
                       ? 'bg-[#FF5E1E] shadow-[0_0_12px_#FF5E1E]'
-                      : 'bg-zinc-700'
+                      : 'bg-[#E4C3A5]'
                   }`}
                 />
                 <div>
-                  <div className="text-xs font-mono-tech text-[#8E98A8] uppercase tracking-widest">
+                  <div className="text-xs font-mono-tech text-[#8A6A54] uppercase tracking-widest">
                     Signal Circuit Path
                   </div>
-                  <div className="text-sm font-mono-tech font-bold text-[#F6F4EE]">
+                  <div className="text-sm font-mono-tech font-bold text-[#2A1A12]">
                     {!isBypassed ? 'Neon Fuzz Engaged (Diode Saturated)' : '3PDT True-Bypass Clean Guitar'}
                   </div>
                 </div>
               </div>
 
               {/* Toggle Switch */}
-              <div className="flex p-1 bg-[#161C28] rounded-full border border-white/10">
+              <div className="flex p-1 bg-white rounded-full border border-[#F0D3B8]">
                 <button
                   onClick={() => setIsBypassed(true)}
                   className={`px-4 py-1.5 text-xs font-mono-tech font-bold uppercase rounded-full transition-all cursor-pointer ${
                     isBypassed
-                      ? 'bg-[#0B0E14] text-[#F6F4EE] border border-white/15 shadow-sm'
-                      : 'text-[#8E98A8] hover:text-[#F6F4EE]'
+                      ? 'bg-[#FFF1E6] text-[#2A1A12] border border-[#F0D3B8] shadow-sm'
+                      : 'text-[#8A6A54] hover:text-[#2A1A12]'
                   }`}
                 >
                   Clean / Bypass
@@ -355,7 +355,7 @@ export const SoundDemoSection: React.FC = () => {
                   className={`px-4 py-1.5 text-xs font-mono-tech font-bold uppercase rounded-full transition-all cursor-pointer ${
                     !isBypassed
                       ? 'bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white shadow-md glow-neon-subtle'
-                      : 'text-[#8E98A8] hover:text-[#F6F4EE]'
+                      : 'text-[#8A6A54] hover:text-[#2A1A12]'
                   }`}
                 >
                   Fuzz On
@@ -364,7 +364,7 @@ export const SoundDemoSection: React.FC = () => {
             </div>
 
             {/* Simulated Vintage Cathode Oscilloscope */}
-            <div className="h-64 sm:h-72 bg-[#080B0F] rounded-2xl border border-white/15 p-5 relative overflow-hidden flex flex-col justify-between shadow-inner">
+            <div className="h-64 sm:h-72 bg-[#080B0F] rounded-2xl border border-[#F0D3B8] p-5 relative overflow-hidden flex flex-col justify-between shadow-inner">
               
               {/* Cathode Grid background */}
               <div
@@ -377,10 +377,10 @@ export const SoundDemoSection: React.FC = () => {
               />
 
               {/* Screen Top Details */}
-              <div className="relative z-10 flex justify-between text-[11px] font-mono-tech text-[#8E98A8]">
+              <div className="relative z-10 flex justify-between text-[11px] font-mono-tech text-[#8A6A54]">
                 <span>BENCH ANALYZER • CH1</span>
-                <span className={isPlaying ? 'text-[#FF5E1E] font-bold flex items-center gap-1.5' : 'text-zinc-600'}>
-                  <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-[#FF5E1E] animate-ping' : 'bg-zinc-700'}`} />
+                <span className={isPlaying ? 'text-[#FF5E1E] font-bold flex items-center gap-1.5' : 'text-[#C4A488]'}>
+                  <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-[#FF5E1E] animate-ping' : 'bg-[#E4C3A5]'}`} />
                   {isPlaying ? 'REAL-TIME WAVEFORM' : 'STANDBY'}
                 </span>
                 <span>44.1 kHz / DSP</span>
@@ -398,7 +398,7 @@ export const SoundDemoSection: React.FC = () => {
                         : 'M 0 60 Q 30 5, 60 60 T 120 60 T 180 60 T 240 60 T 300 60 T 360 60 T 420 60 T 480 60 T 540 60 T 600 60 T 660 60 T 720 60 T 780 60 T 840 60 T 900 60 T 960 60 T 1000 60'
                     }
                     fill="none"
-                    stroke={isBypassed ? '#8E98A8' : '#FF5E1E'}
+                    stroke={isBypassed ? '#C09A7A' : '#FF5E1E'}
                     strokeWidth={isBypassed ? '2' : '3.5'}
                     strokeLinecap="round"
                     className="transition-all duration-200"
@@ -413,7 +413,7 @@ export const SoundDemoSection: React.FC = () => {
               </div>
 
               {/* Bottom Screen Readout */}
-              <div className="relative z-10 flex justify-between items-center text-[10px] font-mono-tech text-[#8E98A8] pt-2 border-t border-white/10">
+              <div className="relative z-10 flex justify-between items-center text-[10px] font-mono-tech text-[#8A6A54] pt-2 border-t border-[#F0D3B8]">
                 <span>PRESET: {activePreset.name.toUpperCase()}</span>
                 <span>
                   GAIN: {gain}% | TONE: {tone}% | VOL: {volume}%
@@ -446,13 +446,13 @@ export const SoundDemoSection: React.FC = () => {
 
                 <button
                   onClick={() => setIsBypassed(!isBypassed)}
-                  className="px-5 py-3.5 bg-[#0B0E14] hover:bg-[#161C28] text-[#F6F4EE] border border-white/15 rounded-full text-xs font-mono-tech font-bold uppercase transition-colors cursor-pointer"
+                  className="px-5 py-3.5 bg-[#FFF1E6] hover:bg-white text-[#2A1A12] border border-[#F0D3B8] rounded-full text-xs font-mono-tech font-bold uppercase transition-colors cursor-pointer"
                 >
                   {isBypassed ? 'Engage Fuzz' : 'Bypass'}
                 </button>
               </div>
 
-              <div className="text-xs font-mono-tech text-[#8E98A8] flex items-center gap-2">
+              <div className="text-xs font-mono-tech text-[#8A6A54] flex items-center gap-2">
                 <Volume2 size={15} className="text-[#FF5E1E]" />
                 <span>Web Audio API analog diode synthesis</span>
               </div>

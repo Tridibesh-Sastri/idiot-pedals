@@ -11,7 +11,7 @@ export const IdiotPedalsLogo: React.FC<LogoProps> = ({
   variant = 'dark',
   size = 'md',
 }) => {
-  const idiotColor = variant === 'light' ? '#0B0E14' : '#F6F4EE';
+  const idiotColor = variant === 'light' ? '#2A1A12' : '#F6F4EE';
   const pedalsColor = '#FF5E1E';
 
   const sizeClasses = {
@@ -23,7 +23,10 @@ export const IdiotPedalsLogo: React.FC<LogoProps> = ({
 
   return (
     <div className={`inline-flex items-center gap-1.5 select-none ${sizeClasses[size]} ${className}`}>
-      <span className="font-editorial text-2xl font-bold tracking-tight text-[#F6F4EE] uppercase leading-none">
+      <span
+        className="font-editorial text-2xl font-bold tracking-tight uppercase leading-none"
+        style={{ color: idiotColor }}
+      >
         IDIOT
       </span>
       <span className="font-script text-2xl font-bold italic text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF4500] leading-none">

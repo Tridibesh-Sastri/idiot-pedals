@@ -18,9 +18,9 @@ export const Specifications: React.FC = () => {
   ];
 
   return (
-    <section id="specs" className="py-28 bg-[#0B0E14] border-t border-white/10 relative overflow-hidden">
+    <section id="specs" className="py-28 bg-[#FFF8F1] border-t border-[#F0D3B8] relative overflow-hidden">
       {/* Background bloom */}
-      <div className="absolute bottom-10 left-1/3 w-[500px] h-[300px] bg-[#FF5E1E]/5 blur-[150px] pointer-events-none rounded-full" />
+      <div className="absolute bottom-10 left-1/3 w-[500px] h-[300px] bg-[#FF5E1E]/10 blur-[150px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
@@ -28,10 +28,10 @@ export const Specifications: React.FC = () => {
           <span className="text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E] font-bold block">
             Technical Data Sheet
           </span>
-          <h2 className="text-3xl sm:text-5xl font-editorial font-normal tracking-tight text-[#F6F4EE]">
+          <h2 className="text-3xl sm:text-5xl font-editorial font-normal tracking-tight text-[#2A1A12]">
             Hardware Specifications
           </h2>
-          <p className="text-xs sm:text-sm text-[#8E98A8] font-light leading-relaxed">
+          <p className="text-xs sm:text-sm text-[#8A6A54] font-light leading-relaxed">
             Every component specified for low noise, reliable road performance, and consistent musical harmonic response.
           </p>
         </div>
@@ -42,16 +42,16 @@ export const Specifications: React.FC = () => {
             return (
               <div
                 key={i}
-                className="p-5 bg-[#121722]/80 border border-white/10 rounded-2xl flex items-start gap-4 backdrop-blur-xl hover:border-[#FF5E1E]/40 transition-colors"
+                className="p-5 bg-white border border-[#F0D3B8] rounded-2xl flex items-start gap-4 shadow-[0_8px_40px_-20px_rgba(255,94,30,0.3)] hover:border-[#FF5E1E]/50 transition-colors"
               >
-                <div className="p-2.5 rounded-xl bg-[#161C28] text-[#FF5E1E] shrink-0 border border-white/10 glow-neon-subtle">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#FF7A00] to-[#FF4500] text-white shrink-0 border border-[#FF5E1E]/30 shadow-lg shadow-[#FF5E1E]/30">
                   <Icon size={18} />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono-tech text-[#8E98A8] uppercase tracking-wider block">
+                  <span className="text-[11px] font-mono-tech text-[#8A6A54] uppercase tracking-wider block">
                     {spec.label}
                   </span>
-                  <span className="text-xs sm:text-sm font-semibold text-[#F6F4EE] font-mono-tech">
+                  <span className="text-xs sm:text-sm font-semibold text-[#2A1A12] font-mono-tech">
                     {spec.value}
                   </span>
                 </div>

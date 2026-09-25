@@ -44,21 +44,21 @@ export const ContactPage: React.FC = () => {
   ];
 
   return (
-    <div className="bg-[#0B0E14] text-[#F6F4EE] pt-28 pb-20 overflow-hidden relative">
+    <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 overflow-hidden relative">
       {/* Background glow */}
-      <div className="absolute top-20 right-1/4 w-[600px] h-[400px] bg-[#FF5E1E]/5 blur-[160px] pointer-events-none rounded-full" />
+      <div className="absolute top-20 right-1/4 w-[600px] h-[400px] bg-[#FF5E1E]/10 blur-[160px] pointer-events-none rounded-full" />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16 relative z-10">
         
         {/* Header */}
         <div className="text-center space-y-4 pt-6">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#121722] border border-[#FF5E1E]/30 rounded-full text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E]">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-[#FF5E1E]/30 rounded-full text-xs font-mono-tech uppercase tracking-[0.25em] text-[#FF5E1E] shadow-sm">
             Workshop Direct Support
           </div>
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-editorial font-normal tracking-tight uppercase">
             Talk To The Builders
           </h1>
-          <p className="text-xs sm:text-base text-[#8E98A8] font-light max-w-xl mx-auto leading-relaxed">
+          <p className="text-xs sm:text-base text-[#8A6A54] font-light max-w-xl mx-auto leading-relaxed">
             Got a question about rig compatibility, custom orders, or your shipment? We answer every message directly from our Burdwan workbench.
           </p>
         </div>
@@ -67,48 +67,48 @@ export const ContactPage: React.FC = () => {
           
           {/* Contact Details & Info */}
           <div className="lg:col-span-5 space-y-8">
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 backdrop-blur-xl">
-              <h3 className="text-2xl font-editorial font-bold text-[#F6F4EE]">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 space-y-6 backdrop-blur-xl">
+              <h3 className="text-2xl font-editorial font-bold text-[#2A1A12]">
                 Workbench Headquarters
               </h3>
 
               <div className="space-y-4 text-xs sm:text-sm font-mono-tech">
                 <div className="flex items-start gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-[#161C28] text-[#FF5E1E] shrink-0 border border-white/10 glow-neon-subtle">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#FF7A00] to-[#FF4500] text-white shrink-0 border border-[#FF5E1E]/30 shadow-lg shadow-[#FF5E1E]/30">
                     <MapPin size={16} />
                   </div>
                   <div>
-                    <div className="font-bold text-[#F6F4EE]">Burdwan Workshop</div>
-                    <div className="text-[#8E98A8] text-xs pt-0.5">
+                    <div className="font-bold text-[#2A1A12]">Burdwan Workshop</div>
+                    <div className="text-[#8A6A54] text-xs pt-0.5">
                       IDIOT Pedals Audio Labs, Grand Trunk Road Sector, Burdwan, West Bengal 713101, India
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-[#161C28] text-[#FF5E1E] shrink-0 border border-white/10 glow-neon-subtle">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#FF7A00] to-[#FF4500] text-white shrink-0 border border-[#FF5E1E]/30 shadow-lg shadow-[#FF5E1E]/30">
                     <Mail size={16} />
                   </div>
                   <div>
-                    <div className="font-bold text-[#F6F4EE]">Email Dispatch</div>
-                    <div className="text-[#8E98A8] text-xs pt-0.5">workbench@idiotpedals.com</div>
+                    <div className="font-bold text-[#2A1A12]">Email Dispatch</div>
+                    <div className="text-[#8A6A54] text-xs pt-0.5">workbench@idiotpedals.com</div>
                     <div className="text-[11px] text-[#FF5E1E]/80 pt-0.5">Typical response within 2 hours</div>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3.5">
-                  <div className="p-2.5 rounded-xl bg-[#161C28] text-[#FF5E1E] shrink-0 border border-white/10 glow-neon-subtle">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#FF7A00] to-[#FF4500] text-white shrink-0 border border-[#FF5E1E]/30 shadow-lg shadow-[#FF5E1E]/30">
                     <Phone size={16} />
                   </div>
                   <div>
-                    <div className="font-bold text-[#F6F4EE]">Phone & WhatsApp</div>
-                    <div className="text-[#8E98A8] text-xs pt-0.5">+91 98301 23456</div>
-                    <div className="text-[11px] text-[#8E98A8]/70 pt-0.5">Mon – Sat, 10:00 AM to 7:00 PM IST</div>
+                    <div className="font-bold text-[#2A1A12]">Phone & WhatsApp</div>
+                    <div className="text-[#8A6A54] text-xs pt-0.5">+91 98301 23456</div>
+                    <div className="text-[11px] text-[#8A6A54]/70 pt-0.5">Mon – Sat, 10:00 AM to 7:00 PM IST</div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 bg-[#0B0E14] border border-white/10 rounded-2xl flex items-center gap-3 text-xs font-mono-tech text-[#8E98A8]">
+              <div className="p-4 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl flex items-center gap-3 text-xs font-mono-tech text-[#8A6A54]">
                 <ShieldCheck size={18} className="text-[#FF5E1E] shrink-0" />
                 <span>All pedals covered by 1-Year Comprehensive Bench Warranty.</span>
               </div>
@@ -116,19 +116,19 @@ export const ContactPage: React.FC = () => {
           </div>
 
           {/* Contact Form */}
-          <div className="lg:col-span-7 bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
+          <div className="lg:col-span-7 bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
             {submitted ? (
               <div className="text-center py-12 space-y-4">
-                <CheckCircle2 size={48} className="text-emerald-400 mx-auto" />
-                <h3 className="text-2xl sm:text-3xl font-editorial font-bold text-[#F6F4EE]">
+                <CheckCircle2 size={48} className="text-emerald-600 mx-auto" />
+                <h3 className="text-2xl sm:text-3xl font-editorial font-bold text-[#2A1A12]">
                   Message Logged On Our Bench
                 </h3>
-                <p className="text-xs sm:text-sm text-[#8E98A8] max-w-md mx-auto font-light">
+                <p className="text-xs sm:text-sm text-[#8A6A54] max-w-md mx-auto font-light">
                   Thank you, {name}. A member of our engineering team has received your ticket and will write back to {email} shortly.
                 </p>
                 <button
                   onClick={() => setSubmitted(false)}
-                  className="px-6 py-3 bg-[#161C28] border border-white/15 text-xs font-mono-tech text-[#F6F4EE] rounded-full uppercase hover:border-[#FF5E1E] cursor-pointer"
+                  className="px-6 py-3 bg-[#FFF1E6] border border-[#F0D3B8] text-xs font-mono-tech text-[#2A1A12] rounded-full uppercase hover:border-[#FF5E1E] cursor-pointer"
                 >
                   Send Another Inquiry
                 </button>
@@ -136,17 +136,17 @@ export const ContactPage: React.FC = () => {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-1">
-                  <h3 className="text-2xl font-editorial font-bold text-[#F6F4EE]">
+                  <h3 className="text-2xl font-editorial font-bold text-[#2A1A12]">
                     Direct Ticket Submission
                   </h3>
-                  <p className="text-xs text-[#8E98A8] font-light">
+                  <p className="text-xs text-[#8A6A54] font-light">
                     Leave your notes, rig setup questions, or order feedback below.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                    <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                       Your Name *
                     </label>
                     <input
@@ -155,12 +155,12 @@ export const ContactPage: React.FC = () => {
                       placeholder="e.g. Rahul Sharma"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                      className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                    <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                       Email Address *
                     </label>
                     <input
@@ -169,19 +169,19 @@ export const ContactPage: React.FC = () => {
                       placeholder="guitarist@gmail.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                      className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Inquiry Subject
                   </label>
                   <select
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-full px-4 py-3 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   >
                     <option value="technical">Circuit Compatibility & Rig Troubleshooting</option>
                     <option value="order">Order Tracking & Shipping Inquiry</option>
@@ -191,7 +191,7 @@ export const ContactPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8E98A8] tracking-wider block">
+                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Message *
                   </label>
                   <textarea
@@ -200,7 +200,7 @@ export const ContactPage: React.FC = () => {
                     placeholder="Tell us what guitar/amp you play, or any questions about the Neon Fuzz Box..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full bg-[#0B0E14] border border-white/15 rounded-2xl p-4 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl p-4 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
 
@@ -220,22 +220,22 @@ export const ContactPage: React.FC = () => {
         {/* FAQs */}
         <div id="warranty" className="space-y-8 pt-8">
           <div className="text-center space-y-2">
-            <h3 className="text-2xl sm:text-4xl font-editorial font-normal text-[#F6F4EE]">
+            <h3 className="text-2xl sm:text-4xl font-editorial font-normal text-[#2A1A12]">
               Frequently Asked Questions
             </h3>
-            <p className="text-xs text-[#8E98A8] font-mono-tech">
+            <p className="text-xs text-[#8A6A54] font-mono-tech">
               Quick answers regarding power, signal chain, and our 1-year warranty.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {faqs.map((faq, i) => (
-              <div key={i} className="p-6 bg-[#121722]/80 border border-white/10 rounded-2xl space-y-2 backdrop-blur-xl">
-                <div className="font-bold text-xs sm:text-sm text-[#F6F4EE] flex items-center gap-2 font-mono-tech">
+              <div key={i} className="p-6 bg-white border border-[#F0D3B8] rounded-2xl space-y-2 backdrop-blur-xl">
+                <div className="font-bold text-xs sm:text-sm text-[#2A1A12] flex items-center gap-2 font-mono-tech">
                   <HelpCircle size={15} className="text-[#FF5E1E] shrink-0" />
                   <span>{faq.q}</span>
                 </div>
-                <p className="text-xs text-[#8E98A8] leading-relaxed pl-6 font-light">{faq.a}</p>
+                <p className="text-xs text-[#8A6A54] leading-relaxed pl-6 font-light">{faq.a}</p>
               </div>
             ))}
           </div>

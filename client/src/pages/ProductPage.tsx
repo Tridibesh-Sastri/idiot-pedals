@@ -71,10 +71,10 @@ export const ProductPage: React.FC = () => {
   ];
 
   return (
-    <div className="bg-[#0B0E14] text-[#F6F4EE] pt-28 pb-20 overflow-hidden">
+    <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 overflow-hidden">
       
       {/* Background ambient lighting */}
-      <div className="absolute top-20 right-10 w-[600px] h-[600px] bg-[#FF5E1E]/5 blur-[170px] pointer-events-none rounded-full" />
+      <div className="absolute top-20 right-10 w-[600px] h-[600px] bg-[#FF5E1E]/10 blur-[170px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
@@ -83,11 +83,11 @@ export const ProductPage: React.FC = () => {
           
           {/* Left Column: Visual Showcase Card */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-[#121722]/80 border border-white/10 rounded-3xl p-6 sm:p-10 flex flex-col items-center justify-center relative shadow-2xl min-h-[500px] backdrop-blur-xl glow-neon-subtle">
+            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-10 flex flex-col items-center justify-center relative shadow-2xl min-h-[500px] backdrop-blur-xl glow-neon-subtle">
               
               {/* Authentic Physical Pedal Enclosure Card */}
               <div className="relative my-4">
-                <div className="w-60 sm:w-72 bg-[#161C28] text-[#F6F4EE] rounded-3xl p-6 shadow-2xl border border-white/15 flex flex-col justify-between h-[420px] select-none relative">
+                <div className="w-60 sm:w-72 bg-[#161C28] text-[#F6F4EE] rounded-3xl p-6 shadow-2xl border border-[#F0D3B8] flex flex-col justify-between h-[420px] select-none relative">
                   
                   {/* Screws */}
                   <div className="absolute top-3 left-3 w-2 h-2 rounded-full bg-zinc-600 border border-zinc-400" />
@@ -130,24 +130,24 @@ export const ProductPage: React.FC = () => {
 
                   {/* Brand Typography Center */}
                   <div className="text-center my-auto flex flex-col items-center justify-center">
-                    <div className="text-4xl sm:text-5xl font-editorial font-black tracking-wider text-[#F6F4EE] leading-none uppercase">
+                    <div className="text-4xl sm:text-5xl font-editorial font-black tracking-wider text-[#2A1A12] leading-none uppercase">
                       IDIOT
                     </div>
                     <div className="text-3xl sm:text-4xl font-script font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF4500] -mt-1 -rotate-4 tracking-wide">
                       Pedals
                     </div>
-                    <div className="text-[8px] font-mono-tech font-bold tracking-[0.25em] text-[#8E98A8] uppercase mt-1">
+                    <div className="text-[8px] font-mono-tech font-bold tracking-[0.25em] text-[#8A6A54] uppercase mt-1">
                       NEON FUZZ BOX
                     </div>
                   </div>
 
                   {/* LED & Switch Bottom */}
-                  <div className="flex items-center justify-between px-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between px-2 pt-2 border-t border-[#F0D3B8]">
                     <div className="flex flex-col items-center gap-1">
                       <div className="w-4 h-4 rounded-full bg-[#FF5E1E] shadow-[0_0_16px_#FF5E1E] border border-red-950 relative">
                         <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-white rounded-full opacity-90" />
                       </div>
-                      <span className="text-[7px] font-mono-tech font-bold text-[#8E98A8] uppercase">
+                      <span className="text-[7px] font-mono-tech font-bold text-[#8A6A54] uppercase">
                         ACTIVE
                       </span>
                     </div>
@@ -163,7 +163,7 @@ export const ProductPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-center text-xs text-[#8E98A8] font-mono-tech uppercase tracking-widest mt-4">
+              <div className="text-center text-xs text-[#8A6A54] font-mono-tech uppercase tracking-widest mt-4">
                 Matte Obsidian Chassis • 1590B Enclosure • 1/4" Mono In/Out
               </div>
             </div>
@@ -173,63 +173,63 @@ export const ProductPage: React.FC = () => {
           <div className="lg:col-span-5 space-y-8">
             <div className="space-y-3">
               <div className="flex items-center gap-2.5">
-                <span className="px-3 py-1 bg-[#161C28] border border-[#FF5E1E]/30 text-xs font-mono-tech uppercase tracking-widest text-[#FF5E1E] font-bold rounded-full">
+                <span className="px-3 py-1 bg-[#FFF1E6] border border-[#FF5E1E]/30 text-xs font-mono-tech uppercase tracking-widest text-[#FF5E1E] font-bold rounded-full">
                   FLAGSHIP ANALOG FUZZ
                 </span>
-                <span className="text-xs text-emerald-400 font-mono-tech flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs text-emerald-600 font-mono-tech flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
                   Batch 04 Ready
                 </span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-editorial font-normal tracking-tight text-[#F6F4EE] uppercase leading-tight">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-editorial font-normal tracking-tight text-[#2A1A12] uppercase leading-tight">
                 Neon Fuzz Box
               </h1>
 
-              <p className="text-xs sm:text-sm text-[#8E98A8] leading-relaxed font-light">
+              <p className="text-xs sm:text-sm text-[#8A6A54] leading-relaxed font-light">
                 A dual-stage hybrid vintage fuzz engineered for uncompromising guitarists. Dial in anything from warm organic tube break-up to roaring, thick, wall-of-sound harmonic saturation.
               </p>
             </div>
 
             {/* Pricing Section */}
-            <div className="p-5 bg-[#121722]/80 border border-white/10 rounded-2xl space-y-2 backdrop-blur-xl">
+            <div className="p-5 bg-white border border-[#F0D3B8] rounded-2xl space-y-2 backdrop-blur-xl">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-extrabold font-mono-tech text-[#F6F4EE]">
+                <span className="text-3xl sm:text-4xl font-extrabold font-mono-tech text-[#2A1A12]">
                   ₹2,499
                 </span>
-                <span className="text-base text-[#8E98A8] line-through font-mono-tech">
+                <span className="text-base text-[#8A6A54] line-through font-mono-tech">
                   ₹3,499
                 </span>
                 <span className="text-xs font-bold text-[#FF5E1E] bg-[#FF5E1E]/15 px-2.5 py-1 rounded-full border border-[#FF5E1E]/30">
                   Save ₹1,000 (28% Off)
                 </span>
               </div>
-              <div className="text-xs font-mono-tech text-[#8E98A8] flex items-center gap-2 pt-2 border-t border-white/10">
+              <div className="text-xs font-mono-tech text-[#8A6A54] flex items-center gap-2 pt-2 border-t border-[#F0D3B8]">
                 <span>Inclusive of all taxes</span>
                 <span className="text-[#FF5E1E]">•</span>
-                <span className="text-[#F6F4EE]">Free Doorstep Delivery Across India</span>
+                <span className="text-[#2A1A12]">Free Doorstep Delivery Across India</span>
               </div>
             </div>
 
             {/* Quantity Selector & Action Buttons */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <label className="text-xs font-mono-tech uppercase tracking-widest text-[#8E98A8]">
+                <label className="text-xs font-mono-tech uppercase tracking-widest text-[#8A6A54]">
                   Quantity:
                 </label>
-                <div className="flex items-center border border-white/15 rounded-full bg-[#121722] px-2 py-0.5">
+                <div className="flex items-center border border-[#F0D3B8] rounded-full bg-[#FFF1E6] px-2 py-0.5">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-2.5 py-1 text-xs text-[#8E98A8] hover:text-white cursor-pointer"
+                    className="px-2.5 py-1 text-xs text-[#8A6A54] hover:text-white cursor-pointer"
                   >
                     -
                   </button>
-                  <span className="px-3 text-xs font-bold font-mono-tech text-[#F6F4EE]">
+                  <span className="px-3 text-xs font-bold font-mono-tech text-[#2A1A12]">
                     {quantity}
                   </span>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="px-2.5 py-1 text-xs text-[#8E98A8] hover:text-white cursor-pointer"
+                    className="px-2.5 py-1 text-xs text-[#8A6A54] hover:text-white cursor-pointer"
                   >
                     +
                   </button>
@@ -239,7 +239,7 @@ export const ProductPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full py-4 bg-[#121722] hover:bg-[#161C28] text-[#F6F4EE] border border-white/15 hover:border-[#FF5E1E]/50 text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-4 bg-[#FFF1E6] hover:bg-[#FFE8D3] text-[#2A1A12] border border-[#F0D3B8] hover:border-[#FF5E1E]/50 text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <ShoppingBag size={15} className="text-[#FF5E1E]" />
                   <span>Add to Cart</span>
@@ -255,8 +255,8 @@ export const ProductPage: React.FC = () => {
             </div>
 
             {/* Pincode Deliverability Check */}
-            <div className="p-5 bg-[#121722]/80 border border-white/10 rounded-2xl space-y-3 backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-xs font-mono-tech text-[#F6F4EE] uppercase font-bold tracking-wider">
+            <div className="p-5 bg-white border border-[#F0D3B8] rounded-2xl space-y-3 backdrop-blur-xl">
+              <div className="flex items-center gap-2 text-xs font-mono-tech text-[#2A1A12] uppercase font-bold tracking-wider">
                 <MapPin size={14} className="text-[#FF5E1E]" />
                 Estimate Delivery Date
               </div>
@@ -268,21 +268,21 @@ export const ProductPage: React.FC = () => {
                   placeholder="Enter 6-digit PIN code"
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 bg-[#0B0E14] border border-white/15 rounded-full px-4 py-2.5 text-xs text-[#F6F4EE] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                  className="flex-1 bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-2.5 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
                 <button
                   type="submit"
                   disabled={isCheckingPincode}
-                  className="px-5 py-2.5 bg-[#161C28] hover:bg-[#1A2232] border border-white/15 text-xs font-mono-tech text-[#F6F4EE] uppercase font-bold rounded-full cursor-pointer transition-all"
+                  className="px-5 py-2.5 bg-[#FFF1E6] hover:bg-[#FFE8D3] border border-[#F0D3B8] text-xs font-mono-tech text-[#2A1A12] uppercase font-bold rounded-full cursor-pointer transition-all"
                 >
                   {isCheckingPincode ? 'Checking...' : 'Check'}
                 </button>
               </form>
 
               {pincodeResult && pincodeResult.deliverable && (
-                <div className="text-xs font-mono-tech text-emerald-400 space-y-0.5 pt-1">
+                <div className="text-xs font-mono-tech text-emerald-600 space-y-0.5 pt-1">
                   <div className="font-semibold">✓ Delivery available in ~{pincodeResult.estDays} business days</div>
-                  <div className="text-[11px] text-[#8E98A8]">
+                  <div className="text-[11px] text-[#8A6A54]">
                     Cash on Delivery (COD) & Razorpay Online payment both supported for {pincode}.
                   </div>
                 </div>
@@ -291,13 +291,13 @@ export const ProductPage: React.FC = () => {
 
             {/* In the Box list */}
             <div className="space-y-3 pt-2">
-              <div className="text-xs font-mono-tech uppercase tracking-wider text-[#F6F4EE] font-bold flex items-center gap-2">
+              <div className="text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold flex items-center gap-2">
                 <Package size={14} className="text-[#FF5E1E]" />
                 What's Inside The Box
               </div>
               <div className="space-y-2">
                 {boxContents.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2.5 text-xs font-mono-tech text-[#8E98A8]">
+                  <div key={idx} className="flex items-center gap-2.5 text-xs font-mono-tech text-[#8A6A54]">
                     <Check size={14} className="text-[#FF5E1E] shrink-0" />
                     <span>{item}</span>
                   </div>
@@ -321,12 +321,12 @@ export const ProductPage: React.FC = () => {
       </div>
 
       {/* ================= MOBILE STICKY PURCHASE BAR ================= */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0B0E14]/95 border-t border-white/10 p-3 sm:hidden backdrop-blur-2xl flex items-center justify-between gap-3 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#FFF8F1]/95 border-t border-[#F0D3B8] p-3 sm:hidden backdrop-blur-2xl flex items-center justify-between gap-3 shadow-2xl">
         <div>
-          <div className="text-xs font-bold font-mono-tech text-[#F6F4EE] uppercase">Neon Fuzz Box</div>
+          <div className="text-xs font-bold font-mono-tech text-[#2A1A12] uppercase">Neon Fuzz Box</div>
           <div className="flex items-baseline gap-1.5 font-mono-tech">
-            <span className="text-base font-extrabold text-[#F6F4EE]">₹2,499</span>
-            <span className="text-[10px] text-[#8E98A8] line-through">₹3,499</span>
+            <span className="text-base font-extrabold text-[#2A1A12]">₹2,499</span>
+            <span className="text-[10px] text-[#8A6A54] line-through">₹3,499</span>
           </div>
         </div>
 
