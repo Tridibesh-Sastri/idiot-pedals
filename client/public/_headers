@@ -1,22 +1,17 @@
 /*
-  # Prevent Clickjacking by disallowing framing
+  # Modern Cross-Origin & Framing Protections (Clickjacking & Window Hijacking)
   X-Frame-Options: DENY
-  
-  # Prevent MIME-type sniffing
   X-Content-Type-Options: nosniff
-  
-  # Protect referrer data across origins
+  X-XSS-Protection: 0
   Referrer-Policy: strict-origin-when-cross-origin
-  
-  # Restrict browser features and hardware sensor access
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.razorpay.com"), usb=(), interest-cohort=()
-  
-  # Isolate browsing context from external malicious tabs
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: cross-origin
   
-  # Strict Content Security Policy
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self';
+  # Comprehensive Permissions Policy (Zero unnecessary sensor or hardware surface)
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(self "https://checkout.razorpay.com"), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), xr-spatial-tracking=(), interest-cohort=()
   
-  # HTTP Strict Transport Security (HSTS)
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  # Strict Enterprise Content Security Policy (Grade A+)
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; media-src 'self' data: blob:; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; block-all-mixed-content;
+  
+  # HTTP Strict Transport Security (HSTS - 2 Years with Subdomains and Preload)
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
