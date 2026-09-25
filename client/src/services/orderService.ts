@@ -1,5 +1,33 @@
 import { Order, CartItem, ShippingAddress, PaymentMethod } from '../types';
 import { STORAGE_KEYS, sleep } from './apiConfig';
+import { safeJsonParse, IMMUTABLE_CATALOG } from '../lib/security';
+
+/**
+ * Strictly rebinds a cart line item to the immutable catalog ledger.
+ *
+ * Fail-closed: the ledger entry is picked by productId, and an unknown or
+ * tampered id returns null (rejected) instead of defaulting to a price.
+ * Known ids get ledger price/originalPrice and a clamped quantity, so no
+ * client-held field survives into order totals.
+ */
+function bindLedgerItem(item: CartItem): CartItem | null {
+  // hasOwnProperty (not truthiness): IMMUTABLE_CATALOG['__proto__'] would
+  // otherwise resolve to Object.prototype via the prototype chain.
+  const official =
+    item &&
+    typeof item === 'object' &&
+    typeof item.id === 'string' &&
+    Object.prototype.hasOwnProperty.call(IMMUTABLE_CATALOG, item.id)
+      ? IMMUTABLE_CATALOG[item.id]
+      : undefined;
+  if (!official) return null;
+  return {
+    ...item,
+    price: official.price,
+    originalPrice: official.originalPrice,
+    quantity: Math.max(1, Math.min(official.maxOrderQuantity, Number(item.quantity) || 1)),
+  };
+}
 
 /**
  * Pre-seeded sample order to provide instant tracking and receipt demonstration
@@ -101,7 +129,17 @@ class OrderService {
         localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
         return INITIAL_ORDERS;
       }
-      return JSON.parse(data);
+      const parsed = safeJsonParse<Order[]>(data, INITIAL_ORDERS);
+      if (!Array.isArray(parsed)) return INITIAL_ORDERS;
+      // Rebind every stored order to ledger prices — storage may be hand-edited.
+      // Lines with unknown ids are dropped, never priced.
+      return parsed.map((order) => {
+        const items = Array.isArray(order.items)
+          ? order.items.map(bindLedgerItem).filter((i): i is CartItem => i !== null)
+          : [];
+        const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        return { ...order, items, subtotal, shippingFee: 0, total: subtotal };
+      });
     } catch {
       return INITIAL_ORDERS;
     }
@@ -153,7 +191,17 @@ class OrderService {
   }): Promise<Order> {
     await sleep(600);
 
-    const subtotal = payload.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    // Checkout payload carries productId + quantity only in effect:
+    // every line is rebound to the immutable ledger before totals are set,
+    // so client-held prices are never trusted. Unknown ids are rejected —
+    // if nothing legitimate remains, the order is refused outright.
+    const ledgerItems = (Array.isArray(payload.items) ? payload.items : [])
+      .map(bindLedgerItem)
+      .filter((i): i is CartItem => i !== null);
+    if (ledgerItems.length === 0) {
+      throw new Error('No valid products in checkout. Please re-add items to your cart.');
+    }
+    const subtotal = ledgerItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const shippingFee = 0; // Free nationwide shipping for launch
     const total = subtotal + shippingFee;
 
@@ -165,7 +213,7 @@ class OrderService {
       id: orderId,
       userId: payload.userId,
       createdAt: new Date().toISOString(),
-      items: payload.items,
+      items: ledgerItems,
       subtotal,
       shippingFee,
       total,

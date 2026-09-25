@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem } from '../types';
 import { STORAGE_KEYS } from '../services/apiConfig';
-import { secureStorage, getAuthoritativePrice } from '../lib/security';
+import { secureStorage, getAuthoritativePrice, IMMUTABLE_CATALOG } from '../lib/security';
 
 export const NEON_FUZZ_BOX: CartItem = {
   id: 'neon-fuzz-box',
@@ -30,13 +30,23 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State: Cart items initialized with authoritative pricing verification
+  // State: Cart items initialized with authoritative pricing verification.
+  // Fail-closed: lines with unknown ids (hand-edited storage, including
+  // '__proto__'-style keys) are dropped, never priced or displayed.
   const [items, setItems] = useState<CartItem[]>(() => {
     const raw = secureStorage.get<CartItem[]>(STORAGE_KEYS.CART, [NEON_FUZZ_BOX]);
     if (!Array.isArray(raw)) return [NEON_FUZZ_BOX];
-    
+
+    const clean = raw.filter(
+      (i) =>
+        i &&
+        typeof i === 'object' &&
+        typeof i.id === 'string' &&
+        Object.prototype.hasOwnProperty.call(IMMUTABLE_CATALOG, i.id)
+    );
+
     // Sanitize and re-bind to immutable ledger prices
-    return raw.map((i) => ({
+    return clean.map((i) => ({
       ...i,
       price: getAuthoritativePrice(i.id),
       quantity: Math.max(1, Math.min(5, Number(i.quantity) || 1)),
@@ -51,6 +61,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   const addItem = (item = NEON_FUZZ_BOX, qty = 1) => {
+    // Reject unknown product ids at the gate (fail-closed)
+    if (
+      !item ||
+      typeof item.id !== 'string' ||
+      !Object.prototype.hasOwnProperty.call(IMMUTABLE_CATALOG, item.id)
+    ) {
+      return;
+    }
     const safeQty = Math.max(1, Math.min(5, qty));
     setItems((prev) => {
       const exists = prev.find((i) => i.id === item.id);
