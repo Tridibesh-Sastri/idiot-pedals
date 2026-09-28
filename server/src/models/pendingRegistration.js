@@ -18,23 +18,7 @@ const addressSchema = new Schema(
     { _id: true, strict: 'throw' }
 )
 
-const authProviderSchema = new Schema(
-    {
-        provider: {
-            type: String,
-            enum: ['email', 'google'],
-            required: true,
-        },
-        providerId: {
-            type: String,
-            trim: true,
-            maxlength: 255,
-        },
-    },
-    { _id: false, strict: 'throw' }
-)
-
-const userSchema = new Schema(
+const pendingRegistrationSchema = new Schema(
     {
         name: {
             type: String,
@@ -53,41 +37,17 @@ const userSchema = new Schema(
             maxlength: 254,
         },
 
-        emailVerified: {
-            type: Boolean,
-            default: false,
-            index: true,
-        },
-
-        phone: {
-            type: String,
-            unique: true,
-            sparse: true,
-            trim: true,
-            maxlength: 20,
-        },
-
-        phoneVerified: {
-            type: Boolean,
-            default: false,
-        },
-
-        authProviders: {
-            type: [authProviderSchema],
-            default: [],
-        },
-
         passwordHash: {
             type: String,
+            required: true,
             minlength: 1,
             maxlength: 255,
         },
 
-        role: {
+        phone: {
             type: String,
-            enum: ['customer', 'admin'],
-            default: 'customer',
-            index: true,
+            trim: true,
+            maxlength: 20,
         },
 
         addresses: {
@@ -95,25 +55,47 @@ const userSchema = new Schema(
             default: [],
             validate: {
                 validator: (addresses) => addresses.length <= 20,
-                message: 'A user cannot have more than 20 addresses.',
+                message: 'A registration cannot contain more than 20 addresses.',
             },
+        },
+
+        verificationTokenHash: {
+            type: String,
+            required: true,
+            unique: true,
+            immutable: true,
+        },
+
+        verificationTokenExpiresAt: {
+            type: Date,
+            required: true,
+            index: true,
+        },
+
+        registrationExpiresAt: {
+            type: Date,
+            required: true,
+            index: true,
+            expires: 0,
         },
     },
     {
         timestamps: true,
         strict: 'throw',
-        versionKey: '__v',
     }
 )
 
-// Useful for Google-account lookup. Provider ID uniqueness is intentionally
-// enforced by the authentication service rather than a multikey unique index.
-userSchema.index(
-    { 'authProviders.provider': 1, 'authProviders.providerId': 1 },
-    { sparse: true }
-)
+// pendingRegistrationSchema.index({ registrationExpiresAt: 1 }, { expireAfterSeconds: 0 })
 
+pendingRegistrationSchema.pre('validate', function (next) {
+    if (this.verificationTokenExpiresAt && this.registrationExpiresAt) {
+        if (this.verificationTokenExpiresAt > this.registrationExpiresAt) {
+            return next(new mongoose.Error.ValidationError(new Error('Verification expiry cannot exceed registration expiry.')))
+        }
+    }
+    next()
+})
 
-const userModel = mongoose.model('User', userSchema)
+const pendingRegistrationModel = mongoose.model('PendingRegistration', pendingRegistrationSchema)
 
-export default userModel
+export default pendingRegistrationModel
