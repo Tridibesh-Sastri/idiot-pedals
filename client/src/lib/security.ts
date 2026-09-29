@@ -22,7 +22,7 @@ export const IMMUTABLE_CATALOG: Readonly<Record<string, Readonly<OfficialProduct
   'neon-fuzz-box': Object.freeze({
     id: 'neon-fuzz-box',
     name: 'Neon Fuzz Box',
-    price: 2499,
+    price: 2399,
     originalPrice: 3499,
     maxOrderQuantity: 5,
   }),
@@ -42,7 +42,7 @@ export function getAuthoritativePrice(productId: string): number {
       ? IMMUTABLE_CATALOG[productId]
       : undefined;
   if (!item) {
-    return 2499; // Fallback to official price
+    return 2399; // Fallback to official price
   }
   return item.price;
 }

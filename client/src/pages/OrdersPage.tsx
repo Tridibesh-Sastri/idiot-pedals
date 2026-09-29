@@ -82,7 +82,7 @@ export const OrdersPage: React.FC = () => {
               to="/checkout"
               className="inline-block px-7 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech font-bold uppercase rounded-full shadow-lg shadow-[#FF5E1E]/25"
             >
-              Get Neon Fuzz Box — ₹2,499
+              Get Neon Fuzz Box — ₹2,399
             </Link>
           </div>
         ) : (

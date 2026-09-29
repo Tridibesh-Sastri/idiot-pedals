@@ -178,7 +178,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
               onClick={() => setIsMobileMenuOpen(false)}
               className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
             >
-              <span>Order Neon Fuzz Box — ₹2,499</span>
+              <span>Order Neon Fuzz Box — ₹2,399</span>
               <ArrowRight size={14} />
             </Link>
             <p className="text-center text-[11px] font-mono-tech text-[#8E98A8]">

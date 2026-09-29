@@ -1,20 +1,14 @@
 import React from 'react';
-import { Cpu, Power, ShieldCheck, Box, Gauge, Volume2 } from 'lucide-react';
+import { Cpu, ShieldCheck, Power, Volume2, Box } from 'lucide-react';
 
 export const Specifications: React.FC = () => {
   const specs = [
-    { label: 'Circuit Topology', value: '100% Pure Analog High-Gain Fuzz / Overdrive', icon: Cpu },
+    { label: 'Circuit Topology', value: '100% Pure Analog High-Gain Distortion / Fuzz', icon: Cpu },
     { label: 'Bypass Switching', value: 'Mechanical 3PDT True-Bypass (Zero tone loss when disengaged)', icon: ShieldCheck },
     { label: 'Power Requirements', value: '9V DC Center-Negative (Standard pedal power supply, 2.1mm)', icon: Power },
-    { label: 'Battery Operation', value: 'Internal 9V Battery Snap with isolated compartment', icon: Power },
-    { label: 'Current Draw', value: 'Ultra-low < 12mA (extended battery life)', icon: Gauge },
     { label: 'Input Impedance', value: '500k Ohm (Guitar pickup friendly)', icon: Volume2 },
     { label: 'Output Impedance', value: '10k Ohm (Drives long pedal chains cleanly)', icon: Volume2 },
-    { label: 'Enclosure Material', value: 'Die-cast Aluminum Chassis (Hammond 1590B footprint)', icon: Box },
-    { label: 'Finish', value: 'Powder-coated Matte Obsidian with Neon Orange screenprint', icon: Box },
-    { label: 'Dimensions', value: '112 mm (L) × 60 mm (W) × 31 mm (H)', icon: Box },
-    { label: 'Weight', value: '260 g (Rugged tour-grade road stability)', icon: Gauge },
-    { label: 'Origin', value: 'Hand-assembled & bench-tested in Burdwan, India', icon: ShieldCheck },
+    { label: 'Enclosure Material', value: 'Solid 3D Printed Enclosure', icon: Box },
   ];
 
   return (
@@ -32,7 +26,7 @@ export const Specifications: React.FC = () => {
             Hardware Specifications
           </h2>
           <p className="text-xs sm:text-sm text-[#8A6A54] font-light leading-relaxed">
-            Every component specified for low noise, reliable road performance, and consistent musical harmonic response.
+            Tried and tested hardware for guitar pedal distortion.
           </p>
         </div>
 

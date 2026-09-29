@@ -33,7 +33,7 @@ export const Footer: React.FC = () => {
               <div className="text-xs font-mono-tech font-bold text-[#2A1A12] uppercase tracking-wider">
                 Free Nationwide Express
               </div>
-              <div className="text-xs text-[#8A6A54] pt-0.5">Insured priority dispatch via Blue Dart Express.</div>
+              <div className="text-xs text-[#8A6A54] pt-0.5">Ensured priority dispatch.</div>
             </div>
           </div>
 
@@ -43,7 +43,7 @@ export const Footer: React.FC = () => {
             </div>
             <div>
               <div className="text-xs font-mono-tech font-bold text-[#2A1A12] uppercase tracking-wider">
-                1-Year Bench Warranty
+                Six Months Warranty
               </div>
               <div className="text-xs text-[#8A6A54] pt-0.5">Comprehensive repair & technical player support.</div>
             </div>
@@ -53,8 +53,9 @@ export const Footer: React.FC = () => {
         {/* Main Footer Links */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pt-4">
           
-          {/* Brand Info */}
-          <div className="md:col-span-5 space-y-4">
+          {/* Brand Info — spans 9 now that the Gear/Workshop columns are gone,
+              so brand + Customer Care still fill all 12 grid columns. */}
+          <div className="md:col-span-9 space-y-4">
             <IdiotPedalsLogo variant="light" size="md" />
             <div className="text-xs font-mono-tech tracking-[0.25em] text-[#FF5E1E] font-bold uppercase">
               CHEAPER. CLASSIC SOUND.
@@ -78,64 +79,7 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Gear Navigation */}
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-xs font-mono-tech font-bold uppercase tracking-[0.2em] text-[#2A1A12]">
-              Gear
-            </h4>
-            <ul className="space-y-2.5 text-xs font-mono-tech">
-              {/*
-                HIDDEN FROM WEBSITE (kept in code):
-                - Neon Fuzz Box (/product)
-                - Audio Test Bench (/#demo)
-                - Technical Specs (/product#specs)
-                - Hardware Gallery (/product#gallery)
-              */}
-              {/* <li><Link to="/product" ...>Neon Fuzz Box</Link></li> */}
-              {/* <li><Link to="/#demo" ...>Audio Test Bench</Link></li> */}
-              {/* <li><Link to="/product#specs" ...>Technical Specs</Link></li> */}
-              {/* <li><Link to="/product#gallery" ...>Hardware Gallery</Link></li> */}
-              <li>
-                <Link to="/checkout" className="hover:text-[#FF5E1E] transition-colors">
-                  Buy Neon Fuzz Box
-                </Link>
-              </li>
-              <li>
-                <Link to="/about" className="hover:text-[#FF5E1E] transition-colors">
-                  Our Workshop
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Workshop Story & Support */}
-          <div className="md:col-span-2 space-y-4">
-            <h4 className="text-xs font-mono-tech font-bold uppercase tracking-[0.2em] text-[#2A1A12]">
-              Workshop
-            </h4>
-            <ul className="space-y-2.5 text-xs font-mono-tech">
-              <li>
-                <Link to="/about" className="hover:text-[#FF5E1E] transition-colors">
-                  Our Philosophy
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="hover:text-[#FF5E1E] transition-colors">
-                  Workbench Support
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact#warranty" className="hover:text-[#FF5E1E] transition-colors">
-                  Warranty & FAQ
-                </Link>
-              </li>
-              <li>
-                <Link to="/about#circuit" className="hover:text-[#FF5E1E] transition-colors">
-                  Analog Manifesto
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {/* Gear and Workshop link columns removed. */}
 
           {/* Orders & Account */}
           <div className="md:col-span-3 space-y-4">
@@ -173,7 +117,7 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-6">
             <span>Play Different.</span>
             <span>Zero Pretension.</span>
-            <span className="text-[#FF5E1E] font-bold">₹2,499 Flat</span>
+            <span className="text-[#FF5E1E] font-bold">₹2,399 Flat</span>
           </div>
         </div>
       </div>

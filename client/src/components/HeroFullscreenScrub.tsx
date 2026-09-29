@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, ShieldCheck, Truck, Zap } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 // NOTE: Audition/Tone-Demo entry kept in code but hidden (Volume2 icon + #demo link removed from UI).
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Volume2 as _Volume2 } from 'lucide-react';
@@ -43,32 +43,28 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
           <div className="w-[48%] xl:w-[44%] space-y-6 lg:space-y-7">
             <div className="inline-flex items-center gap-2 text-xs font-mono-tech tracking-widest uppercase text-[#FF5E1E] font-bold">
               <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
-              <span>CHEAPER. CLASSIC SOUND.</span>
+              <span>Distortion Pedal Electric Guitar</span>
             </div>
 
             <div className="space-y-3">
               <h1 className="text-5xl lg:text-[4.5rem] font-editorial tracking-tight uppercase leading-[0.90] text-[#0B0E14]">
-                Simple Sounds.<br />
+                Idiot Pedals.<br />
                 <span className="italic font-normal text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] via-[#FF5E1E] to-[#FF3E00]">
-                  Serious Vibes.
+                  Distortion One.
                 </span>
               </h1>
               <p className="max-w-md text-base font-sans text-[#475569] font-normal leading-relaxed pt-1">
-                Handcrafted analog guitar pedals for real players. Classic vintage harmonic saturation. Zero boutique hype tax.
+                Handmade Guitar Pedal
               </p>
             </div>
 
             <div className="space-y-2 pt-1">
               <div className="flex items-baseline gap-3">
-                <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹2,499</span>
+                <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹2,399</span>
                 <span className="text-lg text-[#94A3B8] line-through font-mono-tech font-medium">₹3,499</span>
                 <span className="text-xs font-bold text-white bg-[#FF5E1E] px-3 py-1 rounded-full font-mono-tech shadow-md shadow-[#FF5E1E]/30">
-                  Save ₹1,000 Direct
+                  Save ₹1,100 Direct
                 </span>
-              </div>
-              <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
-                <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
-                <span>Workbench Batch 04 · Ships in 24h</span>
               </div>
             </div>
 
@@ -77,7 +73,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                 onClick={handleQuickAdd}
                 className="px-8 py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-sm font-mono-tech font-bold tracking-[0.2em] uppercase rounded-full flex items-center gap-2.5 transition-all shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange group cursor-pointer"
               >
-                <span>Buy Neon Fuzz Box</span>
+                <span>Buy Now</span>
                 <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
               {/*
@@ -89,11 +85,6 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
               */}
             </div>
 
-            <div className="flex items-center gap-6 pt-2 text-xs font-mono-tech text-[#64748B] font-medium">
-              <div className="flex items-center gap-1.5"><ShieldCheck size={14} className="text-[#FF5E1E]" /><span>1-Yr Warranty</span></div>
-              <div className="flex items-center gap-1.5"><Truck size={14} className="text-[#FF5E1E]" /><span>Free Shipping</span></div>
-              <div className="flex items-center gap-1.5"><Zap size={14} className="text-[#FF5E1E]" /><span>True-Bypass</span></div>
-            </div>
           </div>
         </div>
       </div>
@@ -105,7 +96,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 mb-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF5E1E]" />
             <span className="text-[10px] font-mono-tech font-bold tracking-[0.2em] uppercase text-[#FF5E1E]">
-              IDIOT PEDALS — BURDWAN
+              Distortion Pedal Electric Guitar
             </span>
           </div>
 
@@ -116,7 +107,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
               textShadow: '0 2px 20px rgba(0,0,0,0.8), 0 0 40px rgba(0,0,0,0.5)',
             }}
           >
-            Simple Sounds.<br />
+            Idiot Pedals.<br />
             <span
               className="italic font-normal"
               style={{
@@ -127,7 +118,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                 filter: 'drop-shadow(0 2px 10px rgba(255,94,30,0.8))',
               }}
             >
-              Serious Vibes.
+              Distortion One.
             </span>
           </h1>
 
@@ -135,8 +126,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
             className="text-[12px] font-sans font-medium leading-snug text-white/90 pt-0.5"
             style={{ textShadow: '0 1px 12px rgba(0,0,0,0.8)', maxWidth: '280px' }}
           >
-            Handcrafted analog guitar pedals.<br />
-            Classic vintage harmonic saturation.
+            Handmade Guitar Pedal
           </p>
         </div>
 
@@ -152,7 +142,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                 className="font-black font-mono-tech tracking-tight text-[#FF5E1E] leading-none"
                 style={{ fontSize: 'clamp(2rem, 9vw, 2.5rem)', textShadow: '0 0 25px rgba(255,94,30,0.5)' }}
               >
-                ₹2,499
+                ₹2,399
               </span>
               <span
                 className="text-sm font-mono-tech font-medium line-through text-white/60"
@@ -162,7 +152,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
               </span>
             </div>
             <span className="text-[11px] font-mono-tech font-extrabold text-white bg-[#FF5E1E] px-3 py-1 rounded-full shadow-lg shadow-[#FF5E1E]/40">
-              Save ₹1,000
+              Save ₹1,100
             </span>
           </div>
 
@@ -184,29 +174,6 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
             */}
           </div>
 
-          {/* Guarantee strip */}
-          <div className="flex items-center justify-center gap-2.5 py-0.5">
-            <span
-              className="text-[10px] font-mono-tech font-bold text-white/80"
-              style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}
-            >
-              1-Yr Warranty
-            </span>
-            <span className="w-1 h-1 rounded-full bg-[#FF5E1E]" />
-            <span
-              className="text-[10px] font-mono-tech font-bold text-white/80"
-              style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}
-            >
-              Free Shipping
-            </span>
-            <span className="w-1 h-1 rounded-full bg-[#FF5E1E]" />
-            <span
-              className="text-[10px] font-mono-tech font-bold text-white/80"
-              style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}
-            >
-              True-Bypass
-            </span>
-          </div>
         </div>
       </div>
     </section>

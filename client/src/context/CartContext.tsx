@@ -7,7 +7,7 @@ export const NEON_FUZZ_BOX: CartItem = {
   id: 'neon-fuzz-box',
   name: 'Neon Fuzz Box',
   subtitle: 'Handwired Analog Fuzz / Overdrive Pedal',
-  price: 2499,
+  price: 2399,
   originalPrice: 3499,
   quantity: 1,
   image: '/assets/pedal_preview.jpg',

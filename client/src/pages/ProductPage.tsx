@@ -195,13 +195,13 @@ export const ProductPage: React.FC = () => {
             <div className="p-5 bg-white border border-[#F0D3B8] rounded-2xl space-y-2 backdrop-blur-xl">
               <div className="flex items-baseline gap-3">
                 <span className="text-3xl sm:text-4xl font-extrabold font-mono-tech text-[#2A1A12]">
-                  ₹2,499
+                  ₹2,399
                 </span>
                 <span className="text-base text-[#8A6A54] line-through font-mono-tech">
                   ₹3,499
                 </span>
                 <span className="text-xs font-bold text-[#FF5E1E] bg-[#FF5E1E]/15 px-2.5 py-1 rounded-full border border-[#FF5E1E]/30">
-                  Save ₹1,000 (28% Off)
+                  Save ₹1,100 (31% Off)
                 </span>
               </div>
               <div className="text-xs font-mono-tech text-[#8A6A54] flex items-center gap-2 pt-2 border-t border-[#F0D3B8]">
@@ -248,7 +248,7 @@ export const ProductPage: React.FC = () => {
                   onClick={handleBuyNow}
                   className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 transition-all shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange cursor-pointer"
                 >
-                  <span>Buy Now — ₹{(2499 * quantity).toLocaleString()}</span>
+                  <span>Buy Now — ₹{(NEON_FUZZ_BOX.price * quantity).toLocaleString()}</span>
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -325,7 +325,7 @@ export const ProductPage: React.FC = () => {
         <div>
           <div className="text-xs font-bold font-mono-tech text-[#2A1A12] uppercase">Neon Fuzz Box</div>
           <div className="flex items-baseline gap-1.5 font-mono-tech">
-            <span className="text-base font-extrabold text-[#2A1A12]">₹2,499</span>
+            <span className="text-base font-extrabold text-[#2A1A12]">₹2,399</span>
             <span className="text-[10px] text-[#8A6A54] line-through">₹3,499</span>
           </div>
         </div>

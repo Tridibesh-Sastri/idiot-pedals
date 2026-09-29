@@ -130,7 +130,7 @@ export function ExplodedView() {
                 onClick={handleQuickAdd}
                 className="px-8 py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase rounded-full transition-all shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange inline-flex items-center gap-2 cursor-pointer"
               >
-                <span>Buy Neon Fuzz Box — ₹2,499</span>
+                <span>Buy Neon Fuzz Box — ₹2,399</span>
                 <ArrowRight size={14} />
               </button>
             </motion.div>
