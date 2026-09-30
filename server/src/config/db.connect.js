@@ -1,12 +1,17 @@
 import mongoose from 'mongoose'
 import config from './config.js'
 
-const connectDb = ()=>{
+const connectDb = async () => {
     try {
-        mongoose.connect(config.MONGO_URI)
-        console.log("database Connected successfully")
+        await mongoose.connect(config.MONGO_URI)
+
+        console.log('MongoDB connected successfully')
+
+        return mongoose.connection
     } catch (error) {
-        console.error(`Connection error to connect to db ${error}`)
+        console.error('MongoDB connection failed:', error.message)
+
+        throw error
     }
 }
 

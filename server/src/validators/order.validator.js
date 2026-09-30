@@ -1,0 +1,103 @@
+import { body, validationResult } from "express-validator";
+
+const createOrderValidator = [
+  body("items")
+    .isArray({ min: 1, max: 100 })
+    .withMessage("Order must contain between 1 and 100 items."),
+
+  body("items.*.productId")
+    .isMongoId()
+    .withMessage("Invalid product ID."),
+
+  body("items.*.quantity")
+    .isInt({ min: 1, max: 100 })
+    .withMessage("Quantity must be an integer between 1 and 100."),
+
+  body("paymentMethod")
+    .isIn(["razorpay", "cod"])
+    .withMessage("Payment method must be razorpay or cod."),
+
+  body("customer.name")
+    .trim()
+    .notEmpty()
+    .withMessage("Customer name is required.")
+    .isLength({ max: 150 })
+    .withMessage("Customer name is too long."),
+
+  body("customer.email")
+    .trim()
+    .isEmail()
+    .withMessage("Valid customer email is required.")
+    .normalizeEmail(),
+
+  body("customer.phone")
+    .trim()
+    .notEmpty()
+    .withMessage("Customer phone is required.")
+    .isLength({ max: 20 })
+    .withMessage("Customer phone is too long."),
+
+  body("shippingAddress.name")
+    .trim()
+    .notEmpty()
+    .withMessage("Shipping name is required.")
+    .isLength({ max: 150 }),
+
+  body("shippingAddress.phone")
+    .trim()
+    .notEmpty()
+    .withMessage("Shipping phone is required.")
+    .isLength({ max: 20 }),
+
+  body("shippingAddress.addressLine1")
+    .trim()
+    .notEmpty()
+    .withMessage("Address line 1 is required.")
+    .isLength({ max: 500 }),
+
+  body("shippingAddress.addressLine2")
+    .optional()
+    .trim()
+    .isLength({ max: 500 }),
+
+  body("shippingAddress.city")
+    .trim()
+    .notEmpty()
+    .withMessage("City is required.")
+    .isLength({ max: 100 }),
+
+  body("shippingAddress.state")
+    .trim()
+    .notEmpty()
+    .withMessage("State is required.")
+    .isLength({ max: 100 }),
+
+  body("shippingAddress.postalCode")
+    .trim()
+    .notEmpty()
+    .withMessage("Postal code is required.")
+    .isLength({ max: 20 }),
+
+  body("shippingAddress.country")
+    .optional()
+    .trim()
+    .isLength({ max: 100 }),
+
+    (req, res, next)=>{
+        const error = validationResult(req)
+
+            if (!error.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid request',
+                    errors: error.array({
+                        onlyFirstError: true,
+                    }),
+                })
+            }
+    
+        next()
+    }
+];
+
+export default createOrderValidator;
