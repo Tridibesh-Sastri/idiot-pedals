@@ -5,6 +5,10 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 
 import authRouter from '../routers/auth.routes.js'
+import orderRouter from '../routers/order.routes.js'
+import productRouter from '../routers/product.routes.js'
+import paymentRouter from '../routers/payment.routes.js'
+import webhookRouter from "../routers/webhook.routes.js";
 import config from '../config/config.js'
 
 const app = express()
@@ -54,21 +58,27 @@ app.use(
 const allowedOrigins = Array.isArray(config.FRONTEND_URL)
     ? config.FRONTEND_URL
     : String(config.FRONTEND_URL)
-          .split(',')
-          .map((origin) => origin.trim())
-          .filter(Boolean)
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+
+const developmentOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+]
 
 app.use(
     cors({
         origin(origin, callback) {
             // Allow requests without an Origin header.
-            // Examples: server-to-server requests, health checks,
-            // some CLI/API clients.
             if (!origin) {
                 return callback(null, true)
             }
 
-            if (allowedOrigins.includes(origin)) {
+            if (
+                allowedOrigins.includes(origin) ||
+                developmentOrigins.includes(origin)
+            ) {
                 return callback(null, true)
             }
 
@@ -76,10 +86,39 @@ app.use(
                 new Error('CORS origin not allowed')
             )
         },
+
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+
+        methods: [
+            'GET',
+            'POST',
+            'PUT',
+            'PATCH',
+            'DELETE',
+            'OPTIONS'
+        ],
+
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization'
+        ],
     })
+)
+/*
+ * -------------------------------------------------------
+ * RAZORPAY WEBHOOKS
+ * -------------------------------------------------------
+ *
+ * Must be registered BEFORE express.json().
+ *
+ * Razorpay webhook signature verification requires the
+ * exact raw HTTP request body.
+ */
+
+
+app.use(
+    "/api/webhooks",
+    webhookRouter
 )
 
 /*
@@ -143,6 +182,12 @@ app.use(globalRateLimiter)
  * -------------------------------------------------------
  */
 app.use('/api/auth', authRouter)
+
+app.use('/api/order', orderRouter)
+
+app.use('/api/products', productRouter)
+
+app.use('/api/payments', paymentRouter)
 
 /*
  * -------------------------------------------------------

@@ -187,6 +187,23 @@ const config = {
         'GOOGLE_CALLBACK_URL',
         required('GOOGLE_CALLBACK_URL')
     ),
+
+    // ─────────────────────────────────────────────
+    // Razorpay
+    // ─────────────────────────────────────────────
+    
+    RAZORPAY_KEY_ID: required(
+        'RAZORPAY_KEY_ID'
+    ),
+    
+    RAZORPAY_KEY_SECRET: required(
+        'RAZORPAY_KEY_SECRET'
+    ),
+    
+    RAZORPAY_WEBHOOK_SECRET: required(
+        'RAZORPAY_WEBHOOK_SECRET'
+    ),
+
 }
 
 export default config

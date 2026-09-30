@@ -181,26 +181,33 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ status: 1, createdAt: -1 });
 productSchema.index({ name: "text", description: "text" });
 
-productSchema.pre("validate", function (next) {
+productSchema.pre("validate", function () {
   if (this.reservedStock > this.stock) {
-    this.invalidate("reservedStock", "Reserved stock cannot exceed total stock.");
+    this.invalidate(
+      "reservedStock",
+      "Reserved stock cannot exceed total stock."
+    );
   }
 
-  if (this.status === "out_of_stock" && this.stock > this.reservedStock) {
+  if (
+    this.status === "out_of_stock" &&
+    this.stock > this.reservedStock
+  ) {
     this.invalidate(
       "status",
       "An out_of_stock product cannot have available stock."
     );
   }
 
-  if (this.status === "active" && this.stock <= this.reservedStock) {
+  if (
+    this.status === "active" &&
+    this.stock <= this.reservedStock
+  ) {
     this.invalidate(
       "status",
       "An active product must have available stock."
     );
   }
-
-  next();
 });
 
 const productModel =

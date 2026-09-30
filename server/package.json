@@ -25,7 +25,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.2",
     "node-cron": "^4.6.0",
-    "nodemailer": "^10.0.10"
+    "nodemailer": "^10.0.10",
+    "razorpay": "^2.9.8"
   },
   "allowScripts": {
     "bcrypt@6.0.0": true

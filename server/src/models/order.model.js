@@ -347,7 +347,6 @@ orderSchema.pre("validate", function (next) {
     );
   }
 
-  next();
 });
 
 const orderModel =
