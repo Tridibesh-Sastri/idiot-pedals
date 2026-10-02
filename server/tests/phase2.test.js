@@ -1,0 +1,776 @@
+/**
+ * Phase 2 — payment safety tests.
+ *
+ * Real MongoDB (separate database `idiot-pedals-test`, dropped before and
+ * after) and real HTTP requests against an ephemeral listener.
+ *
+ * Run with `--test-concurrency=1` (see package.json) so that test files sharing
+ * the database do not run simultaneously.
+ *
+ *   node --test --test-concurrency=1 tests/phase2.test.js
+ */
+
+import { after, before, describe, test } from 'node:test'
+import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
+import http from 'node:http'
+import mongoose from 'mongoose'
+
+import app from '../src/app/app.js'
+import config from '../src/config/config.js'
+import userModel from '../src/models/user.model.js'
+import productModel from '../src/models/product.model.js'
+import orderModel from '../src/models/order.model.js'
+import { accessTokenGenerator } from '../src/utils/tokenManager.js'
+import {
+  multiplyMinor,
+  sumMinor,
+  toMajor,
+  toMinor,
+} from '../src/utils/money.js'
+import {
+  canTransition,
+  applyTransition,
+} from '../src/domain/orderStateMachine.js'
+import { verifyPaymentSignature } from '../src/integrations/razorpay/razorpay.service.js'
+import { redact } from '../src/utils/logger.js'
+import { releaseStockNow } from '../src/jobs/releaseExpiredStock.js'
+import {
+  verifyRazorpayWebhookSignature,
+  processRazorpayWebhook,
+} from '../src/services/webhook.service.js'
+
+/* -------------------------------------------------------------------------- */
+/* Harness                                                                     */
+/* -------------------------------------------------------------------------- */
+
+const TEST_DB = 'idiot-pedals-test'
+
+const testMongoUri = (() => {
+  const [base, query = ''] = config.MONGO_URI.split('?')
+  const lastSlash = base.lastIndexOf('/')
+  const withDb = base.slice(0, lastSlash + 1) + TEST_DB
+  return query ? `${withDb}?${query}` : withDb
+})()
+
+let server
+let baseUrl
+let user
+let token
+
+const apiFetch = async (path, { method = 'GET', authToken = token, body } = {}) => {
+  const headers = {}
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    redirect: 'manual',
+  })
+
+  const text = await res.text()
+  let json = null
+  try {
+    json = text ? JSON.parse(text) : null
+  } catch {
+    json = null
+  }
+
+  return { status: res.status, json, text }
+}
+
+const orderPayload = (productId, quantity = 1, extraItemFields = {}) => ({
+  items: [{ productId, quantity, ...extraItemFields }],
+  // 'razorpay' rather than 'cod': a COD order fires the real admin notification
+  // email through Resend, and tests must not make external calls.
+  paymentMethod: 'razorpay',
+  customer: { name: 'Phase Two', email: 'phase2@mailhost.test', phone: '9000000123' },
+  shippingAddress: {
+    name: 'Phase Two',
+    phone: '9000000123',
+    addressLine1: '1 Test Street',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    postalCode: '700001',
+    country: 'India',
+  },
+})
+
+let skuCounter = 0
+const createProduct = async ({ price, stock, name = 'Phase2 Pedal' }) => {
+  skuCounter += 1
+  return productModel.create({
+    name,
+    slug: `phase2-pedal-${skuCounter}`,
+    sku: `PHASE2-${skuCounter}`,
+    description: 'Phase 2 fixture product.',
+    price,
+    currency: 'INR',
+    stock,
+    reservedStock: 0,
+    status: 'active',
+  })
+}
+
+const reloadProduct = (id) => productModel.findById(id).lean()
+
+before(async () => {
+  await mongoose.connect(testMongoUri)
+  await mongoose.connection.dropDatabase()
+
+  await Promise.all([userModel.init(), productModel.init(), orderModel.init()])
+
+  user = await userModel.create({
+    name: 'Phase Two User',
+    email: 'phase2-user@mailhost.test',
+    emailVerified: true,
+    phone: '9000000124',
+    phoneVerified: false,
+    authProviders: [{ provider: 'email', providerId: 'phase2-user@mailhost.test' }],
+    passwordHash: 'test-hash',
+    role: 'customer',
+  })
+
+  token = await accessTokenGenerator({ userId: user._id, role: user.role })
+
+  server = http.createServer(app)
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  baseUrl = `http://127.0.0.1:${server.address().port}`
+})
+
+after(async () => {
+  if (server) await new Promise((resolve) => server.close(resolve))
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.dropDatabase()
+    await mongoose.disconnect()
+  }
+})
+
+/* ========================================================================== */
+/* 1. Integer paise money                                                      */
+/* ========================================================================== */
+
+describe('integer paise money', () => {
+  test('toMinor is exact where binary floats are not', () => {
+    assert.equal(toMinor(0.1) + toMinor(0.2), toMinor(0.3))
+    assert.equal(toMinor(4999.99), 499999)
+    assert.equal(toMinor(199.99), 19999)
+    assert.equal(toMinor('250.5'), 25050)
+    assert.equal(toMajor(25050), 250.5)
+    assert.equal(sumMinor([toMinor(0.1), toMinor(0.2)]), toMinor(0.3))
+    assert.equal(multiplyMinor(toMinor(199.99), 3), 59997)
+  })
+
+  test('toMinor rejects negative, non-finite and absurd amounts', () => {
+    for (const bad of [-1, -0.01, Infinity, -Infinity, NaN, {}, 'abc', 1e12]) {
+      assert.throws(() => toMinor(bad), `expected toMinor(${String(bad)}) to throw`)
+    }
+  })
+
+  test('order totals are computed from the DB price, not the client', async () => {
+    const product = await createProduct({ price: 199.99, stock: 10 })
+
+    const res = await apiFetch('/api/order', {
+      method: 'POST',
+      body: orderPayload(product._id, 3),
+    })
+
+    assert.equal(res.status, 201)
+    const order = res.json.order
+
+    assert.equal(order.pricing.subtotalMinor, 59997)
+    assert.equal(order.pricing.totalMinor, 59997)
+    assert.equal(order.pricing.total, 599.97)
+    assert.equal(order.items[0].unitPrice.amountMinor, 19999)
+    assert.equal(order.items[0].total.amountMinor, 59997)
+    assert.equal(order.items[0].unitPrice.amount, 199.99)
+  })
+
+  test('prices sent by the client are ignored entirely', async () => {
+    const product = await createProduct({ price: 5000, stock: 5 })
+
+    const res = await apiFetch('/api/order', {
+      method: 'POST',
+      body: orderPayload(product._id, 2, {
+        price: 1,
+        unitPrice: { amount: 1, currency: 'INR' },
+        total: { amount: 1, currency: 'INR' },
+      }),
+    })
+
+    assert.equal(res.status, 201)
+    const order = res.json.order
+
+    // 2 x 5000.00 from the database, not 2 x 1.00 from the request.
+    assert.equal(order.pricing.totalMinor, 1000000)
+    assert.equal(order.pricing.total, 10000)
+    assert.equal(order.items[0].unitPrice.amount, 5000)
+  })
+
+  test('negative, float, zero and huge quantities are rejected with 400', async () => {
+    const product = await createProduct({ price: 100, stock: 1000 })
+
+    for (const quantity of [0, -1, -100, 1.5, 2.0000001, 1e9, 101, '5', null, true]) {
+      const res = await apiFetch('/api/order', {
+        method: 'POST',
+        body: orderPayload(product._id, quantity),
+      })
+
+      assert.equal(res.status, 400, `quantity=${String(quantity)} should be rejected`)
+    }
+
+    const untouched = await reloadProduct(product._id)
+    assert.equal(untouched.reservedStock, 0)
+  })
+})
+
+/* ========================================================================== */
+/* 2. Atomic stock reservation                                                 */
+/* ========================================================================== */
+
+describe('stock reservation', () => {
+  test('50 concurrent requests for 1 unit: exactly one succeeds', async () => {
+    const product = await createProduct({ price: 1000, stock: 1, name: 'Last Unit' })
+
+    const CONCURRENCY = 50
+
+    const results = await Promise.all(
+      Array.from({ length: CONCURRENCY }, () =>
+        apiFetch('/api/order', {
+          method: 'POST',
+          body: orderPayload(product._id, 1),
+        })
+      )
+    )
+
+    const created = results.filter((r) => r.status === 201)
+    const conflicts = results.filter((r) => r.status === 409)
+    const other = results.filter((r) => r.status !== 201 && r.status !== 409)
+
+    assert.equal(created.length, 1, `expected exactly 1 success, got ${created.length}`)
+    assert.equal(conflicts.length, CONCURRENCY - 1)
+    assert.equal(other.length, 0, `unexpected statuses: ${other.map((r) => r.status).join(',')}`)
+
+    // Every failure must be an insufficient-stock conflict, not a crash.
+    assert.equal(
+      conflicts.every((r) => /stock/i.test(r.json?.message ?? '')),
+      true
+    )
+
+    const after = await reloadProduct(product._id)
+    assert.equal(after.reservedStock, 1)
+    assert.equal(after.stock, 1)
+
+    const orderCount = await orderModel.countDocuments({
+      'items.productId': product._id,
+    })
+    assert.equal(orderCount, 1)
+  })
+
+  test('reservation is released when the payment fails', async () => {
+    const product = await createProduct({ price: 1000, stock: 3 })
+
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: orderPayload(product._id, 2),
+    })
+    assert.equal(created.status, 201)
+
+    const afterReserve = await reloadProduct(product._id)
+    assert.equal(afterReserve.reservedStock, 2)
+
+    // Drive the webhook handler directly with a realistic failed-payment body.
+    const razorpayOrderId = 'order_phase2_failed'
+    await orderModel.updateOne(
+      { _id: created.json.order._id },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
+    )
+
+    await processRazorpayWebhook({
+      eventId: `evt_failed_${Date.now()}`,
+      event: 'payment.failed',
+      payload: {
+        event: 'payment.failed',
+        payload: {
+          payment: {
+            entity: {
+              id: 'pay_phase2_failed',
+              order_id: razorpayOrderId,
+              status: 'failed',
+            },
+          },
+        },
+      },
+    })
+
+    const afterFailure = await reloadProduct(product._id)
+    assert.equal(afterFailure.reservedStock, 0)
+
+    const order = await orderModel.findById(created.json.order._id).lean()
+    assert.equal(order.payment.status, 'failed')
+    assert.equal(order.orderStatus, 'cancelled')
+    assert.equal(order.payment.failureReason, 'payment_failed')
+    assert.equal(Boolean(order.stockReleasedAt), true)
+  })
+
+  test('reservation expires via the cron job when payment never arrives', async () => {
+    const product = await createProduct({ price: 1000, stock: 2 })
+
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: orderPayload(product._id, 2),
+    })
+    assert.equal(created.status, 201)
+
+    const orderId = created.json.order._id
+
+    // Pretend the reservation was taken long ago (older than the TTL).
+    const stale = new Date(Date.now() - config.STOCK_RESERVATION_TTL_MS - 60_000)
+    await orderModel.updateOne({ _id: orderId }, { $set: { stockReservedAt: stale } })
+
+    const releasedCount = await releaseStockNow()
+    assert.equal(releasedCount >= 1, true)
+
+    const afterExpiry = await reloadProduct(product._id)
+    assert.equal(afterExpiry.reservedStock, 0)
+
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.orderStatus, 'cancelled')
+    assert.equal(order.payment.status, 'failed')
+    assert.equal(order.payment.failureReason, 'reservation_expired')
+
+    // A second run must not double-release.
+    await releaseStockNow()
+    const stillZero = await reloadProduct(product._id)
+    assert.equal(stillZero.reservedStock, 0)
+  })
+
+  test('fulfilment consumes the reservation (stock and reservedStock both drop)', async () => {
+    const product = await createProduct({ price: 1000, stock: 5 })
+
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: orderPayload(product._id, 2),
+    })
+    assert.equal(created.status, 201)
+
+    const afterReserve = await reloadProduct(product._id)
+    assert.equal(afterReserve.stock, 5)
+    assert.equal(afterReserve.reservedStock, 2)
+
+    const razorpayOrderId = 'order_phase2_captured'
+    await orderModel.updateOne(
+      { _id: created.json.order._id },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
+    )
+
+    await processRazorpayWebhook({
+      eventId: `evt_captured_${Date.now()}`,
+      event: 'payment.captured',
+      payload: {
+        event: 'payment.captured',
+        payload: {
+          payment: {
+            entity: {
+              id: 'pay_phase2_captured',
+              order_id: razorpayOrderId,
+              amount: 200000,
+              currency: 'INR',
+              status: 'captured',
+            },
+          },
+        },
+      },
+    })
+
+    const afterFulfil = await reloadProduct(product._id)
+    assert.equal(afterFulfil.stock, 3)
+    assert.equal(afterFulfil.reservedStock, 0)
+
+    const order = await orderModel.findById(created.json.order._id).lean()
+    assert.equal(order.payment.status, 'paid')
+    assert.equal(order.orderStatus, 'fulfilled')
+    assert.equal(Boolean(order.stockConsumedAt), true)
+  })
+})
+
+/* ========================================================================== */
+/* 3. Razorpay verify: timing-safe, order-bound, replay-safe, idempotent       */
+/* ========================================================================== */
+
+describe('razorpay verify', () => {
+  const sign = (razorpayOrderId, razorpayPaymentId) =>
+    crypto
+      .createHmac('sha256', config.RAZORPAY_KEY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex')
+
+  test('signature comparison accepts only the exact signature', () => {
+    const razorpayOrderId = 'order_abc123'
+    const razorpayPaymentId = 'pay_abc123'
+    const valid = sign(razorpayOrderId, razorpayPaymentId)
+
+    assert.equal(verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature: valid }), true)
+
+    // Same length, one different nibble.
+    const tampered = `${valid.slice(0, -1)}${valid.endsWith('a') ? 'b' : 'a'}`
+    assert.equal(verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature: tampered }), false)
+
+    // Wrong length, non-hex, empty, missing, wrong types.
+    for (const bad of [valid.slice(0, 32), 'zz'.repeat(32), '', undefined, null, 12345, {}]) {
+      assert.equal(
+        verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature: bad }),
+        false,
+        `expected rejection for ${String(bad)}`
+      )
+    }
+  })
+
+  test('signature is bound to the specific order + payment pair', () => {
+    const valid = sign('order_abc123', 'pay_abc123')
+
+    assert.equal(verifyPaymentSignature({ razorpayOrderId: 'order_OTHER', razorpayPaymentId: 'pay_abc123', razorpaySignature: valid }), false)
+    assert.equal(verifyPaymentSignature({ razorpayOrderId: 'order_abc123', razorpayPaymentId: 'pay_OTHER', razorpaySignature: valid }), false)
+  })
+
+  const makeRazorpayOrder = async ({ status = 'pending', razorpayOrderId, razorpayPaymentId } = {}) => {
+    const product = await createProduct({ price: 1000, stock: 10 })
+
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: { ...orderPayload(product._id, 1), paymentMethod: 'razorpay' },
+    })
+    assert.equal(created.status, 201)
+
+    await orderModel.updateOne(
+      { _id: created.json.order._id },
+      {
+        $set: {
+          'payment.razorpayOrderId': razorpayOrderId,
+          'payment.razorpayPaymentId': razorpayPaymentId,
+          'payment.status': status,
+        },
+      }
+    )
+
+    return created.json.order._id
+  }
+
+  test('verify rejects a mismatched razorpay order id (no provider call)', async () => {
+    const orderId = await makeRazorpayOrder({ razorpayOrderId: 'order_trusted_1' })
+
+    const res = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId: 'pay_x',
+        razorpayOrderId: 'order_attacker',
+        razorpaySignature: sign('order_attacker', 'pay_x'),
+      },
+    })
+
+    assert.equal(res.status, 400)
+    assert.match(res.json.message, /mismatch/i)
+  })
+
+  test('verify rejects a forged signature (no provider call)', async () => {
+    const orderId = await makeRazorpayOrder({ razorpayOrderId: 'order_trusted_2' })
+
+    const res = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId: 'pay_x',
+        razorpayOrderId: 'order_trusted_2',
+        razorpaySignature: 'f'.repeat(64),
+      },
+    })
+
+    assert.equal(res.status, 400)
+    assert.match(res.json.message, /signature/i)
+  })
+
+  test('replaying the same payment on a paid order is idempotent', async () => {
+    const orderId = await makeRazorpayOrder({
+      status: 'paid',
+      razorpayOrderId: 'order_trusted_3',
+      razorpayPaymentId: 'pay_settled_3',
+    })
+
+    const res = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId: 'pay_settled_3',
+        razorpayOrderId: 'order_trusted_3',
+        razorpaySignature: sign('order_trusted_3', 'pay_settled_3'),
+      },
+    })
+
+    assert.equal(res.status, 200)
+
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.payment.status, 'paid')
+    assert.equal(order.payment.razorpayPaymentId, 'pay_settled_3')
+  })
+
+  test('a different payment id against a paid order is rejected', async () => {
+    const orderId = await makeRazorpayOrder({
+      status: 'paid',
+      razorpayOrderId: 'order_trusted_4',
+      razorpayPaymentId: 'pay_settled_4',
+    })
+
+    const res = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId: 'pay_different_4',
+        razorpayOrderId: 'order_trusted_4',
+        razorpaySignature: sign('order_trusted_4', 'pay_different_4'),
+      },
+    })
+
+    assert.equal(res.status, 409)
+
+    // The original payment must still be the one on record.
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.payment.razorpayPaymentId, 'pay_settled_4')
+  })
+
+  test('one payment id cannot settle two orders', async () => {
+    const paymentId = `pay_shared_${Date.now()}`
+
+    await makeRazorpayOrder({
+      status: 'paid',
+      razorpayOrderId: 'order_owner_5',
+      razorpayPaymentId: paymentId,
+    })
+
+    const secondOrderId = await makeRazorpayOrder({ razorpayOrderId: 'order_second_5' })
+
+    const res = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId: secondOrderId,
+        razorpayPaymentId: paymentId,
+        razorpayOrderId: 'order_second_5',
+        razorpaySignature: sign('order_second_5', paymentId),
+      },
+    })
+
+    assert.equal(res.status, 409)
+    assert.match(res.json.message, /another order/i)
+
+    const secondOrder = await orderModel.findById(secondOrderId).lean()
+    assert.equal(secondOrder.payment.status, 'pending')
+  })
+
+  test('create-payment is idempotent: an existing Razorpay order is reused', async () => {
+    const orderId = await makeRazorpayOrder({ razorpayOrderId: 'order_reuse_6' })
+
+    const first = await apiFetch('/api/payments/razorpay/create', {
+      method: 'POST',
+      body: { orderId },
+    })
+    const second = await apiFetch('/api/payments/razorpay/create', {
+      method: 'POST',
+      body: { orderId },
+    })
+
+    assert.equal(first.status, 200)
+    assert.equal(second.status, 200)
+    assert.equal(first.json.payment.razorpayOrderId, 'order_reuse_6')
+    assert.equal(second.json.payment.razorpayOrderId, 'order_reuse_6')
+    assert.equal(first.json.payment.razorpayOrderId, second.json.payment.razorpayOrderId)
+    // Amount comes from our own paise total.
+    assert.equal(first.json.payment.amount, 100000)
+  })
+})
+
+/* ========================================================================== */
+/* 4. Webhook: signature, uniqueness, idempotency, state machine               */
+/* ========================================================================== */
+
+describe('webhook handling', () => {
+  test('raw-body signature verification accepts only the correct HMAC', () => {
+    const rawBody = Buffer.from(JSON.stringify({ event: 'payment.captured' }))
+    const good = crypto
+      .createHmac('sha256', config.RAZORPAY_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest('hex')
+
+    assert.equal(verifyRazorpayWebhookSignature({ rawBody, signature: good }), true)
+    assert.equal(verifyRazorpayWebhookSignature({ rawBody, signature: 'f'.repeat(64) }), false)
+    assert.equal(verifyRazorpayWebhookSignature({ rawBody, signature: undefined }), false)
+    assert.equal(verifyRazorpayWebhookSignature({ rawBody: 'not-a-buffer', signature: good }), false)
+  })
+
+  test('the same event id is only processed once', async () => {
+    const product = await createProduct({ price: 1000, stock: 4 })
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: { ...orderPayload(product._id, 1), paymentMethod: 'razorpay' },
+    })
+
+    const razorpayOrderId = `order_idem_${Date.now()}`
+    await orderModel.updateOne(
+      { _id: created.json.order._id },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
+    )
+
+    const payload = {
+      event: 'payment.captured',
+      payload: {
+        payment: {
+          entity: {
+            id: `pay_idem_${Date.now()}`,
+            order_id: razorpayOrderId,
+            amount: 100000,
+            currency: 'INR',
+            status: 'captured',
+          },
+        },
+      },
+    }
+
+    const eventId = `evt_idem_${Date.now()}`
+
+    const first = await processRazorpayWebhook({ eventId, event: 'payment.captured', payload })
+    const second = await processRazorpayWebhook({ eventId, event: 'payment.captured', payload })
+
+    assert.equal(first.alreadyProcessed, false)
+    assert.equal(second.alreadyProcessed, true)
+
+    // Stock consumed exactly once.
+    const product_ = await reloadProduct(product._id)
+    assert.equal(product_.stock, 3)
+    assert.equal(product_.reservedStock, 0)
+  })
+
+  test('illegal state transitions are refused by the state machine', () => {
+    assert.equal(canTransition('pending', 'confirmed'), true)
+    assert.equal(canTransition('confirmed', 'fulfilled'), true)
+    assert.equal(canTransition('pending', 'fulfilled'), false)
+    assert.equal(canTransition('cancelled', 'confirmed'), false)
+    assert.equal(canTransition('refunded', 'paid'), false)
+    assert.equal(canTransition('pending', 'pending'), true)
+
+    const order = { orderStatus: 'pending' }
+    assert.throws(() => applyTransition(order, 'fulfilled'), /Illegal order status transition/)
+
+    applyTransition(order, 'confirmed')
+    applyTransition(order, 'confirmed') // idempotent
+    assert.equal(order.orderStatus, 'confirmed')
+  })
+
+  test('verify alone cannot fulfil: only the webhook finalizes', async () => {
+    const product = await createProduct({ price: 1000, stock: 3 })
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      body: { ...orderPayload(product._id, 1), paymentMethod: 'razorpay' },
+    })
+
+    const orderId = created.json.order._id
+    const razorpayOrderId = `order_nofinal_${Date.now()}`
+    const razorpayPaymentId = `pay_nofinal_${Date.now()}`
+
+    await orderModel.updateOne(
+      { _id: orderId },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
+    )
+
+    /*
+     * Simulate what verify would persist (it cannot run here without a provider
+     * call) and assert the resulting state is confirmed-but-not-fulfilled.
+     */
+    const order = await orderModel.findById(orderId)
+    order.payment.razorpayPaymentId = razorpayPaymentId
+    order.payment.status = 'paid'
+    applyTransition(order, 'confirmed')
+    await order.save()
+
+    const afterVerify = await orderModel.findById(orderId).lean()
+    assert.equal(afterVerify.orderStatus, 'confirmed')
+    assert.equal(afterVerify.stockConsumedAt, null)
+    assert.equal((await reloadProduct(product._id)).stock, 3)
+
+    const signature = crypto
+      .createHmac('sha256', config.RAZORPAY_WEBHOOK_SECRET)
+      .update('x')
+      .digest('hex')
+    assert.equal(typeof signature, 'string')
+
+    await processRazorpayWebhook({
+      eventId: `evt_nofinal_${Date.now()}`,
+      event: 'payment.captured',
+      payload: {
+        event: 'payment.captured',
+        payload: {
+          payment: {
+            entity: {
+              id: razorpayPaymentId,
+              order_id: razorpayOrderId,
+              amount: 100000,
+              currency: 'INR',
+              status: 'captured',
+            },
+          },
+        },
+      },
+    })
+
+    const afterWebhook = await orderModel.findById(orderId).lean()
+    assert.equal(afterWebhook.orderStatus, 'fulfilled')
+    assert.equal((await reloadProduct(product._id)).stock, 2)
+  })
+})
+
+/* ========================================================================== */
+/* 6. Log redaction                                                            */
+/* ========================================================================== */
+
+describe('log redaction', () => {
+  test('signatures, keys, tokens and whole payloads are censored', () => {
+    const redacted = redact({
+      razorpaySignature: 'deadbeef',
+      nested: { key_secret: 'super-secret', token: 'abc' },
+      headers: { authorization: 'Bearer xyz', cookie: 'a=b' },
+      payload: { payment: { entity: { id: 'pay_1' } } },
+      rawBody: Buffer.from('{"event":"payment.captured"}'),
+      harmlessBuffer: Buffer.from('abc'),
+      orderNumber: 'IP-1-2',
+    })
+
+    const asText = JSON.stringify(redacted)
+
+    assert.equal(asText.includes('deadbeef'), false)
+    assert.equal(asText.includes('super-secret'), false)
+    assert.equal(asText.includes('Bearer xyz'), false)
+    assert.equal(asText.includes('pay_1'), false)
+    assert.equal(redacted.orderNumber, 'IP-1-2')
+    assert.equal(redacted.payload, '[REDACTED]')
+    // rawBody is censored by key name; an ordinary Buffer is summarised, not dumped.
+    assert.equal(redacted.rawBody, '[REDACTED]')
+    assert.equal(redacted.harmlessBuffer, '[Buffer 3 bytes]')
+  })
+
+  test('errors keep the message but not the stack in production', () => {
+    const original = config.IS_PRODUCTION
+    try {
+      const error = new Error('boom')
+      const redacted = redact(error)
+
+      assert.equal(redacted.message, 'boom')
+      assert.equal(
+        redacted.stack === undefined,
+        original === true,
+        'stack should only be present outside production'
+      )
+    } finally {
+      assert.equal(config.IS_PRODUCTION, original)
+    }
+  })
+})

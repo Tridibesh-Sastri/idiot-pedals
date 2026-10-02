@@ -128,6 +128,19 @@ const SPEC = {
   EMAIL_VERIFICATION_TOKEN_TTL_MS: { type: 'int', default: 15 * 60 * 1000, min: 1 },
   PENDING_REGISTRATION_TTL_MS: { type: 'int', default: 30 * 60 * 1000, min: 1 },
 
+  /* Inventory reservation -------------------------------------------------- */
+  STOCK_RESERVATION_TTL_MS: { type: 'int', default: 15 * 60 * 1000, min: 60 * 1000 },
+  STOCK_RELEASE_INTERVAL_CRON: { type: 'string', default: '* * * * *' },
+
+  /* Observability ---------------------------------------------------------- */
+  LOG_LEVEL: { type: 'enum', values: ['trace', 'debug', 'info', 'warn', 'error', 'fatal'], default: 'info' },
+
+  /* Mongo connection pool -------------------------------------------------- */
+  MONGO_MAX_POOL_SIZE: { type: 'int', default: 20, min: 1, max: 200 },
+  MONGO_MIN_POOL_SIZE: { type: 'int', default: 2, min: 0, max: 100 },
+  MONGO_SERVER_SELECTION_TIMEOUT_MS: { type: 'int', default: 5000, min: 100 },
+  MONGO_SOCKET_TIMEOUT_MS: { type: 'int', default: 45000, min: 100 },
+
   /* SMTP ----------------------------------------------------------------- */
   SMTP_HOST: { type: 'string', required: true },
   SMTP_PORT: { type: 'int', default: 587, min: 1, max: 65535 },
@@ -508,6 +521,19 @@ const config = {
   /* Token lifetimes */
   EMAIL_VERIFICATION_TOKEN_TTL_MS: resolved.EMAIL_VERIFICATION_TOKEN_TTL_MS,
   PENDING_REGISTRATION_TTL_MS: resolved.PENDING_REGISTRATION_TTL_MS,
+
+  /* Inventory reservation */
+  STOCK_RESERVATION_TTL_MS: resolved.STOCK_RESERVATION_TTL_MS,
+  STOCK_RELEASE_INTERVAL_CRON: resolved.STOCK_RELEASE_INTERVAL_CRON,
+
+  /* Observability */
+  LOG_LEVEL: resolved.LOG_LEVEL,
+
+  /* Mongo connection pool */
+  MONGO_MAX_POOL_SIZE: resolved.MONGO_MAX_POOL_SIZE,
+  MONGO_MIN_POOL_SIZE: resolved.MONGO_MIN_POOL_SIZE,
+  MONGO_SERVER_SELECTION_TIMEOUT_MS: resolved.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+  MONGO_SOCKET_TIMEOUT_MS: resolved.MONGO_SOCKET_TIMEOUT_MS,
 
   /* SMTP */
   SMTP_HOST: resolved.SMTP_HOST,

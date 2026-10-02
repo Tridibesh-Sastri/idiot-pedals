@@ -4,6 +4,27 @@ import config from "../config/config.js";
 import Order from "../models/order.model.js";
 import WebhookEvent from "../models/webhookEvent.model.js";
 
+import { toMinor } from "../utils/money.js";
+import { logger } from "../utils/logger.js";
+import {
+  ORDER_STATUS,
+  applyTransition,
+} from "../domain/orderStateMachine.js";
+import {
+  consumeReservedStock,
+  releaseReservedStock,
+} from "./stock.service.js";
+
+/** Authoritative paise total, falling back for documents predating `totalMinor`. */
+const orderTotalMinor = (order) =>
+  order.pricing.totalMinor ?? toMinor(order.pricing.total);
+
+const orderStockLines = (order) =>
+  order.items.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+  }));
+
 const verifyRazorpayWebhookSignature = ({
   rawBody,
   signature,
@@ -92,8 +113,7 @@ const processPaymentCaptured = async ({
     throw error;
   }
 
-  const expectedAmount =
-    Math.round(order.pricing.total * 100);
+  const expectedAmount = orderTotalMinor(order);
 
   if (amount !== expectedAmount) {
     const error = new Error(
@@ -122,19 +142,49 @@ const processPaymentCaptured = async ({
     throw error;
   }
 
-  // Idempotent state transition.
-  if (order.payment.status === "paid") {
+  /*
+   * Idempotent state transition.
+   *
+   * The webhook is the source of truth, so it is the only path allowed to
+   * finalize fulfilment. A repeat delivery is a no-op.
+   */
+  if (order.payment.status === "paid" && order.stockConsumedAt) {
     return order;
   }
 
-  order.payment.razorpayPaymentId =
-    razorpayPaymentId;
+  const wasAlreadyPaid = order.payment.status === "paid";
 
-  order.payment.status = "paid";
+  if (!order.payment.razorpayPaymentId) {
+    order.payment.razorpayPaymentId = razorpayPaymentId;
+  }
 
-  order.orderStatus = "confirmed";
+  if (!wasAlreadyPaid) {
+    order.payment.status = "paid";
+    applyTransition(order, ORDER_STATUS.CONFIRMED);
+  }
+
+  // pending/confirmed -> fulfilled (webhook-only transition)
+  applyTransition(order, ORDER_STATUS.FULFILLED);
+
+  /*
+   * Fulfilment permanently consumes the reservation: `stock` and
+   * `reservedStock` both drop by the ordered quantity.
+   */
+  if (!order.stockConsumedAt) {
+    await consumeReservedStock(orderStockLines(order));
+    order.stockConsumedAt = new Date();
+  }
 
   await order.save();
+
+  logger.info(
+    {
+      orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.payment.status,
+    },
+    "Webhook fulfilled order",
+  );
 
   return order;
 };
@@ -181,12 +231,20 @@ const processPaymentFailed = async ({
   }
 
   /*
-   * Do not cancel the order here.
-   *
-   * The customer may retry payment.
+   * A failed payment must not hold inventory. The reservation is released and
+   * the order moves to a terminal state; the customer retries by placing a new
+   * order, which takes a fresh reservation.
    */
   if (order.payment.status !== "paid") {
     order.payment.status = "failed";
+    order.payment.failureReason = "payment_failed";
+
+    applyTransition(order, ORDER_STATUS.CANCELLED);
+
+    if (!order.stockReleasedAt) {
+      await releaseReservedStock(orderStockLines(order));
+      order.stockReleasedAt = new Date();
+    }
 
     await order.save();
   }

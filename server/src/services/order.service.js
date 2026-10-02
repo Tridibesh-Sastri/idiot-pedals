@@ -6,6 +6,15 @@ import {
     sendAdminOrderEmail,
 } from './order.email.service.js'
 
+import { multiplyMinor, toMajor, toMinor } from "../utils/money.js";
+import {
+    releaseReservedStock,
+    reserveOrderStock,
+} from "./stock.service.js";
+
+/** Mirrors the order line quantity bounds enforced by the schema. */
+const MAX_ITEM_QUANTITY = 100;
+
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = crypto.randomBytes(4).toString("hex").toUpperCase();
@@ -30,10 +39,6 @@ const createOrder = async ({
     _id: { $in: productIds },
   }).lean();
 
-  // --------------------------------------------------
-  // 2. Make sure every requested product exists
-  // --------------------------------------------------
-
   const productMap = new Map(
     products.map((product) => [
       product._id.toString(),
@@ -43,12 +48,15 @@ const createOrder = async ({
 
   const orderItems = [];
 
-  let subtotal = 0;
+  let subtotalMinor = 0;
 
   // --------------------------------------------------
-  // 3. Validate products and calculate authoritative
-  //    order values
+  // 2. Build authoritative line items
   // --------------------------------------------------
+  //
+  // Every amount here is derived from the database price in integer paise.
+  // Any price the client may have sent is never read — it is not part of the
+  // line-item contract at all.
 
   for (const requestedItem of items) {
     const product = productMap.get(
@@ -75,24 +83,31 @@ const createOrder = async ({
       throw error;
     }
 
-    const availableStock =
-      product.stock - product.reservedStock;
+    const quantity = requestedItem.quantity;
 
-    if (requestedItem.quantity > availableStock) {
+    /*
+     * Defence in depth: the validator and the schema both enforce this, but a
+     * non-integer quantity here would corrupt the paise arithmetic.
+     */
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity < 1 ||
+      quantity > MAX_ITEM_QUANTITY
+    ) {
       const error = new Error(
-        `Insufficient stock for "${product.name}".`
+        `Quantity for "${product.name}" must be a whole number between 1 and ${MAX_ITEM_QUANTITY}.`
       );
 
-      error.statusCode = 409;
+      error.statusCode = 400;
+      error.code = "INVALID_QUANTITY";
 
       throw error;
     }
 
-    const unitPrice = product.price;
-    const quantity = requestedItem.quantity;
-    const itemTotal = unitPrice * quantity;
+    const unitPriceMinor = toMinor(product.price);
+    const itemTotalMinor = multiplyMinor(unitPriceMinor, quantity);
 
-    subtotal += itemTotal;
+    subtotalMinor += itemTotalMinor;
 
     orderItems.push({
       productId: product._id,
@@ -100,58 +115,91 @@ const createOrder = async ({
       sku: product.sku,
       quantity,
       unitPrice: {
-        amount: unitPrice,
+        amount: toMajor(unitPriceMinor),
+        amountMinor: unitPriceMinor,
         currency: product.currency,
       },
       total: {
-        amount: itemTotal,
+        amount: toMajor(itemTotalMinor),
+        amountMinor: itemTotalMinor,
         currency: product.currency,
       },
     });
   }
 
   // --------------------------------------------------
-  // 4. Calculate order-level pricing
+  // 3. Calculate order-level pricing (integer paise)
   // --------------------------------------------------
 
-  const shipping = 0;
-  const discount = 0;
+  const shippingMinor = 0;
+  const discountMinor = 0;
 
-  const total =
-    subtotal +
-    shipping -
-    discount;
+  const totalMinor = subtotalMinor + shippingMinor - discountMinor;
 
   // --------------------------------------------------
-  // 5. Create internal order
+  // 4. Reserve inventory atomically
+  // --------------------------------------------------
+  //
+  // The conditional findOneAndUpdate inside reserveOrderStock is what makes
+  // concurrent orders for the last unit safe: exactly one caller matches the
+  // availability filter. If any line fails, whatever was already reserved in
+  // this call is released before the error propagates.
+
+  const reserved = await reserveOrderStock(
+    orderItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  );
+
+  // --------------------------------------------------
+  // 5. Persist the order
   // --------------------------------------------------
 
-  const order = await Order.create({
-    orderNumber: generateOrderNumber(),
+  let order;
 
-    userId,
+  try {
+    order = await Order.create({
+      orderNumber: generateOrderNumber(),
 
-    items: orderItems,
+      userId,
 
-    pricing: {
-      subtotal,
-      shipping,
-      discount,
-      total,
-      currency: "INR",
-    },
+      items: orderItems,
 
-    customer,
+      pricing: {
+        subtotal: toMajor(subtotalMinor),
+        shipping: toMajor(shippingMinor),
+        discount: toMajor(discountMinor),
+        total: toMajor(totalMinor),
+        currency: "INR",
+        subtotalMinor,
+        shippingMinor,
+        discountMinor,
+        totalMinor,
+      },
 
-    shippingAddress,
+      customer,
 
-    payment: {
-      method: paymentMethod,
-      status: "pending",
-    },
+      shippingAddress,
 
-    orderStatus: "pending",
-  });
+      payment: {
+        method: paymentMethod,
+        status: "pending",
+      },
+
+      orderStatus: "pending",
+
+      stockReservedAt: new Date(),
+    });
+  } catch (error) {
+    /*
+     * The order did not persist, so the reservation must not be held. Without
+     * this the unit would stay reserved until the expiry job ran.
+     */
+    await releaseReservedStock(reserved);
+
+    throw error;
+  }
 
   // --------------------------------------------------
   // 6. Notify admin

@@ -26,12 +26,12 @@ import { accessTokenGenerator, hashToken } from '../src/utils/tokenManager.js'
 /* Test database (derived, never the dev database)                             */
 /* -------------------------------------------------------------------------- */
 
-const TEST_DB_SUFFIX = '-phase1-test'
+const TEST_DB = 'idiot-pedals-test'
 
 const testMongoUri = (() => {
   const [base, query = ''] = config.MONGO_URI.split('?')
   const lastSlash = base.lastIndexOf('/')
-  const withDb = base.slice(0, lastSlash + 1) + 'idiot-pedal' + TEST_DB_SUFFIX
+  const withDb = base.slice(0, lastSlash + 1) + TEST_DB
   return query ? `${withDb}?${query}` : withDb
 })()
 
