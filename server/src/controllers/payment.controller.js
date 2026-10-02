@@ -3,6 +3,10 @@ import {
   verifyRazorpayPayment,
 } from "../services/payment.service.js";
 
+import {
+    sendAdminOrderEmail,
+} from '../services/order.email.service.js'
+
 const createRazorpayPayment = async (req, res, next) => {
   try {
     const result = await createRazorpayPaymentOrder({
@@ -32,6 +36,8 @@ const verifyRazorpayPaymentController = async (req, res, next) => {
       razorpayOrderId: req.body.razorpayOrderId,
       razorpaySignature: req.body.razorpaySignature,
     });
+
+    void sendAdminOrderEmail(order);
 
     return res.status(200).json({
       success: true,

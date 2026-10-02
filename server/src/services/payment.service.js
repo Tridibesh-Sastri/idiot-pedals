@@ -5,9 +5,6 @@ import {
   fetchPayment,
 } from "../integrations/razorpay/razorpay.service.js";
 
-import {
-    sendAdminOrderEmail,
-} from './order.email.service.js'
 
 const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
   // 1. Find the internal order belonging to this user
@@ -168,7 +165,7 @@ const verifyRazorpayPayment = async ({
     razorpayPaymentId,
     razorpaySignature,
   });
-
+  
   if (!isValid) {
     const error = new Error("Invalid Razorpay payment signature.");
     error.statusCode = 400;
@@ -183,10 +180,9 @@ const verifyRazorpayPayment = async ({
   order.payment.status = "paid";
   order.orderStatus = "confirmed";
 
-  await order.save();
+await order.save();
 
   // Notify admin AFTER payment state is persisted.
-  void sendAdminOrderEmail(order);
 
   return order;
 };

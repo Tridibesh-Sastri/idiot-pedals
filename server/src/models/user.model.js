@@ -6,7 +6,7 @@ const addressSchema = new Schema(
     {
         label: { type: String, trim: true, maxlength: 30 },
         name: { type: String, required: true, trim: true, maxlength: 100 },
-        phone: { type: String, required: true, trim: true, maxlength: 20 },
+        phone: { type: String, required: true, trim: true, maxlength: 10, minlength: 10 },
         addressLine1: { type: String, required: true, trim: true, maxlength: 200 },
         addressLine2: { type: String, trim: true, maxlength: 200 },
         city: { type: String, required: true, trim: true, maxlength: 100 },
