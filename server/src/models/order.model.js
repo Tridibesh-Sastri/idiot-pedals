@@ -368,6 +368,17 @@ orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ "payment.status": 1, createdAt: -1 });
 
 /*
+ * Supports the reservation-expiry sweep, which filters on payment status,
+ * order status and the reservation timestamps together.
+ */
+orderSchema.index({
+  "payment.status": 1,
+  orderStatus: 1,
+  stockReservedAt: 1,
+  stockReleasedAt: 1,
+});
+
+/*
  * Mongoose 9 runs pre hooks as promises — there is no callback `next` argument.
  *
  * Every money check is an exact integer comparison in paise. The old ±0.01
