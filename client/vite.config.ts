@@ -1,10 +1,19 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
 export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
+  const env = loadEnv(mode, process.cwd(), '');
+
+  /**
+   * Optional dev proxy target (e.g. http://localhost:5000). Never hardcoded —
+   * set VITE_API_PROXY_TARGET in .env.local. When present, `/api` requests are
+   * proxied so the browser sees a same-origin API and httpOnly cookies work
+   * without CORS/SameSite friction.
+   */
+  const proxyTarget = env.VITE_API_PROXY_TARGET?.trim();
 
   return {
     plugins: [react(), tailwindcss()],
@@ -32,6 +41,17 @@ export default defineConfig(({ mode }) => {
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      ...(proxyTarget
+        ? {
+            proxy: {
+              '/api': {
+                target: proxyTarget,
+                changeOrigin: true,
+                secure: false,
+              },
+            },
+          }
+        : {}),
     },
   };
 });

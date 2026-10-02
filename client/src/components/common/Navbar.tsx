@@ -30,9 +30,9 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
 
   const navLinks = [
     // HIDDEN FROM WEBSITE (kept in code):
-    // { name: 'Product', path: '/product' },
     // { name: 'Tone Demo', path: '/#demo' },
     { name: 'Home', path: '/' },
+    { name: 'Shop', path: '/products' },
     { name: 'Controls', path: '/#controls' },
     { name: 'Specs', path: '/#specs' },
     { name: 'About', path: '/about' },
@@ -45,6 +45,9 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
     }
     if (path === '/') {
       return location.pathname === '/' && !location.hash;
+    }
+    if (path === '/products') {
+      return location.pathname === '/products' || location.pathname.startsWith('/products/');
     }
     return location.pathname === path;
   };
@@ -118,9 +121,9 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
                 </button>
             */}
 
-            {/* Primary Buy Action (direct checkout; Product catalog hidden but kept in code: /product) */}
+            {/* Primary Buy Action (routes to the server-driven catalogue) */}
             <Link
-              to="/checkout"
+              to="/products"
               className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold tracking-[0.2em] uppercase shadow-lg shadow-[#FF5E1E]/25 transition-all glow-neon-subtle"
             >
               <span>Buy Now</span>
@@ -174,11 +177,11 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
 
           <div className="space-y-4">
             <Link
-              to="/checkout"
+              to="/products"
               onClick={() => setIsMobileMenuOpen(false)}
               className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
             >
-              <span>Order Neon Fuzz Box — ₹2,399</span>
+              <span>Shop Pedals</span>
               <ArrowRight size={14} />
             </Link>
             <p className="text-center text-[11px] font-mono-tech text-[#8E98A8]">

@@ -1,51 +1,38 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  User,
-  ShieldCheck,
-  Package,
-  LogOut,
-  CheckCircle2,
-  ArrowRight,
-  Edit2,
-  Save,
-} from 'lucide-react';
+import { User, ShieldCheck, Package, LogOut, CheckCircle2, ArrowRight, Wrench } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { userService } from '../services/userService';
+import { LoadingState } from '../components/common/AsyncState';
 
 export const AccountPage: React.FC = () => {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, isAuthenticated, initializing } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [saving, setSaving] = useState(false);
-
   const handleLogout = async () => {
-    await logout();
-    showToast('Signed out of workbench profile.');
-    navigate('/');
-  };
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
     try {
-      await userService.updateProfile({ name, phone });
-      await refreshUser();
-      setIsEditing(false);
-      showToast('Profile information saved locally.');
+      await logout();
+      showToast('Signed out of workbench profile.');
     } catch {
-      showToast('Failed to update profile.', 'error');
+      // logout() always purges local state, so this is informational only.
+      showToast('Signed out locally.', 'info');
     } finally {
-      setSaving(false);
+      navigate('/');
     }
   };
 
-  if (!user) {
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 px-4">
+        <div className="max-w-md mx-auto">
+          <LoadingState message="Restoring your session…" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !isAuthenticated) {
     return (
       <div className="min-h-[80vh] bg-[#FFF8F1] text-[#2A1A12] flex flex-col items-center justify-center px-4 pt-28">
         <div className="max-w-md w-full bg-white border border-[#F0D3B8] rounded-3xl p-8 text-center space-y-4 shadow-2xl backdrop-blur-xl">
@@ -57,6 +44,7 @@ export const AccountPage: React.FC = () => {
           </p>
           <Link
             to="/login"
+            state={{ from: '/account' }}
             className="inline-block px-7 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech font-bold uppercase rounded-full shadow-lg shadow-[#FF5E1E]/25"
           >
             Sign In Now
@@ -72,7 +60,7 @@ export const AccountPage: React.FC = () => {
       <div className="absolute top-20 right-10 w-[500px] h-[500px] bg-[#FF5E1E]/10 blur-[160px] pointer-events-none rounded-full" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 relative z-10">
-        
+
         {/* Header */}
         <div className="border-b border-[#F0D3B8] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -107,97 +95,73 @@ export const AccountPage: React.FC = () => {
                 </span>
               </div>
             </div>
-
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 bg-[#FFF1E6] border border-[#F0D3B8] rounded-full text-xs font-mono-tech uppercase text-[#2A1A12] hover:border-[#FF5E1E] transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Edit2 size={12} />
-              <span>{isEditing ? 'Cancel' : 'Edit'}</span>
-            </button>
           </div>
 
-          {isEditing ? (
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
-                  Phone (for SMS tracking)
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center gap-2 shadow-lg shadow-[#FF5E1E]/25 transition-all cursor-pointer"
-              >
-                <Save size={14} />
-                <span>{saving ? 'Saving...' : 'Save Changes'}</span>
-              </button>
-            </form>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono-tech">
-              <div className="p-5 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] uppercase text-[#8A6A54]">
-                    Email Address
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono-tech">
+            <div className="p-5 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase text-[#8A6A54]">
+                  Email Address
+                </span>
+                {user.isEmailVerified ? (
+                  <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
+                    <CheckCircle2 size={12} /> Verified
                   </span>
-                  {user.isEmailVerified ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                      <CheckCircle2 size={12} /> Verified
-                    </span>
-                  ) : (
-                    <Link
-                      to="/verify-email"
-                      className="text-[#FF5E1E] font-bold hover:underline text-[11px]"
-                    >
-                      Verify Now
-                    </Link>
-                  )}
-                </div>
-                <div className="text-sm font-bold text-[#2A1A12]">{user.email}</div>
+                ) : (
+                  <span className="text-amber-600 font-bold text-[11px]">Unverified</span>
+                )}
               </div>
+              <div className="text-sm font-bold text-[#2A1A12] break-all">{user.email}</div>
+            </div>
 
-              <div className="p-5 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] uppercase text-[#8A6A54]">
-                    Phone (Courier SMS)
-                  </span>
-                  {user.isPhoneVerified ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
-                      <CheckCircle2 size={12} /> Verified
-                    </span>
-                  ) : (
-                    <Link
-                      to="/verify-phone"
-                      className="text-[#FF5E1E] font-bold hover:underline text-[11px]"
-                    >
-                      Verify OTP
-                    </Link>
-                  )}
-                </div>
-                <div className="text-sm font-bold text-[#2A1A12]">{user.phone || 'Not set'}</div>
+            <div className="p-5 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase text-[#8A6A54]">
+                  Phone (Courier SMS)
+                </span>
+                <span className="text-[11px] text-[#8A6A54]">
+                  {user.isPhoneVerified ? 'Verified' : 'Verification soon'}
+                </span>
+              </div>
+              <div className="text-sm font-bold text-[#2A1A12]">{user.phone || 'Not set'}</div>
+            </div>
+          </div>
+
+          {/* Addresses (read-only) */}
+          {user.addresses.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold">
+                Saved Addresses
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono-tech text-[#8A6A54]">
+                {user.addresses.map((address, index) => (
+                  <div
+                    key={address.id ?? `${address.addressLine1}-${index}`}
+                    className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1"
+                  >
+                    <div className="text-[11px] uppercase text-[#FF5E1E] font-bold">
+                      {address.label || 'Address'}
+                    </div>
+                    <div className="font-bold text-[#2A1A12]">{address.name}</div>
+                    <div>{address.addressLine1}</div>
+                    {address.addressLine2 && <div>{address.addressLine2}</div>}
+                    <div>
+                      {address.city}, {address.state} - {address.postalCode}
+                    </div>
+                    <div>{address.country}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
+
+          <div className="p-4 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl flex items-start gap-2.5 text-[11px] font-mono-tech text-[#8A6A54]">
+            <Wrench size={14} className="text-[#FF5E1E] mt-0.5 shrink-0" />
+            <span>
+              Profile editing is not available yet — the backend does not expose a profile update
+              endpoint. Contact support for changes.
+            </span>
+          </div>
         </div>
 
         {/* Quick Links Banner */}

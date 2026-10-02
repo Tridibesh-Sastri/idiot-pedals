@@ -9,7 +9,6 @@ import { ControlsOverview } from "../components/pedal/ControlsOverview";
 import { Specifications } from "../components/pedal/Specifications";
 // Keep ExplodedView in the code as requested
 import { ExplodedView as _ExplodedView } from "../components/ExplodedView";
-import { useCart } from "../context/CartContext";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
@@ -22,15 +21,11 @@ void _ExplodedView;
 const INSTAGRAM_URL = "https://www.instagram.com/idiot.pedals/";
 
 export const HomePage: React.FC = () => {
-  const { addItem, setIsCartOpen } = useCart();
   const navigate = useNavigate();
 
-  const handleQuickAdd = () => {
-    // Direct checkout flow: add to cart silently, skip Workbench Cart drawer
-    addItem();
-    setIsCartOpen(false);
-    navigate("/checkout");
-  };
+  // Catalogue is server-driven now, so the landing CTA routes to the shop
+  // instead of fabricating a cart line for a hardcoded product.
+  const handleShop = () => navigate("/products");
 
   return (
     <div className="bg-[#FFF8F1] text-[#2A1A12]">
@@ -88,10 +83,10 @@ export const HomePage: React.FC = () => {
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={handleQuickAdd}
+              onClick={handleShop}
               className="px-8 py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold tracking-[0.2em] uppercase rounded-full shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange transition-all cursor-pointer"
             >
-              Buy Now — ₹2,399
+              Shop Pedals
             </button>
             <a
               href={INSTAGRAM_URL}

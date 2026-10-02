@@ -18,9 +18,10 @@ import { CartDrawer as _CartDrawer } from './components/common/CartDrawer';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 
-// Page Views: Public marketing, product showcase, and support
+// Page Views: Public marketing, product catalogue, and support
 import { HomePage } from './pages/HomePage';
-import { ProductPage } from './pages/ProductPage';
+import { ProductsPage } from './pages/ProductsPage';
+import { ProductDetailPage } from './pages/ProductPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 
@@ -61,7 +62,10 @@ export default function App() {
                   <Routes>
                     {/* Public marketing and catalog routes */}
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/product" element={<ProductPage />} />
+                    <Route path="/products" element={<ProductsPage />} />
+                    <Route path="/products/:id" element={<ProductDetailPage />} />
+                    {/* Legacy single-product route kept working */}
+                    <Route path="/product" element={<Navigate to="/products" replace />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/contact" element={<ContactPage />} />
 
