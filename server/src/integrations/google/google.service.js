@@ -14,14 +14,15 @@ const cleanupExpiredStates = () => {
     for (const [state, expiresAt] of oauthStateStore) if (expiresAt <= now) oauthStateStore.delete(state)
 }
 
-export const getGoogleAuthUrl = () => {
+export const getGoogleAuthUrl = (state) => {
     cleanupExpiredStates()
     if (oauthStateStore.size >= MAX_STATES) {
         const oldest = oauthStateStore.keys().next().value
         if (oldest) oauthStateStore.delete(oldest)
     }
-    const state = crypto.randomBytes(32).toString('base64url')
+
     oauthStateStore.set(state, Date.now() + STATE_TTL_MS)
+
     
     return googleClient.generateAuthUrl({
         access_type: 'offline',
@@ -34,14 +35,20 @@ export const getGoogleAuthUrl = () => {
 }
 
 const consumeOAuthState = (state) => {
+    
     if (typeof state !== 'string' || !state.length) return false
+
     const expiresAt = oauthStateStore.get(state)
+
     if (!expiresAt) return false
+
     oauthStateStore.delete(state)
+
     return expiresAt > Date.now()
 }
 
 export const getGoogleUser = async (code, state) => {
+
     if (!consumeOAuthState(state)) throw new Error('Invalid or expired Google OAuth state')
     if (typeof code !== 'string' || !code.length) throw new Error('Google authorization code is required')
 

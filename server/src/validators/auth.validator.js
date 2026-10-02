@@ -1,4 +1,4 @@
-import { body, validationResult } from 'express-validator'
+import { body, cookie, query, validationResult } from 'express-validator'
 
 const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 50
@@ -8,7 +8,6 @@ const PHONE_PATTERN = /^[6-9]\d{9}$/
 
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req)
-
     if (!errors.isEmpty()) {
         return res.status(400).json({
             success: false,
@@ -52,6 +51,7 @@ export const registerValidator = [
         'password',
     ]),
 
+
     body('email')
         .exists()
         .withMessage('Email is required')
@@ -60,7 +60,7 @@ export const registerValidator = [
         .withMessage('Email must be a string')
         .bail()
         .trim()
-        .normalizeEmail()
+        .toLowerCase()
         .isEmail()
         .withMessage('Enter a valid email')
         .bail()
@@ -136,7 +136,7 @@ export const loginValidator = [
         .withMessage('Email must be a string')
         .bail()
         .trim()
-        .normalizeEmail()
+        .toLowerCase()
         .isEmail()
         .withMessage('Enter a valid email')
         .bail()
@@ -160,3 +160,107 @@ export const loginValidator = [
 
     handleValidationErrors,
 ]
+
+export const validateRefreshCookie = [
+  cookie('refreshToken')
+    // 1. Presence Enforcement
+    .exists({ checkFalsy: true })
+    .withMessage('Authentication required.')
+    .bail()
+
+    // 2. Structural Type Guard (Blocks parameter pollution, arrays, or objects)
+    .custom((value) => {
+      if (typeof value !== 'string') {
+        throw new Error('Malformed authentication layout.');
+      }
+      return true;
+    })
+    .bail()
+
+    // 3. String Trimming
+    .trim()
+
+    // 4. Rigid Length Boundaries (Min length of standard small JWT to Max length of large JWT)
+    .isLength({ min: 40, max: 2048 })
+    .withMessage('Invalid authentication signature length.')
+    .bail()
+
+    // 5. Explicit Format Constraints (Enforces accurate Base64URL string segments)
+    .matches(/^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/)
+    .withMessage('Invalid token syntax character sequence.'),
+
+  /**
+   * Final interceptor handling and error parsing middleware.
+   */
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Security Practice: Extract the first error message precisely
+      const firstError = errors.array()[0].msg;
+
+      // Always clear out any unauthenticated cookies if an active mismatch occurs
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+      });
+
+      return res.status(401).json({
+        success: false,
+        message: firstError,
+      });
+    }
+    next();
+  },
+];
+
+export const validateGoogleCallback = [
+  // 1. Ensure the authorization code is a non-empty string
+  query('code')
+    .exists({ checkFalsy: true })
+    .withMessage('Google authorization code is missing.')
+    .bail()
+    .isString()
+    .withMessage('Malformed authorization layout.')
+    .trim(),
+
+  // 2. State parameter validation (Mandatory for CSRF defense)
+  query('state')
+    .exists({ checkFalsy: true })
+    .withMessage('Security state identifier is missing.')
+    .bail()
+    .isString()
+    .withMessage('Malformed security state layout.')
+    .trim(),
+
+  /**
+   * Validation short-circuit interceptor
+   */
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: errors.array()[0].msg, // Return the exact error context securely
+      });
+    }
+    next();
+  },
+];
+
+export const validateVerifyEmail = (req, res, next) => {
+    const { token } = req.query;
+
+    if (
+        typeof token !== 'string' ||
+        token.length !== 64 ||
+        !/^[a-f0-9]{64}$/.test(token)
+    ) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid verification token.'
+        });
+    }
+
+    next();
+};

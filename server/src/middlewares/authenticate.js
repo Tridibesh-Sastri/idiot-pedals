@@ -2,6 +2,26 @@ import jwt from 'jsonwebtoken'
 import userModel from '../models/user.model.js'
 import { verifyAccessToken } from '../utils/tokenManager.js'
 
+import crypto from 'node:crypto';
+
+const safeEqual = (a, b) => {
+    if (
+        typeof a !== 'string' ||
+        typeof b !== 'string'
+    ) {
+        return false;
+    }
+
+    const aBuffer = Buffer.from(a);
+    const bBuffer = Buffer.from(b);
+
+    if (aBuffer.length !== bBuffer.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(aBuffer, bBuffer);
+};
+
 const unauthorized = (res, message = 'Authentication required.') => res.status(401).json({ success: false, message })
 
 const authenticateMiddleware = async (req, res, next) => {
@@ -25,5 +45,36 @@ const authenticateMiddleware = async (req, res, next) => {
         return unauthorized(res)
     }
 }
+
+export const authorizeAdmin = async (req, res, next ) =>{
+    const {role} = req.user
+
+    if(role !== 'admin'){
+        return res.status(403).json({
+            message : "User is not authorized to perform this action."
+        })
+    }
+
+    return next()
+}
+
+export const verifyOAuthState = (req, res, next) => {
+    const incomingState = req.query.state;
+    const savedCookieState = req.signedCookies?.oauth_state;
+
+    try {
+
+        if (!savedCookieState || !safeEqual(savedCookieState, incomingState)) {
+            clearOAuthCookie(res);
+            return res.status(403).json({ success: false, message: 'Security contract mismatch.' });
+        }
+
+        next();
+    } catch (parseError) {
+        clearOAuthCookie(res);
+        return res.status(400).json({ success: false, message: 'Invalid state string layout sequence.' });
+    }
+};
+
 
 export default authenticateMiddleware

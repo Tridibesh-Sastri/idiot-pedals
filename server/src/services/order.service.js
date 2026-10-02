@@ -2,6 +2,9 @@ import crypto from "crypto";
 
 import Product from "../models/product.model.js";
 import Order from "../models/order.model.js";
+import {
+    sendAdminOrderEmail,
+} from './order.email.service.js'
 
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -150,9 +153,62 @@ const createOrder = async ({
     orderStatus: "pending",
   });
 
+  // --------------------------------------------------
+  // 6. Notify admin
+  // --------------------------------------------------
+  //
+  // Email failure must NEVER cause the order itself
+  // to fail because the order has already been persisted.
+  //
+
+  if(order.payment.method === "cod"){
+    void sendAdminOrderEmail(order)
+  }
+  
+
   return order;
+};
+
+const getUserOrders = async ({
+    userId,
+    page = 1,
+    limit = 10,
+    status,
+}) => {
+    const filter = {
+        userId,
+    };
+
+    if (status) {
+        filter.orderStatus = status;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+        Order.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+
+        Order.countDocuments(filter),
+    ]);
+
+    return {
+        orders,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+            hasNextPage: page * limit < total,
+            hasPreviousPage: page > 1,
+        },
+    };
 };
 
 export {
   createOrder,
+  getUserOrders
 };

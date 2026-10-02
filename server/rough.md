@@ -16,6 +16,7 @@
 6. add isSuspisious property to user
 7. every token pair genration should have breach detection mechanism
 where we have it only for refresh API only
+8. how to handle order spam after login
 
 
 
@@ -74,3 +75,35 @@ Frontend authentication state
         ↓
 STEP 14
 Protected-route testing
+
+
+## api path wise db operatoins
+
+api/auth/register
+
+api/auth/login - 
+        1. find user with the email in the collection
+        2. create new refresh document to save token hash in refreshToken Collection
+
+
+// refresh validator added
+
+
+## admin routes
+
+| API | Purpose |
+|---|---|
+| `GET /api/admin/dashboard/orders/summary` | Dashboard counts |
+| `GET /api/admin/orders` | Order table/list |
+| `GET /api/admin/orders/:id` | Complete order details |
+| `PATCH /api/admin/orders/:id` | General controlled admin update |
+| `POST /api/admin/orders/:id/cancel` | Cancel order |
+| `POST /api/admin/orders/:id/confirm` | Confirm order |
+
+GET /api/admin/dashboard/orders/summary
+GET /api/admin/orders
+GET /api/admin/orders/:orderId
+POST /api/admin/orders/:orderId/confirm
+POST /api/admin/orders/:orderId/cancel
+POST /api/admin/orders/:orderId/process
+POST /api/admin/orders/:orderId/mark-shipped
