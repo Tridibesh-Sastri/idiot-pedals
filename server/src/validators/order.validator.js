@@ -1,4 +1,4 @@
-import { body, query,validationResult } from "express-validator";
+import { body, param, query,validationResult } from "express-validator";
 
 export const createOrderValidator = [
   body("items")
@@ -126,4 +126,20 @@ export const getOrdersValidator = [
             "refunded",
         ])
         .withMessage("Invalid order status."),
+];
+
+/*
+ * ============================================================================
+ * GET /api/order/:orderId
+ * ============================================================================
+ *
+ * The id must be a well-formed Mongo ObjectId before it reaches the database
+ * layer. Ownership is enforced in the service (`userId` is always taken from the
+ * authenticated token, never from the request).
+ */
+
+export const validateOrderId = [
+    param("orderId")
+        .isMongoId()
+        .withMessage("Invalid order ID."),
 ];

@@ -4,10 +4,11 @@ import authenticateMiddleware from "../middlewares/authenticate.js";
 
 import {
   createOrder,
-  getOrders
+  getOrders,
+  getOrderById
 } from "../controllers/order.controller.js";
 
-import {createOrderValidator, getOrdersValidator  } from "../validators/order.validator.js";
+import {createOrderValidator, getOrdersValidator, validateOrderId  } from "../validators/order.validator.js";
 import validate from "../middlewares/validate.js";
 
 const router = express.Router();
@@ -26,6 +27,15 @@ router.get(
     getOrdersValidator,
     validate,
     getOrders
+);
+
+// Single order — owner-only. Returns 404 (not 403) for another user's order.
+router.get(
+    "/:orderId",
+    authenticateMiddleware,
+    validateOrderId,
+    validate,
+    getOrderById
 );
 
 export default router;

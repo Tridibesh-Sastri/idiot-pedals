@@ -87,13 +87,23 @@ const pendingRegistrationSchema = new Schema(
 
 // pendingRegistrationSchema.index({ registrationExpiresAt: 1 }, { expireAfterSeconds: 0 })
 
-pendingRegistrationSchema.pre('validate', function (next) {
-    if (this.verificationTokenExpiresAt && this.registrationExpiresAt) {
-        if (this.verificationTokenExpiresAt > this.registrationExpiresAt) {
-            return next(new mongoose.Error.ValidationError(new Error('Verification expiry cannot exceed registration expiry.')))
-        }
+/*
+ * Mongoose 9 runs pre hooks as promises — the callback `next` argument is no
+ * longer supplied, so `function (next)` hooks threw "next is not a function" on
+ * every create()/save(). Validation failures are reported with `invalidate()`,
+ * which produces a normal ValidationError.
+ */
+pendingRegistrationSchema.pre('validate', function () {
+    if (
+        this.verificationTokenExpiresAt &&
+        this.registrationExpiresAt &&
+        this.verificationTokenExpiresAt > this.registrationExpiresAt
+    ) {
+        this.invalidate(
+            'verificationTokenExpiresAt',
+            'Verification expiry cannot exceed registration expiry.'
+        )
     }
-    next()
 })
 
 const pendingRegistrationModel = mongoose.model('PendingRegistration', pendingRegistrationSchema)

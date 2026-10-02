@@ -2,7 +2,9 @@ import express from 'express'
 import rateLimit from 'express-rate-limit'
 import crypto from 'node:crypto'
 
-import authenticateMiddleware, {verifyOAuthState} from '../middlewares/authenticate.js'
+import authenticateMiddleware from '../middlewares/authenticate.js'
+
+import config from '../config/config.js'
 
 import {
     registerController,
@@ -25,7 +27,6 @@ import {
     registerValidator,
     loginValidator,
     validateRefreshCookie,
-    validateGoogleCallback,
     validateVerifyEmail
 } from '../validators/auth.validator.js'
 
@@ -221,6 +222,11 @@ router.get(
  * ============================================================
  * GOOGLE OAUTH — START
  * ============================================================
+ *
+ * The state value is minted here and stored ONLY in a signed, httpOnly,
+ * SameSite=Lax cookie. SameSite=Lax is required (Strict would not be sent on
+ * Google's top-level redirect back to us). The callback validates it; nothing
+ * is kept in process memory, so this survives restarts and multiple instances.
  */
 
 router.get(
@@ -231,12 +237,13 @@ router.get(
         // 1. Generate a random, cryptographically secure 32-byte token
         const state = crypto.randomBytes(32).toString('base64url');
 
-        // 2. Store it in a secure, signed cookie (valid for 10-15 minutes)
+        // 2. Store it in a secure, signed cookie (valid for 15 minutes)
         res.cookie('oauth_state', state, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: config.IS_PRODUCTION,
             sameSite: 'lax', // Mandatory 'lax' or 'none' for cross-site auth redirection paths
             signed: true,    // Cryptographically signed via COOKIE_SECRET to prevent client tampering
+            path: '/',
             maxAge: 15 * 60 * 1000 // 15 minutes TTL
         });
 
@@ -251,13 +258,15 @@ router.get(
  * ============================================================
  * GOOGLE OAUTH — CALLBACK
  * ============================================================
+ *
+ * This route always answers with a 302 into the SPA — never JSON. Code/state
+ * validation and single-use state clearing are handled inside the controller
+ * so every failure path can redirect to FRONTEND_URL/login?error=<code>.
  */
 
 router.get(
     '/google/callback',
     googleRateLimiter,
-    validateGoogleCallback,
-    verifyOAuthState,
     googleCallbackController
 )
 

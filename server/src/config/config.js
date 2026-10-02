@@ -108,6 +108,11 @@ const SPEC = {
   NODE_ENV: { type: 'enum', values: ALLOWED_NODE_ENVS, default: 'development' },
   PORT: { type: 'int', default: 5000, min: 1, max: 65535 },
   TRUST_PROXY: { type: 'trustProxy' },
+  /*
+   * Explicit opt-in for returning stack traces in HTTP responses. Never honoured
+   * when NODE_ENV=production. Defaults to false.
+   */
+  DEBUG_EXPOSE_STACK: { type: 'bool', default: false },
 
   /* Database ------------------------------------------------------------- */
   MONGO_URI: { type: 'mongoUri', required: true, secret: true },
@@ -399,6 +404,37 @@ if (nodeEnvRaw !== undefined && !ALLOWED_NODE_ENVS.includes(nodeEnvRaw)) {
   // already reported by the enum rule; keep nodeEnv safe for downstream checks
 }
 
+/*
+ * NODE_ENV must be explicit whenever the configuration already looks like a
+ * production deployment, so a missing NODE_ENV can never silently turn
+ * production safety behaviour off. Indicators:
+ *   - any https frontend origin
+ *   - a MONGO_URI that is not localhost
+ * An explicit value (including an explicit "development") satisfies this.
+ */
+const httpsFrontendOrigin = frontend.origins.some((origin) =>
+  origin.startsWith('https://')
+)
+
+const mongoHost = (resolved.MONGO_URI ?? '')
+  .split('://')[1]
+  ?.split('@')
+  .pop()
+  ?.split('/')[0]
+  ?.split('?')[0]
+  ?.toLowerCase() ?? ''
+
+const nonLocalMongo =
+  Boolean(mongoHost) &&
+  !mongoHost.startsWith('localhost') &&
+  !mongoHost.startsWith('127.0.0.1')
+
+if (nodeEnvRaw === undefined && (httpsFrontendOrigin || nonLocalMongo)) {
+  errors.push(
+    'NODE_ENV: must be set explicitly because a production indicator is present (https FRONTEND_URL or non-local MONGO_URI)'
+  )
+}
+
 // NODE_ENV <-> Razorpay key class must agree.
 const razorpayKeyId = resolved.RAZORPAY_KEY_ID
 if (typeof razorpayKeyId === 'string' && razorpayKeyId) {
@@ -450,6 +486,7 @@ const config = {
   IS_PRODUCTION: isProduction,
   PORT: resolved.PORT,
   TRUST_PROXY: resolved.TRUST_PROXY,
+  DEBUG_EXPOSE_STACK: resolved.DEBUG_EXPOSE_STACK,
 
   /* Database */
   MONGO_URI: resolved.MONGO_URI,

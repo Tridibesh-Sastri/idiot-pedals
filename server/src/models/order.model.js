@@ -301,9 +301,12 @@ orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ "payment.status": 1, createdAt: -1 });
 
-orderSchema.pre("validate", function (next) {
+/*
+ * Mongoose 9 runs pre hooks as promises — there is no callback `next` argument.
+ */
+orderSchema.pre("validate", function () {
   if (!this.items?.length) {
-    return next();
+    return;
   }
 
   const currency = this.pricing?.currency;

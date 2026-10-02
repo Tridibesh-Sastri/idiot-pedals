@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 
 import authRouter from '../routers/auth.routes.js'
+import userRouter from '../routers/users.routes.js'
 import orderRouter from '../routers/order.routes.js'
 import productRouter from '../routers/product.routes.js'
 import paymentRouter from '../routers/payment.routes.js'
@@ -74,9 +75,13 @@ app.use(
                 return callback(null, true)
             }
 
-            return callback(
-                new Error('CORS origin not allowed')
-            )
+            /*
+             * Disallowed origin: respond without CORS headers instead of
+             * throwing. The browser blocks the response for the caller, and the
+             * API does not turn a routine cross-origin request into a 500 with a
+             * stack trace in the body.
+             */
+            return callback(null, false)
         },
 
         credentials: true,
@@ -176,6 +181,8 @@ app.use(globalRateLimiter)
  */
 app.use('/api/auth', authRouter)
 
+app.use('/api/users', userRouter)
+
 app.use('/api/order', orderRouter)
 
 app.use('/api/products', productRouter)
@@ -214,6 +221,13 @@ app.use((err, req, res, next) => {
             ? err.statusCode
             : 500
 
+    /*
+     * Stack traces are only ever returned when explicitly opted in via
+     * DEBUG_EXPOSE_STACK, and never in production. Default: not exposed.
+     */
+    const exposeStack =
+        config.DEBUG_EXPOSE_STACK === true && !config.IS_PRODUCTION
+
     // Server-side logging.
     // Do not log sensitive request data such as passwords,
     // refresh tokens or verification tokens.
@@ -222,16 +236,13 @@ app.use((err, req, res, next) => {
         statusCode,
         method: req.method,
         path: req.originalUrl,
-        stack:
-            config.NODE_ENV === 'production'
-                ? undefined
-                : err.stack,
+        stack: config.IS_PRODUCTION ? undefined : err.stack,
     })
 
     /*
      * Never expose internal error details in production.
      */
-    if (config.NODE_ENV === 'production') {
+    if (config.IS_PRODUCTION) {
         return res.status(statusCode).json({
             success: false,
             message:
@@ -244,7 +255,8 @@ app.use((err, req, res, next) => {
     return res.status(statusCode).json({
         success: false,
         message: err.message || 'Internal server error',
-        stack: err.stack,
+        // Omitted unless explicitly opted in via DEBUG_EXPOSE_STACK.
+        ...(exposeStack ? { stack: err.stack } : {}),
     })
 })
 

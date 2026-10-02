@@ -1,6 +1,7 @@
 import {
     createOrder as createOrderService,
     getUserOrders,
+    getUserOrderById,
 } from "../services/order.service.js";
 
 
@@ -43,7 +44,37 @@ const getOrders = async (req, res, next) => {
     }
 };
 
+const getOrderById = async (req, res, next) => {
+    try {
+        const order = await getUserOrderById({
+            userId: req.user.userId,
+            orderId: req.params.orderId,
+        });
+
+        /*
+         * A missing order and an order owned by somebody else are intentionally
+         * indistinguishable: both answer 404. Returning 403 for the latter would
+         * confirm that the id exists.
+         */
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found.",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Order fetched successfully.",
+            data: { order },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export {
     createOrder,
     getOrders,
+    getOrderById,
 };

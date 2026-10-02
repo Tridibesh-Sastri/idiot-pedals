@@ -20,6 +20,7 @@ import {
 
 import { sendVerificationEmail } from '../services/email.service.js'
 import { getGoogleUser } from '../integrations/google/google.service.js'
+import { PUBLIC_USER_FIELDS, serializeUser as publicUser } from '../utils/serializeUser.js'
 
 
 const INTERNAL_ERROR_MESSAGE = 'Internal Server Error.'
@@ -34,16 +35,6 @@ const normalizeEmail = (email) =>
     typeof email === 'string'
         ? email.trim().toLowerCase()
         : ''
-
-const publicUser = (user) => ({
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    addresses: user.addresses,
-    role: user.role,
-    emailVerified: user.emailVerified,
-})
 
 /* ============================================================
    REGISTER
@@ -197,6 +188,7 @@ export const verifyEmailController = async (req, res) => {
         ) {
             return res.status(400).json({
                 success: false,
+                code: 'EMAIL_TOKEN_INVALID',
                 message: 'Invalid verification token.',
             })
         }
@@ -207,24 +199,35 @@ export const verifyEmailController = async (req, res) => {
             .update(token)
             .digest('hex')
 
-        // find the user inside temporary user register with the token hash
+        /*
+         * Look the token up WITHOUT an expiry filter first, so we can tell
+         * "this link expired" apart from "this token is not valid".
+         */
         const pendingRegistration =
             await pendingRegistrationModel.findOne({
                 verificationTokenHash,
-                verificationTokenExpiresAt: {
-                    $gt: new Date(),
-                },
-                registrationExpiresAt: {
-                    $gt: new Date(),
-                },
             })
 
-        // if no pending user find then return the request
         if (!pendingRegistration) {
             return res.status(400).json({
                 success: false,
+                code: 'EMAIL_TOKEN_INVALID',
                 message:
-                    'Invalid or expired verification link.',
+                    'This verification link is not valid. It may have already been used.',
+            })
+        }
+
+        const now = new Date()
+
+        if (
+            pendingRegistration.verificationTokenExpiresAt <= now ||
+            pendingRegistration.registrationExpiresAt <= now
+        ) {
+            return res.status(410).json({
+                success: false,
+                code: 'EMAIL_TOKEN_EXPIRED',
+                message:
+                    'This verification link has expired. Please register again to receive a new one.',
             })
         }
 
@@ -242,8 +245,9 @@ export const verifyEmailController = async (req, res) => {
 
             return res.status(409).json({
                 success: false,
+                code: 'ACCOUNT_ALREADY_VERIFIED',
                 message:
-                    'An account already exists with this email address.',
+                    'This email address already has a verified account. Please sign in instead.',
             })
         }
 
@@ -274,6 +278,7 @@ export const verifyEmailController = async (req, res) => {
         // return with new user id, name, email, email varification status
         return res.status(200).json({
             success: true,
+            code: 'EMAIL_VERIFIED',
             message:
                 'Email verified successfully. Your account has been created.',
             data: {
@@ -286,14 +291,15 @@ export const verifyEmailController = async (req, res) => {
     } catch (error) {
         console.error(
             'Email verification error:',
-            error
+            error?.message ?? 'unknown error'
         )
 
         if (error?.code === 11000) {
             return res.status(409).json({
                 success: false,
+                code: 'ACCOUNT_ALREADY_VERIFIED',
                 message:
-                    'An account already exists with this email address.',
+                    'This email address already has a verified account. Please sign in instead.',
             })
         }
 
@@ -600,9 +606,7 @@ export const getMeController = async (req, res) => {
 
         const user = await userModel
             .findById(userId)
-            .select(
-                '_id name email phone addresses role emailVerified'
-            )
+            .select(PUBLIC_USER_FIELDS)
 
         if (!user) {
             return res.status(404).json({
@@ -630,40 +634,103 @@ export const getMeController = async (req, res) => {
 
 /* ============================================================
    GOOGLE CALLBACK
-   ============================================================ */
+   ============================================================
+ *
+ * This endpoint is reached by a top-level browser navigation from Google, so it
+ * must ALWAYS answer with a redirect — never a JSON body. Every failure path
+ * redirects to FRONTEND_URL/login?error=<code>.
+ *
+ * The redirect target is built exclusively from config.FRONTEND_URL (validated
+ * at boot) and never from query parameters, so this cannot become an open
+ * redirect.
+ *
+ * On success the refresh cookie is set here and the SPA then calls
+ * POST /api/auth/refresh to mint a short-lived access token. No access token is
+ * ever placed in the URL, where it would leak via history, referrer headers and
+ * server logs.
+ */
 
-export const googleCallbackController = async (
-    req,
-    res
-) => {
+const OAUTH_STATE_COOKIE = 'oauth_state'
+
+const clearOAuthStateCookie = (res) => {
+    res.clearCookie(OAUTH_STATE_COOKIE, {
+        httpOnly: true,
+        secure: config.IS_PRODUCTION,
+        sameSite: 'lax',
+        signed: true,
+        path: '/',
+    })
+}
+
+const redirectToFrontend = (res, path) =>
+    res.redirect(302, `${config.FRONTEND_URL}${path}`)
+
+const redirectWithError = (res, errorCode) => {
+    clearOAuthStateCookie(res)
+    return redirectToFrontend(
+        res,
+        `/login?error=${encodeURIComponent(errorCode)}`
+    )
+}
+
+const timingSafeStringEqual = (a, b) => {
+    if (typeof a !== 'string' || typeof b !== 'string') return false
+
+    const left = Buffer.from(a, 'utf8')
+    const right = Buffer.from(b, 'utf8')
+
+    if (left.length !== right.length) return false
+
+    return crypto.timingSafeEqual(left, right)
+}
+
+export const googleCallbackController = async (req, res) => {
+    const { code, state } = req.query
+    const savedState = req.signedCookies?.[OAUTH_STATE_COOKIE]
+
+    // 1. Google surfaced an error (for example the user cancelled consent).
+    if (typeof code !== 'string' || code.length === 0) {
+        return redirectWithError(res, 'google_cancelled')
+    }
+
+    // 2. CSRF defence: the state must exist on both sides and match, compared
+    //    in constant time.
+    if (
+        typeof state !== 'string' ||
+        state.length === 0 ||
+        !timingSafeStringEqual(savedState ?? '', state)
+    ) {
+        return redirectWithError(res, 'google_state_invalid')
+    }
+
+    // State is single-use — drop it before doing anything else.
+    clearOAuthStateCookie(res)
+
+    // 3. Exchange the authorization code for a verified Google identity.
+    let googleUser
     try {
-        const { code, state } = req.query
+        googleUser = await getGoogleUser(code)
+    } catch (error) {
+        console.error(
+            'Google token exchange failed:',
+            error?.message ?? 'unknown error'
+        )
+        return redirectToFrontend(res, '/login?error=google_exchange_failed')
+    }
 
-        if (
-            typeof code !== 'string' ||
-            code.length === 0
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    'Google authorization code is missing.',
-            })
-        }
+    if (
+        !googleUser ||
+        typeof googleUser.email !== 'string' ||
+        typeof googleUser.providerId !== 'string' ||
+        !googleUser.emailVerified
+    ) {
+        return redirectToFrontend(
+            res,
+            '/login?error=google_account_unverified'
+        )
+    }
 
-        const googleUser = await getGoogleUser(code, state)
-
-        if (
-            !googleUser ||
-            typeof googleUser.email !== 'string' ||
-            typeof googleUser.providerId !== 'string' ||
-            !googleUser.emailVerified
-        ) {
-            return res.status(403).json({
-                success: false,
-                message:
-                    'Unable to verify Google account.',
-            })
-        }
+    try {
 
         const normalizedEmail =
             normalizeEmail(googleUser.email)
@@ -687,12 +754,6 @@ export const googleCallbackController = async (
                 role: 'customer',
             })
 
-            const accessToken =
-                await accessTokenGenerator({
-                    userId: user._id,
-                    role: user.role,
-                })
-
             const session =
                 await createRefreshSession(
                     user._id,
@@ -705,15 +766,8 @@ export const googleCallbackController = async (
                 session.expiresAt
             )
 
-            return res.status(201).json({
-                success: true,
-                message:
-                    'Google account created and logged in successfully.',
-                data: {
-                    user: publicUser(user),
-                    accessToken,
-                },
-            })
+            // New Google account: session established, hand back to the SPA.
+            return redirectToFrontend(res, '/auth/callback')
         }
 
         const googleProvider =
@@ -726,11 +780,10 @@ export const googleCallbackController = async (
 
         if (!googleProvider) {
             if (!user.emailVerified) {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'This email account has not been verified. Please verify your email before linking Google.',
-                })
+                return redirectToFrontend(
+                    res,
+                    '/login?error=google_account_unverified'
+                )
             }
 
             const emailProvider =
@@ -740,11 +793,10 @@ export const googleCallbackController = async (
                 )
 
             if (!emailProvider) {
-                return res.status(409).json({
-                    success: false,
-                    message:
-                        'This account cannot be automatically linked with Google.',
-                })
+                return redirectToFrontend(
+                    res,
+                    '/login?error=google_link_conflict'
+                )
             }
 
             const providerAlreadyLinked =
@@ -766,12 +818,6 @@ export const googleCallbackController = async (
             }
         }
 
-        const accessToken =
-            await accessTokenGenerator({
-                userId: user._id,
-                role: user.role,
-            })
-
         const session =
             await createRefreshSession(
                 user._id,
@@ -784,33 +830,25 @@ export const googleCallbackController = async (
             session.expiresAt
         )
 
-        return res.status(200).json({
-            success: true,
-            message: googleProvider
-                ? 'Google login successful.'
-                : 'Google account linked successfully.',
-            data: {
-                user: publicUser(user),
-                accessToken,
-            },
-        })
+        // Session established (login or account link) — hand back to the SPA.
+        // `googleProvider` distinguishes "signed in" from "linked"; the SPA only
+        // needs the session at this point.
+        void googleProvider
+
+        return redirectToFrontend(res, '/auth/callback')
     } catch (error) {
         console.error(
             'Google authentication error:',
-            error
+            error?.message ?? 'unknown error'
         )
 
         if (error?.code === 11000) {
-            return res.status(409).json({
-                success: false,
-                message:
-                    'This Google account is already linked to another account.',
-            })
+            return redirectToFrontend(
+                res,
+                '/login?error=google_link_conflict'
+            )
         }
 
-        return sendInternalError(
-            res,
-            'Google authentication failed.'
-        )
+        return redirectToFrontend(res, '/login?error=google_failed')
     }
 }

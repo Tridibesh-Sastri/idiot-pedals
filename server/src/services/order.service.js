@@ -208,7 +208,20 @@ const getUserOrders = async ({
     };
 };
 
+/**
+ * Fetches a single order that belongs to `userId`.
+ *
+ * Ownership is part of the query, so a valid id belonging to somebody else
+ * returns null — the caller answers 404, never 403 (no existence oracle).
+ */
+const getUserOrderById = async ({ userId, orderId }) =>
+  Order.findOne({
+    _id: orderId,
+    userId,
+  }).lean();
+
 export {
   createOrder,
-  getUserOrders
+  getUserOrders,
+  getUserOrderById
 };

@@ -1,4 +1,6 @@
-import { body, cookie, query, validationResult } from 'express-validator'
+import { body, cookie, validationResult } from 'express-validator'
+
+import config from '../config/config.js'
 
 const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 50
@@ -21,7 +23,7 @@ export const handleValidationErrors = (req, res, next) => {
     next()
 }
 
-const rejectUnknownFields = (allowedFields) => (req, res, next) => {
+export const rejectUnknownFields = (allowedFields) => (req, res, next) => {
     const unknownFields = Object.keys(req.body ?? {}).filter(
         (field) => !allowedFields.includes(field)
     )
@@ -201,7 +203,7 @@ export const validateRefreshCookie = [
       // Always clear out any unauthenticated cookies if an active mismatch occurs
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.IS_PRODUCTION,
         sameSite: 'strict',
       });
 
@@ -214,39 +216,14 @@ export const validateRefreshCookie = [
   },
 ];
 
-export const validateGoogleCallback = [
-  // 1. Ensure the authorization code is a non-empty string
-  query('code')
-    .exists({ checkFalsy: true })
-    .withMessage('Google authorization code is missing.')
-    .bail()
-    .isString()
-    .withMessage('Malformed authorization layout.')
-    .trim(),
-
-  // 2. State parameter validation (Mandatory for CSRF defense)
-  query('state')
-    .exists({ checkFalsy: true })
-    .withMessage('Security state identifier is missing.')
-    .bail()
-    .isString()
-    .withMessage('Malformed security state layout.')
-    .trim(),
-
-  /**
-   * Validation short-circuit interceptor
-   */
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: errors.array()[0].msg, // Return the exact error context securely
-      });
-    }
-    next();
-  },
-];
+/*
+ * NOTE: `validateGoogleCallback` was removed in Phase 1.
+ *
+ * The Google callback no longer returns JSON, so it no longer runs through an
+ * express-validator chain: every failure path must issue a 302 into the SPA
+ * (FRONTEND_URL/login?error=<code>). Code and state validation now live in
+ * `googleCallbackController`, which redirects instead of returning a body.
+ */
 
 export const validateVerifyEmail = (req, res, next) => {
     const { token } = req.query;
@@ -258,6 +235,7 @@ export const validateVerifyEmail = (req, res, next) => {
     ) {
         return res.status(400).json({
             success: false,
+            code: 'EMAIL_TOKEN_INVALID',
             message: 'Invalid verification token.'
         });
     }
