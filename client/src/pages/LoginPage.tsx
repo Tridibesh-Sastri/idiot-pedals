@@ -20,6 +20,30 @@ export const LoginPage: React.FC = () => {
 
   const sessionExpired = searchParams.get('reason') === 'session_expired';
 
+  /*
+   * The backend redirects failed Google sign-ins here as
+   * /login?error=<code>. Each code gets its own message so the user learns what
+   * actually happened instead of a generic failure.
+   */
+  const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
+    google_cancelled: 'Google sign-in was cancelled before it finished.',
+    google_state_invalid:
+      'That sign-in attempt could not be verified. Please start again from this page.',
+    google_exchange_failed:
+      'Google accepted the sign-in but we could not complete it. Please try again.',
+    google_account_unverified:
+      'Your Google account email is not verified, so we cannot use it to sign in.',
+    google_link_conflict:
+      'This email already has an account that cannot be linked to Google. Sign in with your password instead.',
+    google_failed: 'Google sign-in failed. Please try again.',
+  };
+
+  const googleErrorCode = searchParams.get('error') ?? '';
+  const googleError = googleErrorCode
+    ? GOOGLE_ERROR_MESSAGES[googleErrorCode] ??
+      'Google sign-in failed. Please try again.'
+    : '';
+
   // Open-redirect guard: only internal in-app paths are honored after login
   const redirectPath = isSafeRedirectPath((location.state as { from?: string })?.from, '/account');
 
@@ -76,6 +100,13 @@ export const LoginPage: React.FC = () => {
             <div className="p-3.5 bg-amber-50 border border-amber-500/40 rounded-xl text-xs text-[#2A1A12] flex items-center gap-2 font-mono-tech">
               <Clock size={15} className="text-amber-600 shrink-0" />
               <span>Your session expired for security. Please sign in again.</span>
+            </div>
+          )}
+
+          {googleError && (
+            <div className="p-3.5 bg-red-50 border border-red-500/40 rounded-xl text-xs text-[#2A1A12] flex items-center gap-2 font-mono-tech">
+              <AlertCircle size={15} className="text-[#FF5E1E] shrink-0" />
+              <span>{googleError}</span>
             </div>
           )}
 

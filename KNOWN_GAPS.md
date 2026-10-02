@@ -3,94 +3,110 @@
 Outstanding work, unverified items and deliberate limitations. Kept honest:
 anything listed here has **not** been proven by a test run.
 
-_Last updated: end of Phase 1._
+_Last updated: end of Phase 5._
 
 ---
 
-## Deliberately deferred to a later phase
+## Deliberately deferred
 
-### Phase 2 — payment safety (not started)
-- Order totals are computed server-side from DB prices, but **not yet in integer
-  paise**. Floating-point money paths still exist.
-- **Stock is not reserved atomically.** `order.service.js` reads
-  `stock - reservedStock` and validates, but the decrement is not a conditional
-  `findOneAndUpdate`. Concurrent orders can oversell.
-- No **stock release** on payment failure/timeout.
-- Razorpay signature comparison uses the vendor SDK helper; **timing-safe
-  comparison and replay protection are not asserted by a test**.
-- `POST /api/payments/razorpay/create` is **not yet proven idempotent** under
-  concurrency (it does reuse an existing `razorpayOrderId`, but that check is a
-  read-then-write, not atomic).
-- Webhook handler: raw-body signature verification exists, but the **state
-  machine** (`created → paid → fulfilled/failed`), unique event-id index and
-  idempotency guarantees are not verified.
-- No **idempotency key** on order creation: a replayed request creates a second
-  order.
-- Not audited: whether any log statement can emit full payloads, signatures or
-  keys.
+### Payment follow-ups
+- Order totals now carry exact integer paise (`pricing.totalMinor`) and all money
+  arithmetic uses them, but the **stored/returned major-unit `amount` remains a
+  JS number**. It is exact for the values the catalogue produces; it is not a
+  decimal type.
+- Razorpay **webhook delivery** has never been exercised by Razorpay itself. The
+  handler is tested against realistic payloads and is idempotent, but no real
+  delivery has been received.
+- **No refund flow.** `refunded` exists in the state machine but nothing drives
+  it, and there is no Razorpay refund call.
+- **No idempotency key on `POST /api/order`.** A replayed request creates a
+  second order (a double-clicked submit is mitigated in the UI, not the API).
+- A failed payment **cancels the order and releases its reservation**; retrying
+  requires placing a new order. There is no "resume payment" path for an
+  existing order.
+- `POST /api/payments/razorpay/create` is idempotent per order via a conditional
+  update, but in a genuine race the **losing request may leave an unused
+  Razorpay order** behind. Only the winning id is ever returned or stored.
 
-### Phase 3 — load & resilience (not started)
-- Rate limiting uses the **in-memory store**, so limits are per-instance. Needs a
-  Redis store before running more than one instance (or the limitation must be
-  documented for the deployment).
-- No `/healthz` or `/readyz`; no request IDs; no structured logging (still
-  `console.*`); no redaction rules.
-- No `ETag`/short cache on `GET /api/products`.
-- Mongo connection pool/timeouts are not tuned; index usage is not verified with
-  `explain()`.
-- No load test has been run, so no p50/p95/p99 figures exist.
+### Rate limiting is per-instance
+`server/src/middlewares/rateLimiter.js` uses express-rate-limit's default
+in-process `MemoryStore`:
 
-### Phase 5 — frontend wiring
-- The SPA has **no `/auth/callback` route yet**, so Google sign-in cannot
-  complete end-to-end even though the backend now behaves correctly.
-- `OrderDetailPage` still derives a single order from the paginated list instead
-  of calling the new `GET /api/order/:id`.
-- Account profile/phone editing is still disabled in the UI; `PATCH
-  /api/users/me` is not called yet.
-- The client still maps verify-email outcomes from message text rather than the
-  new `code` values.
-- `/verify-phone` has no backend support at all (no OTP endpoints exist).
+- Limits apply **per Node process**, not across a cluster. N instances multiply
+  the effective allowance by N, and counters reset on every restart.
+- The store is injectable (`createRateLimiter({ store })`) so a shared store can
+  be supplied in one place, but **no shared store is wired up** and the
+  multi-instance path is untested.
+
+Real volumetric/DDoS protection belongs at the edge (Cloudflare/WAF), not in
+Express middleware.
+
+### Load-test numbers are single-machine, single-instance
+Measured with `npx autocannon` against the local API and the shared local
+MongoDB — this describes a laptop, not production. Each endpoint was measured
+against a freshly started server so the in-memory limiter did not carry over.
+
+| endpoint | reqs | 2xx | non-2xx | p50 | p97.5 | p99 | rps |
+|---|---|---|---|---|---|---|---|
+| GET /api/products (10 conns) | 250 | 250 | – | 53 ms | 161 ms | 178 ms | 125 |
+| POST /api/order (10 conns) | 250 | 250 | – | 149 ms | 353 ms | 432 ms | 50 |
+| POST /api/payments/razorpay/create (5 conns) | 20 | 20 | – | 47 ms | 229 ms | 229 ms | 20 |
+| POST /api/auth/login (2 conns) | 10 | 10 | – | 650 ms | 779 ms | 779 ms | 3 |
+| GET /api/products (50 conns, ramp) | 400 | 300 | 429 ×100 | 242 ms | 505 ms | 529 ms | 200 |
+
+- **Login is slowest (p50 ≈ 650 ms).** That is bcrypt at `SALT_ROUND=12`: CPU
+  bound and deliberate, not a code defect. No bottleneck was "fixed" because
+  none of the measurements exposed one.
+- The **degradation point is the rate limiter by design** — after 300 requests
+  per 15 minutes from one IP the global limiter answers 429. The 50-connection
+  ramp shows exactly 300 successes then 429s.
+- Payment create was measured on the **idempotent reuse path** (the fixture order
+  already had a `razorpayOrderId`), so no outbound Razorpay calls were made; a
+  first-call measurement would be dominated by Razorpay's own latency.
 
 ---
 
-## Verified only partially
+## Unverified
 
-- **Google OAuth happy path is untested end-to-end.** Phase 1 tests cover the
-  redirect behaviour for missing code, bad/absent state, hostile `state` values
-  and the start-URL parameters. Exchanging a real authorization code requires
-  browser interaction and live Google credentials, which was not done.
-- **Email delivery is untested.** Registration and verification-email sending
-  (SMTP + Resend) were not exercised; the verification tests create
-  `pendingRegistration` documents directly instead of going through
-  `POST /api/auth/register`.
-- **No browser-level check** of CORS or cookie behaviour (credentials,
-  `SameSite=Strict` refresh cookie). CORS was verified with raw requests only.
-- **`GET /api/order/:id` pagination edge case.** The old list-derived client
-  lookup scanned at most 5 pages (250 orders); the new endpoint has no such
-  limit, but nothing tests ownership beyond the first page.
-- `PATCH /api/users/me` cannot change email by design; there is no flow to
-  change an account email at all.
+- **Real Google sign-in end to end.** Only the redirect/error paths are tested;
+  exchanging a real authorization code needs a browser and live Google
+  credentials.
+- **Real Razorpay checkout.** No real payment has been captured. Signature
+  verification, replay/idempotency, the state machine and stock release are all
+  exercised against realistic payloads.
+- **Real webhook delivery** from Razorpay to this server.
+- **Real email delivery.** Register/verify-email sending was never observed
+  arriving in an inbox, so both SMTP and Resend paths are unproven.
+- **Multi-instance behaviour** — see the rate-limit note above.
+- **`autocannon` ran on the same machine** as the server, competing for CPU.
 
 ---
 
 ## Environment / repo notes
 
-- The configured MongoDB is a **local, shared development instance** (it holds
-  several unrelated projects' databases) and it does not currently contain a
-  populated `idiot-pedal` database. There is no dedicated staging or production
-  cluster configured.
-- Tests use a **separate database** (`idiot-pedal-phase1-test`) that is dropped
-  before and after each run; the development database is never touched.
+- The configured MongoDB is a **local, shared development instance** holding
+  several unrelated projects' databases; it must never be dropped. Tests use a
+  separate `idiot-pedals-test` database that is dropped before and after each
+  run, and the suite runs with `--test-concurrency=1` so two test files never
+  share it at once.
 - `src/models/t.*.js` (`t.order`, `t.product`, `t.user`, `t.refreshToken`,
-  `t.shipment`, `t.validators`, `t.webhookEvent`) appear to be **unused scratch
+  `t.shipment`, `t.validators`, `t.webhookEvent`) are **unused scratch
   duplicates** — nothing imports them. They drift from the real models and
   should be deleted or moved out of `src/`.
-- A rejected CORS origin still receives the **normal route response** without
-  CORS headers (by design — CORS is a browser mechanism, not server-side access
-  control). If an origin-blocking response is wanted, that belongs with the
-  Phase 3 error handling review.
-- `frontend` and `api` must share a registrable domain in production because the
-  refresh cookie is `SameSite=Strict`. Cross-site deployment needs a deliberate
-  cookie change (documented in `server/README.md`).
-- No CI configuration runs the new test suites yet; they are run manually via
-  `npm test` in `server/` and `client/`.
+- A rejected CORS origin still receives the normal route response **without CORS
+  headers** (by design: CORS is a browser mechanism, not server-side access
+  control).
+- `frontend` and `api` must share a registrable domain in production, because the
+  refresh cookie is `SameSite=Strict` (documented in `server/README.md`).
+- No CI configuration runs the suites yet; they are run manually with `npm test`
+  in `server/` and `client/`.
+
+## Frontend notes
+
+- `orderService.getOrderById` maps a 404 from `GET /api/order/:id` to "not
+  found" rather than an error, because the endpoint deliberately returns 404
+  (never 403) for another user's order.
+- Pagination echoes `limit` as a **string** (taken straight from the query
+  string), so consumers must not rely on it being a number.
+- `/verify-phone` still has no backend support (no OTP endpoints exist); the page
+  degrades gracefully.

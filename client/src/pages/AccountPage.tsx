@@ -1,14 +1,85 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShieldCheck, Package, LogOut, CheckCircle2, ArrowRight, Wrench } from 'lucide-react';
+import { User, ShieldCheck, Package, LogOut, CheckCircle2, ArrowRight, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { LoadingState } from '../components/common/AsyncState';
+import { userService } from '../services/userService';
+import { describeApiError } from '../lib/api';
+
+/** Mirrors the server-side rules for PATCH /api/users/me. */
+const NAME_MIN_LENGTH = 2;
+const NAME_MAX_LENGTH = 50;
+const PHONE_LENGTH = 10;
 
 export const AccountPage: React.FC = () => {
-  const { user, logout, isAuthenticated, initializing } = useAuth();
+  const { user, logout, isAuthenticated, initializing, refreshUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [profileError, setProfileError] = React.useState('');
+  const [fieldErrors, setFieldErrors] = React.useState<{ name?: string; phone?: string }>({});
+
+  // Seed the form from the loaded profile, and re-seed whenever it changes
+  // (for example after a successful save).
+  React.useEffect(() => {
+    if (!user) return;
+    setName(user.name ?? '');
+    setPhone(user.phone ?? '');
+  }, [user]);
+
+  const validateProfile = () => {
+    const errors: { name?: string; phone?: string } = {};
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    if (trimmedName.length < NAME_MIN_LENGTH || trimmedName.length > NAME_MAX_LENGTH) {
+      errors.name = `Name must be between ${NAME_MIN_LENGTH} and ${NAME_MAX_LENGTH} characters.`;
+    }
+
+    // The phone is optional, but a supplied value must be a 10-digit number.
+    if (trimmedPhone.length > 0 && !/^\d{10}$/.test(trimmedPhone)) {
+      errors.phone = `Phone must be exactly ${PHONE_LENGTH} digits.`;
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleProfileSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setProfileError('');
+
+    if (!validateProfile()) return;
+
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const unchanged =
+      trimmedName === (user?.name ?? '') && trimmedPhone === (user?.phone ?? '');
+
+    if (unchanged) {
+      showToast('No changes to save.', 'info');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await userService.updateProfile({ name: trimmedName, phone: trimmedPhone });
+      // Re-read from the server so the header and this page show canonical data.
+      await refreshUser();
+      showToast('Profile updated.');
+    } catch (error) {
+      const message = describeApiError(error);
+      setProfileError(message);
+      showToast(message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -155,13 +226,73 @@ export const AccountPage: React.FC = () => {
             </div>
           )}
 
-          <div className="p-4 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl flex items-start gap-2.5 text-[11px] font-mono-tech text-[#8A6A54]">
-            <Wrench size={14} className="text-[#FF5E1E] mt-0.5 shrink-0" />
-            <span>
-              Profile editing is not available yet — the backend does not expose a profile update
-              endpoint. Contact support for changes.
-            </span>
-          </div>
+          <form
+            onSubmit={handleProfileSave}
+            className="p-5 bg-white border border-[#F0D3B8] rounded-2xl space-y-4 shadow-xl"
+          >
+            <div className="flex items-center gap-2">
+              <User size={16} className="text-[#FF5E1E]" />
+              <h3 className="text-sm font-bold font-mono-tech uppercase tracking-wide text-[#2A1A12]">
+                Edit profile
+              </h3>
+            </div>
+
+            {profileError && (
+              <div className="p-3 bg-red-50 border border-red-500/40 rounded-xl text-xs text-[#2A1A12]">
+                {profileError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label htmlFor="profile-name" className="block text-[11px] uppercase font-bold text-[#8A6A54]">
+                Name
+              </label>
+              <input
+                id="profile-name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={saving}
+                autoComplete="name"
+                className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+              />
+              {fieldErrors.name && (
+                <p className="text-[11px] text-[#FF5E1E]">{fieldErrors.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="profile-phone" className="block text-[11px] uppercase font-bold text-[#8A6A54]">
+                Phone
+              </label>
+              <input
+                id="profile-phone"
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, PHONE_LENGTH))}
+                disabled={saving}
+                autoComplete="tel"
+                placeholder="10-digit mobile number"
+                className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+              />
+              {fieldErrors.phone && (
+                <p className="text-[11px] text-[#FF5E1E]">{fieldErrors.phone}</p>
+              )}
+              <p className="text-[11px] text-[#8A6A54]">
+                Email is fixed to your verified address and cannot be changed here.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FF5E1E] text-white rounded-xl text-sm font-bold disabled:opacity-60 transition hover:bg-[#FF4500]"
+            >
+              <Save size={15} />
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </form>
         </div>
 
         {/* Quick Links Banner */}

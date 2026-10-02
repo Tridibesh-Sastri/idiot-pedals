@@ -106,30 +106,28 @@ class OrderService {
   }
 
   /**
-   * The backend exposes no GET /api/order/:id, so detail is derived from the
-   * user-scoped list. Walks paginated pages (bounded) to find the order.
+   * Single order detail via GET /api/order/:id.
+   *
+   * The endpoint is owner-scoped and returns 404 for another user's order (never
+   * 403), so a 404 maps to "not found" rather than an error screen.
+   *
+   * Either identifier works: the backend accepts the Mongo ObjectId or the
+   * human-readable order number that the UI links with.
    */
   async getOrderById(orderId: string): Promise<Order | null> {
     if (!orderId) return null;
 
-    const limit = 50;
-    let page = 1;
-    const maxPages = 5;
+    try {
+      const envelope = await api.get<{ data?: { order?: unknown } }>(
+        `/order/${encodeURIComponent(orderId)}`
+      );
 
-    while (page <= maxPages) {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-      const envelope = await api.get<OrdersEnvelope>(`/order?${params.toString()}`);
-      const orders = normalizeOrders(envelope?.data?.orders);
-
-      const match = orders.find((order) => order.id === orderId || order.serverId === orderId);
-      if (match) return match;
-
-      const hasNext = envelope?.data?.pagination?.hasNextPage;
-      if (!hasNext || orders.length === 0) return null;
-      page += 1;
+      const order = envelope?.data?.order;
+      return order ? normalizeOrder(order) : null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
-
-    return null;
   }
 }
 

@@ -1,4 +1,5 @@
 import { body, param, query,validationResult } from "express-validator";
+import mongoose from "mongoose";
 
 export const createOrderValidator = [
   body("items")
@@ -133,13 +134,24 @@ export const getOrdersValidator = [
  * GET /api/order/:orderId
  * ============================================================================
  *
- * The id must be a well-formed Mongo ObjectId before it reaches the database
- * layer. Ownership is enforced in the service (`userId` is always taken from the
- * authenticated token, never from the request).
+ * The identifier may be the internal Mongo ObjectId or the human-readable order
+ * number (`IP-...`), because order links in the UI carry the order number. Both
+ * forms are strictly validated before reaching the database; ownership is
+ * enforced in the service (`userId` always comes from the authenticated token).
  */
+
+const ORDER_NUMBER_PATTERN = /^IP-[A-Za-z0-9-]{4,64}$/;
 
 export const validateOrderId = [
     param("orderId")
-        .isMongoId()
-        .withMessage("Invalid order ID."),
+        .custom((value) => {
+            if (typeof value !== "string") {
+                throw new Error("Invalid order ID.");
+            }
+
+            if (mongoose.isValidObjectId(value)) return true;
+            if (ORDER_NUMBER_PATTERN.test(value)) return true;
+
+            throw new Error("Invalid order ID.");
+        }),
 ];

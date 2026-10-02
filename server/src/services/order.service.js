@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 
 import Product from "../models/product.model.js";
 import Order from "../models/order.model.js";
@@ -259,14 +260,19 @@ const getUserOrders = async ({
 /**
  * Fetches a single order that belongs to `userId`.
  *
- * Ownership is part of the query, so a valid id belonging to somebody else
- * returns null — the caller answers 404, never 403 (no existence oracle).
+ * Accepts the Mongo ObjectId or the human-readable order number, so the UI can
+ * link with whichever identifier it holds. Ownership is part of the query, so a
+ * valid identifier belonging to somebody else returns null — the caller answers
+ * 404, never 403 (no existence oracle).
  */
-const getUserOrderById = async ({ userId, orderId }) =>
-  Order.findOne({
-    _id: orderId,
+const getUserOrderById = async ({ userId, orderId }) => {
+  const isObjectId = mongoose.isValidObjectId(orderId);
+
+  return Order.findOne({
+    ...(isObjectId ? { _id: orderId } : { orderNumber: orderId }),
     userId,
   }).lean();
+};
 
 export {
   createOrder,

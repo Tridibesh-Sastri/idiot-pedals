@@ -191,6 +191,18 @@ class AuthService {
   /* Email verification (token link landed from the inbox)                   */
   /* ---------------------------------------------------------------------- */
 
+  /**
+   * Verifies an emailed token.
+   *
+   * The outcomes are distinguished by HTTP status, which the API documents:
+   *   200 EMAIL_VERIFIED            -> verified
+   *   400 EMAIL_TOKEN_INVALID       -> invalid
+   *   410 EMAIL_TOKEN_EXPIRED       -> expired
+   *   409 ACCOUNT_ALREADY_VERIFIED  -> already_verified
+   *
+   * Message text is deliberately not pattern-matched any more: copy edits used
+   * to be able to change application behaviour.
+   */
   async verifyEmailToken(token: string): Promise<EmailVerificationResult> {
     if (!token) {
       return { outcome: 'invalid', message: 'This verification link is missing its token.' };
@@ -207,20 +219,30 @@ class AuthService {
       };
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.kind === 'conflict') {
+        const fallback = 'This verification link is not valid. It may have already been used.';
+
+        if (error.status === 409) {
           return {
             outcome: 'already_verified',
             message: error.message || 'This email address already has a verified account.',
           };
         }
-        if (error.kind === 'validation') {
-          const expired = /expired/i.test(error.message);
+
+        if (error.status === 410) {
           return {
-            outcome: expired ? 'expired' : 'invalid',
-            message: error.message || (expired ? 'This verification link has expired.' : 'This verification link is not valid.'),
+            outcome: 'expired',
+            message: error.message || 'This verification link has expired.',
+          };
+        }
+
+        if (error.status === 400) {
+          return {
+            outcome: 'invalid',
+            message: error.message || fallback,
           };
         }
       }
+
       throw error;
     }
   }

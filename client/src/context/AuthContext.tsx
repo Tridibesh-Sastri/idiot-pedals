@@ -27,8 +27,8 @@ interface AuthContextType {
   redirectToGoogle: () => void;
   /** Terminate session on the server and purge all client state */
   logout: () => Promise<void>;
-  /** Re-sync active user data from the server */
-  refreshUser: () => Promise<void>;
+  /** Re-sync active user data from the server. Returns the user, or null on failure. */
+  refreshUser: () => Promise<User | null>;
   /** Clear any stored auth error */
   clearError: () => void;
 }
@@ -166,13 +166,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
       const fresh = await authService.getCurrentUser();
       if (fresh) hadUserRef.current = true;
       setUser(fresh);
+      return fresh;
     } catch {
       // keep the existing profile if the refresh call fails
+      return null;
     }
   }, []);
 
