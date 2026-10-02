@@ -20,7 +20,7 @@ import {
 
 import { sendVerificationEmail } from '../services/email.service.js'
 import { getGoogleUser } from '../integrations/google/google.service.js'
-import { after } from 'node:test'
+
 
 const INTERNAL_ERROR_MESSAGE = 'Internal Server Error.'
 
@@ -51,6 +51,7 @@ const publicUser = (user) => ({
 
 export const registerController = async (req, res) => {
     try {
+        // extract from email
         const {
             name,
             email,
@@ -59,8 +60,10 @@ export const registerController = async (req, res) => {
             password,
         } = req.body
 
+        // normalize email
         const normalizedEmail = normalizeEmail(email)
-
+        
+        // check user exist or not
         const existingUser = await userModel
             .findOne({ email: normalizedEmail })
             .select('_id')
@@ -73,30 +76,36 @@ export const registerController = async (req, res) => {
             })
         }
 
+        // hash password
         const passwordHash = await bcrypt.hash(
             password,
             config.SALT_ROUND
         )
 
+        // create email verification token
         const verificationToken = crypto
             .randomBytes(32)
             .toString('hex')
 
+        // hash email verification token
         const verificationTokenHash = crypto
             .createHash('sha256')
             .update(verificationToken)
             .digest('hex')
 
         const now = Date.now()
-
+            
+        // set expiry time for verification token
         const verificationTokenExpiresAt = new Date(
             now + config.EMAIL_VERIFICATION_TOKEN_TTL_MS
         )
 
+        // set expiry time for temporary registration
         const registrationExpiresAt = new Date(
             now + config.PENDING_REGISTRATION_TTL_MS
         )
 
+        // save the registration data into pending rgistration collection
         const pendingRegistration =
             await pendingRegistrationModel.findOneAndUpdate(
                 { email: normalizedEmail },
@@ -113,14 +122,17 @@ export const registerController = async (req, res) => {
                     },
                 },
                 {
-                    returnDocument: after,
+                    returnDocument: "after",
                     upsert: true,
                     setDefaultsOnInsert: true,
                     runValidators: true,
                 }
             )
 
+
         try {
+
+        // send verification email
             await sendVerificationEmail({
                 name: pendingRegistration.name,
                 email: pendingRegistration.email,
@@ -174,8 +186,10 @@ export const registerController = async (req, res) => {
 
 export const verifyEmailController = async (req, res) => {
     try {
+        // extract the token from url query
         const { token } = req.query
 
+        // token validation
         if (
             typeof token !== 'string' ||
             token.length !== 64 ||
@@ -187,11 +201,13 @@ export const verifyEmailController = async (req, res) => {
             })
         }
 
+        // make hash of incoming token
         const verificationTokenHash = crypto
             .createHash('sha256')
             .update(token)
             .digest('hex')
 
+        // find the user inside temporary user register with the token hash
         const pendingRegistration =
             await pendingRegistrationModel.findOne({
                 verificationTokenHash,
@@ -203,6 +219,7 @@ export const verifyEmailController = async (req, res) => {
                 },
             })
 
+        // if no pending user find then return the request
         if (!pendingRegistration) {
             return res.status(400).json({
                 success: false,
@@ -211,6 +228,7 @@ export const verifyEmailController = async (req, res) => {
             })
         }
 
+        // check does the any user exist with the pending email in main collection
         const existingUser = await userModel
             .findOne({
                 email: pendingRegistration.email,
@@ -229,6 +247,7 @@ export const verifyEmailController = async (req, res) => {
             })
         }
 
+        // now create new user in main collection / user collection
         const newUser = await userModel.create({
             name: pendingRegistration.name,
             email: pendingRegistration.email,
@@ -246,11 +265,13 @@ export const verifyEmailController = async (req, res) => {
             role: 'customer',
         })
 
+        // delete the pending regitration record
         await pendingRegistrationModel.deleteOne({
             _id: pendingRegistration._id,
             verificationTokenHash,
         })
 
+        // return with new user id, name, email, email varification status
         return res.status(200).json({
             success: true,
             message:
@@ -286,13 +307,16 @@ export const verifyEmailController = async (req, res) => {
 
 export const loginController = async (req, res) => {
     try {
+        // extract email and password from body and normalize the email
         const { email, password } = req.body
         const normalizedEmail = normalizeEmail(email)
 
+        // try to find user user in the user collection 
         const user = await userModel.findOne({
             email: normalizedEmail,
         })
 
+        // verify user exist or not
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -300,6 +324,7 @@ export const loginController = async (req, res) => {
             })
         }
 
+        // now check does the user email is verified or not
         if (!user.emailVerified) {
             return res.status(403).json({
                 success: false,
@@ -308,6 +333,7 @@ export const loginController = async (req, res) => {
             })
         }
 
+        // check does the user have any passowrd hash or not in db
         if (!user.passwordHash) {
             return res.status(401).json({
                 success: false,
@@ -316,11 +342,13 @@ export const loginController = async (req, res) => {
             })
         }
 
+        // now validate the password
         const isValidPassword = await bcrypt.compare(
             password,
             user.passwordHash
         )
 
+        
         if (!isValidPassword) {
             return res.status(401).json({
                 success: false,
@@ -328,22 +356,26 @@ export const loginController = async (req, res) => {
             })
         }
 
+        // now create access token
         const accessToken = await accessTokenGenerator({
             userId: user._id,
             role: user.role,
         })
 
+        // launch refresh session to
         const session = await createRefreshSession(
             user._id,
             user.role
         )
 
+        // set the the refreshtoken and expiresat in user cookie
         setRefreshCookie(
             res,
             session.refreshToken,
             session.expiresAt
         )
 
+        // return the user
         return res.status(200).json({
             success: true,
             message: 'Login successful.',
@@ -364,9 +396,11 @@ export const loginController = async (req, res) => {
 
 export const refreshController = async (req, res) => {
     try {
+        // take out the refresh token from cookies
         const oldRefreshToken =
             req.cookies?.refreshToken
 
+        // validate the refresh token
         if (
             typeof oldRefreshToken !== 'string' ||
             oldRefreshToken.length === 0
@@ -377,6 +411,7 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // verify refresh token
         const {
             decoded,
             error,
@@ -394,8 +429,10 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // extract userId an role from verified token
         const { userId, role } = decoded
 
+        // check userId and role both exist
         if (!userId || !role) {
             clearRefreshCookie(res)
 
@@ -405,10 +442,12 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // extract the user data from db using userId
         const user = await userModel
             .findById(userId)
             .select('_id role emailVerified')
 
+        // check user email is verified or not
         if (!user || !user.emailVerified) {
             clearRefreshCookie(res)
 
@@ -418,6 +457,7 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // check user given role and stored user role is matched or not
         if (user.role !== role) {
             clearRefreshCookie(res)
 
@@ -427,6 +467,7 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // make hash of user send refresh toekn and serach document from refresh token collection
         const tokenHash = hashToken(oldRefreshToken)
 
         const matchedRecord = await refreshModel.findOne({
@@ -434,6 +475,7 @@ export const refreshController = async (req, res) => {
             tokenHash,
         })
 
+        // if user not found with the refresh token clear the user cookie
         if (!matchedRecord) {
             clearRefreshCookie(res)
 
@@ -443,6 +485,7 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // check for exire validation of the token record
         if (
             matchedRecord.expiresAt &&
             matchedRecord.expiresAt <= new Date()
@@ -460,6 +503,7 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // check for revoke record
         if (matchedRecord.revokedAt) {
             await refreshModel.deleteMany({
                 userId: user._id,
@@ -492,7 +536,7 @@ export const refreshController = async (req, res) => {
                     },
                 },
                 {
-                    returnDocument: after
+                    returnDocument: "after"
                 }
             )
 
@@ -510,12 +554,14 @@ export const refreshController = async (req, res) => {
             })
         }
 
+        // create new access token
         const newAccessToken =
             await accessTokenGenerator({
                 userId: user._id,
                 role: user.role,
             })
 
+        // set new session for refresh token
         const newSession =
             await createRefreshSession(
                 user._id,

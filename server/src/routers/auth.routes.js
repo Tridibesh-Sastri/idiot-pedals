@@ -1,7 +1,8 @@
 import express from 'express'
 import rateLimit from 'express-rate-limit'
+import crypto from 'node:crypto'
 
-import authenticateMiddleware from '../middlewares/authenticate.js'
+import authenticateMiddleware, {verifyOAuthState} from '../middlewares/authenticate.js'
 
 import {
     registerController,
@@ -23,6 +24,9 @@ import {
 import {
     registerValidator,
     loginValidator,
+    validateRefreshCookie,
+    validateGoogleCallback,
+    validateVerifyEmail
 } from '../validators/auth.validator.js'
 
 const router = express.Router()
@@ -163,7 +167,7 @@ router.post(
 
 router.post(
     '/refresh',
-    refreshRateLimiter,
+    validateRefreshCookie,
     refreshController
 )
 
@@ -209,6 +213,7 @@ router.get(
 router.get(
     '/verify-email',
     verificationRateLimiter,
+    validateVerifyEmail,
     verifyEmailController
 )
 
@@ -222,7 +227,21 @@ router.get(
     '/google',
     googleRateLimiter,
     (req, res) => {
-        const authUrl = getGoogleAuthUrl()
+
+        // 1. Generate a random, cryptographically secure 32-byte token
+        const state = crypto.randomBytes(32).toString('base64url');
+
+        // 2. Store it in a secure, signed cookie (valid for 10-15 minutes)
+        res.cookie('oauth_state', state, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax', // Mandatory 'lax' or 'none' for cross-site auth redirection paths
+            signed: true,    // Cryptographically signed via COOKIE_SECRET to prevent client tampering
+            maxAge: 15 * 60 * 1000 // 15 minutes TTL
+        });
+
+        // 3. Inject the state parameter into the Google URL builder service
+        const authUrl = getGoogleAuthUrl(state)
 
         return res.redirect(authUrl)
     }
@@ -237,6 +256,8 @@ router.get(
 router.get(
     '/google/callback',
     googleRateLimiter,
+    validateGoogleCallback,
+    verifyOAuthState,
     googleCallbackController
 )
 

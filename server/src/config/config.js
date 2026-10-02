@@ -128,6 +128,10 @@ const config = {
         'REFRESH_TOKEN_SECRET'
     ),
 
+    COOKIE_SECRET : required(
+        'COOKIE_SECRET'
+    ),
+
     // ─────────────────────────────────────────────
     // Frontend / Email verification
     // ─────────────────────────────────────────────
@@ -202,6 +206,22 @@ const config = {
     
     RAZORPAY_WEBHOOK_SECRET: required(
         'RAZORPAY_WEBHOOK_SECRET'
+    ),
+
+    // ─────────────────────────────────────────────
+    // Resend / Admin Order Email
+    // ─────────────────────────────────────────────
+    
+    RESEND_API_KEY: required(
+        'RESEND_API_KEY'
+    ),
+    
+    RESEND_FROM: required(
+        'RESEND_FROM'
+    ),
+    
+    ADMIN_ORDER_EMAIL: required(
+        'ADMIN_ORDER_EMAIL'
     ),
 
 }

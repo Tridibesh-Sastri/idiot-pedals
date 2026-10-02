@@ -1,6 +1,6 @@
-import { body, validationResult } from "express-validator";
+import { body, query,validationResult } from "express-validator";
 
-const createOrderValidator = [
+export const createOrderValidator = [
   body("items")
     .isArray({ min: 1, max: 100 })
     .withMessage("Order must contain between 1 and 100 items."),
@@ -100,4 +100,30 @@ const createOrderValidator = [
     }
 ];
 
-export default createOrderValidator;
+export const getOrdersValidator = [
+    query("page")
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage("Page must be a positive integer.")
+        .toInt(),
+
+    query("limit")
+        .optional()
+        .isInt({ min: 1, max: 50 })
+        .withMessage("Limit must be between 1 and 50.")
+        .toInt(),
+
+    query("status")
+        .optional()
+        .isIn([
+            "pending",
+            "confirmed",
+            "processing",
+            "shipped",
+            "delivered",
+            "cancelled",
+            "returned",
+            "refunded",
+        ])
+        .withMessage("Invalid order status."),
+];

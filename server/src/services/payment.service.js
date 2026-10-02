@@ -5,6 +5,10 @@ import {
   fetchPayment,
 } from "../integrations/razorpay/razorpay.service.js";
 
+import {
+    sendAdminOrderEmail,
+} from './order.email.service.js'
+
 const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
   // 1. Find the internal order belonging to this user
   const order = await Order.findOne({
@@ -180,6 +184,9 @@ const verifyRazorpayPayment = async ({
   order.orderStatus = "confirmed";
 
   await order.save();
+
+  // Notify admin AFTER payment state is persisted.
+  void sendAdminOrderEmail(order);
 
   return order;
 };

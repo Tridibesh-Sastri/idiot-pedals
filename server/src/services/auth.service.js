@@ -45,6 +45,8 @@ export const createRefreshSession = async (
     userId,
     role
 ) => {
+
+    
     const {
         refreshToken,
         expiresAt,

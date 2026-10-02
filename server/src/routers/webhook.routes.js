@@ -19,6 +19,8 @@ import express from "express";
 
 import razorpayWebhookController from "../controllers/webhook.controller.js";
 
+import validateRazorpayWebhook from "../validators/webhook.validator.js"
+
 const router = express.Router();
 
 const razorpayRawBody = express.raw({
@@ -47,6 +49,7 @@ router.post(
   "/razorpay",
   razorpayRawBody,
   parseRazorpayWebhook,
+  validateRazorpayWebhook,
   razorpayWebhookController
 );
 

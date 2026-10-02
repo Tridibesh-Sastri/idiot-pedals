@@ -1,0 +1,510 @@
+import resend from '../integrations/resend/resend.client.js'
+import config from '../config/config.js'
+
+const escapeHtml = (value) => {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+}
+
+const formatMoney = (amount, currency = 'INR') => {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency,
+    }).format(amount)
+}
+
+const formatAddress = (address) => {
+    return [
+        address.name,
+        address.addressLine1,
+        address.addressLine2,
+        address.city,
+        address.state,
+        address.postalCode,
+        address.country,
+    ]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join('<br>')
+}
+
+const buildAdminOrderHtml = (order) => {
+    const currency = order.pricing.currency
+
+    const itemsHtml = order.items
+        .map((item) => {
+            return `
+                <tr>
+                    <td style="padding:12px;border-bottom:1px solid #e5e5e5;">
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <br>
+                        <span style="font-size:12px;color:#777;">
+                            SKU: ${escapeHtml(item.sku)}
+                        </span>
+                    </td>
+
+                    <td style="padding:12px;border-bottom:1px solid #e5e5e5;text-align:center;">
+                        ${item.quantity}
+                    </td>
+
+                    <td style="padding:12px;border-bottom:1px solid #e5e5e5;text-align:right;">
+                        ${formatMoney(item.unitPrice.amount, currency)}
+                    </td>
+
+                    <td style="padding:12px;border-bottom:1px solid #e5e5e5;text-align:right;">
+                        ${formatMoney(item.total.amount, currency)}
+                    </td>
+                </tr>
+            `
+        })
+        .join('')
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>New IDIOT Pedals Order</title>
+</head>
+
+<body style="
+    margin:0;
+    padding:0;
+    background:#f4f4f4;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#171717;
+">
+
+    <div style="
+        max-width:720px;
+        margin:40px auto;
+        background:#ffffff;
+        border-radius:12px;
+        overflow:hidden;
+        border:1px solid #e5e5e5;
+    ">
+
+        <!-- Header -->
+
+        <div style="
+            padding:28px;
+            background:#111111;
+            color:#ffffff;
+        ">
+
+            <div style="
+                font-size:24px;
+                font-weight:800;
+                letter-spacing:2px;
+            ">
+                IDIOT
+            </div>
+
+            <div style="
+                margin-top:6px;
+                font-size:13px;
+                color:#bbbbbb;
+                letter-spacing:1px;
+            ">
+                PEDALS
+            </div>
+
+        </div>
+
+        <!-- Main -->
+
+        <div style="padding:32px;">
+
+            <h1 style="
+                margin:0 0 8px;
+                font-size:24px;
+            ">
+                New Order Received
+            </h1>
+
+            <p style="
+                margin:0 0 28px;
+                color:#666666;
+            ">
+                A new order has been successfully created.
+            </p>
+
+            <!-- Order summary -->
+
+            <div style="
+                padding:20px;
+                background:#f7f7f7;
+                border-radius:8px;
+                margin-bottom:28px;
+            ">
+
+                <table width="100%" cellpadding="0" cellspacing="0">
+
+                    <tr>
+                        <td style="padding:5px 0;color:#777;">
+                            Order Number
+                        </td>
+
+                        <td style="
+                            padding:5px 0;
+                            text-align:right;
+                            font-weight:bold;
+                        ">
+                            ${escapeHtml(order.orderNumber)}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:5px 0;color:#777;">
+                            Order Status
+                        </td>
+
+                        <td style="
+                            padding:5px 0;
+                            text-align:right;
+                        ">
+                            ${escapeHtml(order.orderStatus)}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:5px 0;color:#777;">
+                            Payment Method
+                        </td>
+
+                        <td style="
+                            padding:5px 0;
+                            text-align:right;
+                            font-weight:bold;
+                        ">
+                            ${escapeHtml(order.payment.method)}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:5px 0;color:#777;">
+                            Payment Status
+                        </td>
+
+                        <td style="
+                            padding:5px 0;
+                            text-align:right;
+                        ">
+                            ${escapeHtml(order.payment.status)}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:5px 0;color:#777;">
+                            Created
+                        </td>
+
+                        <td style="
+                            padding:5px 0;
+                            text-align:right;
+                        ">
+                            ${new Date(order.createdAt).toLocaleString('en-IN')}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+
+            <!-- Customer -->
+
+            <h2 style="
+                font-size:18px;
+                margin:0 0 12px;
+            ">
+                Customer
+            </h2>
+
+            <div style="
+                padding:16px;
+                border:1px solid #e5e5e5;
+                border-radius:8px;
+                margin-bottom:28px;
+            ">
+
+                <strong>
+                    ${escapeHtml(order.customer.name)}
+                </strong>
+
+                <br>
+
+                <a href="mailto:${escapeHtml(order.customer.email)}">
+                    ${escapeHtml(order.customer.email)}
+                </a>
+
+                <br>
+
+                ${escapeHtml(order.customer.phone)}
+
+            </div>
+
+            <!-- Products -->
+
+            <h2 style="
+                font-size:18px;
+                margin:0 0 12px;
+            ">
+                Ordered Products
+            </h2>
+
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                style="
+                    border-collapse:collapse;
+                    margin-bottom:28px;
+                "
+            >
+
+                <thead>
+
+                    <tr style="background:#f7f7f7;">
+
+                        <th style="
+                            padding:12px;
+                            text-align:left;
+                            font-size:13px;
+                        ">
+                            Product
+                        </th>
+
+                        <th style="
+                            padding:12px;
+                            text-align:center;
+                            font-size:13px;
+                        ">
+                            Qty
+                        </th>
+
+                        <th style="
+                            padding:12px;
+                            text-align:right;
+                            font-size:13px;
+                        ">
+                            Unit Price
+                        </th>
+
+                        <th style="
+                            padding:12px;
+                            text-align:right;
+                            font-size:13px;
+                        ">
+                            Total
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+                    ${itemsHtml}
+                </tbody>
+
+            </table>
+
+            <!-- Pricing -->
+
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                style="margin-bottom:28px;"
+            >
+
+                <tr>
+                    <td style="padding:6px 0;color:#777;">
+                        Subtotal
+                    </td>
+
+                    <td style="padding:6px 0;text-align:right;">
+                        ${formatMoney(order.pricing.subtotal, currency)}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:6px 0;color:#777;">
+                        Shipping
+                    </td>
+
+                    <td style="padding:6px 0;text-align:right;">
+                        ${formatMoney(order.pricing.shipping, currency)}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding:6px 0;color:#777;">
+                        Discount
+                    </td>
+
+                    <td style="padding:6px 0;text-align:right;">
+                        -${formatMoney(order.pricing.discount, currency)}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="
+                        padding:14px 0 0;
+                        border-top:2px solid #111;
+                        font-size:18px;
+                        font-weight:bold;
+                    ">
+                        Total
+                    </td>
+
+                    <td style="
+                        padding:14px 0 0;
+                        border-top:2px solid #111;
+                        text-align:right;
+                        font-size:18px;
+                        font-weight:bold;
+                    ">
+                        ${formatMoney(order.pricing.total, currency)}
+                    </td>
+                </tr>
+
+            </table>
+
+            <!-- Shipping -->
+
+            <h2 style="
+                font-size:18px;
+                margin:0 0 12px;
+            ">
+                Shipping Address
+            </h2>
+
+            <div style="
+                padding:16px;
+                border:1px solid #e5e5e5;
+                border-radius:8px;
+                line-height:1.6;
+            ">
+                ${formatAddress(order.shippingAddress)}
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+
+        <div style="
+            padding:20px 32px;
+            background:#f7f7f7;
+            color:#777;
+            font-size:12px;
+        ">
+            IDIOT Pedals — Internal Order Notification
+        </div>
+
+    </div>
+
+</body>
+</html>
+`
+}
+
+const buildAdminOrderText = (order) => {
+    const currency = order.pricing.currency
+
+    const items = order.items
+        .map(
+            (item) =>
+                `${item.name} (${item.sku}) x ${item.quantity} = ${formatMoney(
+                    item.total.amount,
+                    currency
+                )}`
+        )
+        .join('\n')
+
+    const address = [
+        order.shippingAddress.name,
+        order.shippingAddress.addressLine1,
+        order.shippingAddress.addressLine2,
+        order.shippingAddress.city,
+        order.shippingAddress.state,
+        order.shippingAddress.postalCode,
+        order.shippingAddress.country,
+    ]
+        .filter(Boolean)
+        .join(', ')
+
+    return `
+IDIOT PEDALS — NEW ORDER
+
+Order Number: ${order.orderNumber}
+Order Status: ${order.orderStatus}
+Payment Method: ${order.payment.method}
+Payment Status: ${order.payment.status}
+Created: ${new Date(order.createdAt).toLocaleString('en-IN')}
+
+CUSTOMER
+Name: ${order.customer.name}
+Email: ${order.customer.email}
+Phone: ${order.customer.phone}
+
+PRODUCTS
+${items}
+
+PRICING
+Subtotal: ${formatMoney(order.pricing.subtotal, currency)}
+Shipping: ${formatMoney(order.pricing.shipping, currency)}
+Discount: ${formatMoney(order.pricing.discount, currency)}
+Total: ${formatMoney(order.pricing.total, currency)}
+
+SHIPPING ADDRESS
+${address}
+`
+}
+
+const sendAdminOrderEmail = async (order) => {
+    try {
+        const { data, error } = await resend.emails.send(
+            {
+                from: config.RESEND_FROM,
+                to: [config.ADMIN_ORDER_EMAIL],
+                subject: `New IDIOT Pedals Order — ${order.orderNumber}`,
+                html: buildAdminOrderHtml(order),
+                text: buildAdminOrderText(order),
+            },
+            {
+                idempotencyKey: `admin-order-${order._id.toString()}`,
+            }
+        )
+
+        if (error) {
+            console.error(
+                `Failed to send admin order email for ${order.orderNumber}:`,
+                error
+            )
+
+            return null
+        }
+
+        console.log(
+            `Admin order email sent for ${order.orderNumber}. Resend ID: ${data?.id}`
+        )
+
+        return data
+    } catch (error) {
+        console.error(
+            `Unexpected error while sending admin order email for ${order.orderNumber}:`,
+            error
+        )
+
+        return null
+    }
+}
+
+export {
+    sendAdminOrderEmail,
+}

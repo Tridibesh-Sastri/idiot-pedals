@@ -149,7 +149,8 @@ app.use(
  * COOKIE PARSER
  * -------------------------------------------------------
  */
-app.use(cookieParser())
+app.use(cookieParser(config.COOKIE_SECRET));
+
 
 /*
  * -------------------------------------------------------
