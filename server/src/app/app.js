@@ -55,30 +55,22 @@ app.use(
  * Credentials are enabled because the refresh token is
  * stored in an HTTP-only cookie.
  */
-const allowedOrigins = Array.isArray(config.FRONTEND_URL)
-    ? config.FRONTEND_URL
-    : String(config.FRONTEND_URL)
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean)
-
-const developmentOrigins = [
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-]
-
+/*
+ * The CORS allow-list comes exclusively from FRONTEND_URL (see config.js),
+ * which is validated at boot as a list of exact origins. There is deliberately
+ * no implicit development allowance and no wildcard support — to run the SPA
+ * locally, set FRONTEND_URL to the real dev origin (e.g. http://localhost:3000).
+ */
 app.use(
     cors({
         origin(origin, callback) {
-            // Allow requests without an Origin header.
+            // Allow requests without an Origin header (curl, server-to-server,
+            // and Razorpay webhooks do not send one).
             if (!origin) {
                 return callback(null, true)
             }
 
-            if (
-                allowedOrigins.includes(origin) ||
-                developmentOrigins.includes(origin)
-            ) {
+            if (config.CORS_ORIGINS.includes(origin)) {
                 return callback(null, true)
             }
 
