@@ -1,5 +1,5 @@
 import config from "../config/config.js";
-import { sendMail } from "./mailer.service.js";
+import mailer from "./mailer.service.js";
 import { escapeHtml } from "./order.email.service.js";
 
 /**
@@ -11,7 +11,7 @@ import { escapeHtml } from "./order.email.service.js";
 export const sendVerificationEmail = async ({name,email,token,}) => {
   const verificationUrl =`${config.FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
-  return sendMail({
+  return mailer.sendMail({
     channel: "smtp",
     kind: "email-verification",
 
