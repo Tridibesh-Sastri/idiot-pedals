@@ -269,8 +269,8 @@ export const registerController = async (req, res) => {
 
 export const verifyEmailController = async (req, res) => {
     try {
-        // extract the token from url query
-        const { token } = req.query
+        // extract the token from the POST body (never the URL query)
+        const { token } = req.body ?? {}
 
         // token validation
         if (

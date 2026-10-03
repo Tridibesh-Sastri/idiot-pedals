@@ -135,13 +135,11 @@ header. Not exploitable: they return only `{status, uptimeSeconds}` and
 Not changed: moving the routes would alter `app.js` middleware ordering for no
 security gain.
 
-### LOW — `GET /api/auth/verify-email` mutates state
-It is a `GET` that consumes a single-use token and can create the account, so a
-link prefetcher, scanner or mail-client preview could burn a token before the
-user clicks. Mitigations already in place: the token is 64 hex chars of entropy,
-single-use, time-limited, and a burnt token is recoverable by registering again.
-Not changed: converting it to `POST` is a frontend-facing contract change
-(`CHANGELOG_API.md`), and the token is not a credential for anything else.
+### FIXED — verify-email is now POST-with-button (was: `GET` mutating state)
+`POST /api/auth/verify-email` takes the token in the JSON body; landing on the
+`/verify-email` page consumes nothing, and one button press sends exactly one
+POST. Prefetchers and scanners can no longer burn single-use tokens. The old
+consuming GET was removed (now 404). Recorded in `CHANGELOG_API.md`.
 
 ### LOW — a plaintext password exists in at most one request body
 Login and register take the password in the JSON body, so it appears in any

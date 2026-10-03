@@ -328,7 +328,10 @@ export const resendVerificationValidator = [
 ]
 
 export const validateVerifyEmail = (req, res, next) => {
-    const { token } = req.query;
+    // POST body only: the token must never travel in a URL for the API call
+    // (URLs leak via history, referrers and logs; the emailed link itself
+    // only carries it to the page, which POSTs it from memory).
+    const { token } = req.body ?? {};
 
     if (
         typeof token !== 'string' ||

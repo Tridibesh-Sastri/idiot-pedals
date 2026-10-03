@@ -1,5 +1,5 @@
 import express from 'express'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import crypto from 'node:crypto'
 
 import authenticateMiddleware from '../middlewares/authenticate.js'
@@ -32,7 +32,6 @@ import {
     validateVerifyEmail
 } from '../validators/auth.validator.js'
 import { createRateLimiter } from '../middlewares/rateLimiter.js'
-import { ipKeyGenerator } from 'express-rate-limit'
 
 const router = express.Router()
 
@@ -141,7 +140,7 @@ const resendVerificationEmailLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
     limit: 5,
     message: 'Too many verification requests for this email address. Please try again later.',
-    keyGenerator: (req) => `resend:${String(req.body?.email ?? '').trim().toLowerCase() || ipKeyGenerator(req.ip)}`,
+    keyGenerator: (req) => { const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 254) : ''; return `resend:${email || ipKeyGenerator(req.ip)}` },
 })
 
 const resendVerificationIpLimiter = createRateLimiter({
@@ -228,14 +227,17 @@ router.get(
  * EMAIL VERIFICATION
  * ============================================================
  *
- * GET is appropriate here because the verification link is
- * opened directly from an email.
+ * POST with the token in the JSON body — never a consuming GET. A GET that
+ * burns a single-use token lets link prefetchers, scanners and mail-client
+ * previews consume it before the user clicks. The emailed link still lands on
+ * the /verify-email page; the page sends exactly one POST when the user
+ * presses the verify button. The old GET now falls through to the 404
+ * handler (Express has no automatic 405).
  *
- * The controller validates the token before changing account
- * state.
+ * The controller validates the token before changing account state.
  */
 
-router.get(
+router.post(
     '/verify-email',
     verificationRateLimiter,
     validateVerifyEmail,

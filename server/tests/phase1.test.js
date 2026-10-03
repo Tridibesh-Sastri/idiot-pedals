@@ -327,7 +327,13 @@ describe('/api/users/me', () => {
 /* 3. verify-email distinct codes                                              */
 /* ========================================================================== */
 
-describe('GET /api/auth/verify-email', () => {
+describe('POST /api/auth/verify-email', () => {
+  const verifyPost = (token) =>
+    apiFetch('/api/auth/verify-email', {
+      method: 'POST',
+      body: token === undefined ? {} : { token },
+    })
+
   const makePending = async ({ email, token, tokenExpiry, registrationExpiry, phone }) => {
     await pendingRegistrationModel.create({
       name: 'Pending Player',
@@ -355,7 +361,7 @@ describe('GET /api/auth/verify-email', () => {
       phone: '9000000011',
     })
 
-    const res = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const res = await verifyPost(token)
 
     assert.equal(res.status, 200)
     assert.equal(res.json.code, 'EMAIL_VERIFIED')
@@ -375,10 +381,10 @@ describe('GET /api/auth/verify-email', () => {
       phone: '9000000012',
     })
 
-    const first = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const first = await verifyPost(token)
     assert.equal(first.status, 200)
 
-    const second = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const second = await verifyPost(token)
     assert.equal(second.status, 400)
     assert.equal(second.json.code, 'EMAIL_TOKEN_INVALID')
   })
@@ -393,20 +399,20 @@ describe('GET /api/auth/verify-email', () => {
       phone: '9000000013',
     })
 
-    const res = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const res = await verifyPost(token)
 
     assert.equal(res.status, 410)
     assert.equal(res.json.code, 'EMAIL_TOKEN_EXPIRED')
   })
 
   test('unknown token: 400 EMAIL_TOKEN_INVALID', async () => {
-    const res = await apiFetch(`/api/auth/verify-email?token=${newToken()}`)
+    const res = await verifyPost(newToken())
     assert.equal(res.status, 400)
     assert.equal(res.json.code, 'EMAIL_TOKEN_INVALID')
   })
 
   test('malformed token: 400 EMAIL_TOKEN_INVALID', async () => {
-    const res = await apiFetch('/api/auth/verify-email?token=abcd')
+    const res = await verifyPost('abcd')
     assert.equal(res.status, 400)
     assert.equal(res.json.code, 'EMAIL_TOKEN_INVALID')
   })
@@ -421,7 +427,7 @@ describe('GET /api/auth/verify-email', () => {
       phone: '9000000014',
     })
 
-    const res = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const res = await verifyPost(token)
 
     assert.equal(res.status, 409)
     assert.equal(res.json.code, 'ACCOUNT_ALREADY_VERIFIED')
@@ -440,7 +446,7 @@ describe('GET /api/auth/verify-email', () => {
     })
     seen.add('valid:200')
 
-    const ok = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    const ok = await verifyPost(token)
     assert.equal(ok.json.code, 'EMAIL_VERIFIED')
 
     const expiredToken = newToken()
@@ -451,10 +457,10 @@ describe('GET /api/auth/verify-email', () => {
       registrationExpiry: inFuture(30 * 60 * 1000),
       phone: '9000000016',
     })
-    const expired = await apiFetch(`/api/auth/verify-email?token=${expiredToken}`)
+    const expired = await verifyPost(expiredToken)
     seen.add(`expired:${expired.status}`)
 
-    const invalid = await apiFetch(`/api/auth/verify-email?token=${newToken()}`)
+    const invalid = await verifyPost(newToken())
     seen.add(`invalid:${invalid.status}`)
 
     const alreadyToken = newToken()
@@ -465,7 +471,7 @@ describe('GET /api/auth/verify-email', () => {
       registrationExpiry: inFuture(30 * 60 * 1000),
       phone: '9000000017',
     })
-    const already = await apiFetch(`/api/auth/verify-email?token=${alreadyToken}`)
+    const already = await verifyPost(alreadyToken)
     seen.add(`already:${already.status}`)
 
     assert.deepEqual([...seen].sort(), [
@@ -474,6 +480,68 @@ describe('GET /api/auth/verify-email', () => {
       'invalid:400',
       'valid:200',
     ])
+  })
+
+  test('GET no longer consumes: 404 and the token still verifies afterwards', async () => {
+    const token = newToken()
+    await makePending({
+      email: 'verify-get404@mailhost.test',
+      token,
+      tokenExpiry: inFuture(),
+      registrationExpiry: inFuture(30 * 60 * 1000),
+      phone: '9000000018',
+    })
+
+    // The old consuming GET is gone: Express has no route for it (no
+    // automatic 405), so the catch-all 404 answers.
+    const gone = await apiFetch(`/api/auth/verify-email?token=${token}`)
+    assert.equal(gone.status, 404)
+
+    // Nothing was consumed: the same token still verifies by POST.
+    const ok = await verifyPost(token)
+    assert.equal(ok.status, 200)
+    assert.equal(ok.json.code, 'EMAIL_VERIFIED')
+  })
+
+  test('concurrent double POST creates exactly one user', async () => {
+    const token = newToken()
+    await makePending({
+      email: 'verify-race@mailhost.test',
+      token,
+      tokenExpiry: inFuture(),
+      registrationExpiry: inFuture(30 * 60 * 1000),
+      phone: '9000000019',
+    })
+
+    const [a, b] = await Promise.all([verifyPost(token), verifyPost(token)])
+    const statuses = [a.status, b.status].sort()
+
+    // Exactly one wins; the loser either finds nothing left (400) or loses
+    // the unique-email race (409). Both are safe, non-duplicating outcomes.
+    assert.equal(statuses.filter((status) => status === 200).length, 1)
+    assert.ok([400, 409].includes(statuses[1]) || [400, 409].includes(statuses[0]))
+
+    assert.equal(await userModel.countDocuments({ email: 'verify-race@mailhost.test' }), 1)
+  })
+
+  test('verify is rate limited (LAST: exhausts the shared per-IP budget)', async () => {
+    let sawLimit = false
+    let last = null
+
+    // Prior tests in this file already spent part of the 20/15min/IP budget,
+    // so the trip point depends on file order — keep this test last.
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      last = await verifyPost(newToken())
+      if (last.status === 429) {
+        sawLimit = true
+        break
+      }
+      // Unknown tokens are rejected, never verified.
+      assert.equal(last.status, 400, `unexpected ${last.status}: ${last.text}`)
+    }
+
+    assert.equal(sawLimit, true, 'verify never returned 429')
+    assert.equal(last.status, 429)
   })
 })
 

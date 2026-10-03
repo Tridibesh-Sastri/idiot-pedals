@@ -70,22 +70,25 @@ that the id exists.
   401 unauthenticated.
 - Changing email is intentionally unsupported (requires re-verification).
 
-### 4. `GET /api/auth/verify-email` — distinct outcomes (BEHAVIOUR CHANGE)
+### 4. `POST /api/auth/verify-email` — distinct outcomes (replaces legacy GET)
 
-Responses now carry a machine-readable `code`. The ambiguous
-`"Invalid or expired verification link."` 400 is gone.
+The old consuming `GET /api/auth/verify-email?token=…` is removed (now 404).
+Verification is `POST /api/auth/verify-email` with `{ "token": "<64 hex>" }`
+in the JSON body; the emailed `/verify-email?token=…` link only lands on the
+SPA page, which sends exactly one POST per button press. `POST /api/auth/resend-verification`
+(`{ "email" }`, always generic 200) was added alongside for lost mails.
+
+Responses carry a machine-readable `code`:
 
 | Situation | Status | `code` |
 |---|---|---|
 | verified and account created | 200 | `EMAIL_VERIFIED` |
 | token unknown / already used | 400 | `EMAIL_TOKEN_INVALID` |
 | token malformed (validator) | 400 | `EMAIL_TOKEN_INVALID` |
-| token or registration window expired | **410** (was 400) | `EMAIL_TOKEN_EXPIRED` |
+| token or registration window expired | **410** | `EMAIL_TOKEN_EXPIRED` |
 | email already has a verified account | 409 | `ACCOUNT_ALREADY_VERIFIED` |
 
-`410 Gone` is a new status on this endpoint. The human-readable `message` is
-retained, and still contains the words "expired" / "already", so the current
-frontend mapping keeps working until Phase 5 switches to `code`.
+`410 Gone` is returned for expired tokens. Rate limit: 20/15min/IP.
 
 ### 5. Additive: `phoneVerified` in user payloads
 

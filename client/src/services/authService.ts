@@ -34,6 +34,11 @@ export interface EmailVerificationResult {
   message: string;
 }
 
+export interface ResendVerificationResult {
+  message: string;
+  retryAfterSeconds: number;
+}
+
 interface LoginEnvelope {
   message?: string;
   data?: { user?: ServerUser; accessToken?: string };
@@ -209,8 +214,11 @@ class AuthService {
     }
 
     try {
-      const envelope = await publicApi.get<{ message?: string }>(
-        `/auth/verify-email?token=${encodeURIComponent(token)}`
+      // Single POST with the token in the JSON body: the link itself never
+      // consumes anything, so scanners and prefetchers cannot burn the token.
+      const envelope = await publicApi.post<{ message?: string }>(
+        '/auth/verify-email',
+        { token }
       );
 
       return {
@@ -245,6 +253,30 @@ class AuthService {
 
       throw error;
     }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Resend verification mail (generic response by design)                     */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Asks for a fresh verification mail. The server answers the same generic
+   * 200 body whether or not an address is pending, so the message here must
+   * never branch on existence.
+   */
+  async resendVerificationEmail(email: string): Promise<ResendVerificationResult> {
+    const envelope = await publicApi.post<{
+      message?: string;
+      retryAfterSeconds?: number;
+    }>('/auth/resend-verification', { email });
+
+    return {
+      message:
+        envelope?.message ??
+        'If a verification email is pending for this address, a new link is on its way. Only the newest email works.',
+      retryAfterSeconds:
+        typeof envelope?.retryAfterSeconds === 'number' ? envelope.retryAfterSeconds : 60,
+    };
   }
 
   /* ---------------------------------------------------------------------- */

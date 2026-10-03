@@ -415,7 +415,10 @@ describe('nosql injection', () => {
   })
 
   test('operator objects in verify-email, products filters and order lookups are rejected', async () => {
-    const verify = await request('/api/auth/verify-email?token%5B%24gt%5D=')
+    const verify = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token: { $gt: '' } },
+    })
     assert.equal(verify.status, 400)
 
     const injectionId = await request('/api/order/%7B%22%24gt%22%3A%22%22%7D', { token: await tokenFor() })
@@ -752,8 +755,11 @@ describe('end-to-end auth flow (fake mailer)', () => {
     assert.equal(Boolean(linkMatch), true, 'no verification link pointing at FRONTEND_URL')
     const verificationToken = linkMatch[1]
 
-    // 3. verify-email
-    const verified = await request(`/api/auth/verify-email?token=${verificationToken}`)
+    // 3. verify-email (POST, token in the JSON body)
+    const verified = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token: verificationToken },
+    })
     assert.equal(verified.status, 200)
 
     const createdUser = await userModel.findOne({ email }).lean()
@@ -787,11 +793,14 @@ describe('end-to-end auth flow (fake mailer)', () => {
     assert.match(cleared, /Expires=Thu, 01 Jan 1970|Max-Age=0/i)
   })
 
-  test('verify-email distinguishes invalid, already used and unknown tokens', async () => {
-    const invalid = await request('/api/auth/verify-email?token=not-a-real-token')
+  test('verify-email rejects malformed and missing tokens', async () => {
+    const invalid = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token: 'not-a-real-token' },
+    })
     assert.equal(invalid.status, 400)
 
-    const missing = await request('/api/auth/verify-email')
+    const missing = await request('/api/auth/verify-email', { method: 'POST', body: {} })
     assert.equal(missing.status, 400)
   })
 
