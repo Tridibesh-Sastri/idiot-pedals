@@ -8,6 +8,8 @@
  *   node --test tests/phase1.test.js
  */
 
+import "./helpers/testEnv.js";
+
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'

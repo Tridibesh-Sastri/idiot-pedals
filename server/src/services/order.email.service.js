@@ -1,5 +1,6 @@
-import resend from '../integrations/resend/resend.client.js'
 import config from '../config/config.js'
+import { sendMail } from './mailer.service.js'
+import { logger } from '../utils/logger.js'
 
 const escapeHtml = (value) => {
     return String(value ?? '')
@@ -468,37 +469,36 @@ ${address}
 
 const sendAdminOrderEmail = async (order) => {
     try {
-        const { data, error } = await resend.emails.send(
-            {
-                from: config.RESEND_FROM,
-                to: [config.ADMIN_ORDER_EMAIL],
-                subject: `New IDIOT Pedals Order — ${order.orderNumber}`,
-                html: buildAdminOrderHtml(order),
-                text: buildAdminOrderText(order),
-            },
-            {
-                idempotencyKey: `admin-order-${order._id.toString()}`,
-            }
+        /*
+         * Delivery goes through the mailer gate: it honours
+         * EMAIL_NOTIFICATIONS_ENABLED and, in tests, records the message in the
+         * in-memory outbox instead of calling Resend.
+         */
+        const result = await sendMail({
+            channel: 'resend',
+            kind: 'admin-order',
+            from: config.RESEND_FROM,
+            to: [config.ADMIN_ORDER_EMAIL],
+            subject: `New IDIOT Pedals Order — ${order.orderNumber}`,
+            html: buildAdminOrderHtml(order),
+            text: buildAdminOrderText(order),
+            idempotencyKey: `admin-order-${order._id.toString()}`,
+        })
+
+        logger.info(
+            { orderNumber: order.orderNumber, messageId: result?.id ?? null },
+            'Admin order email dispatched'
         )
 
-        if (error) {
-            console.error(
-                `Failed to send admin order email for ${order.orderNumber}:`,
-                error
-            )
-
-            return null
-        }
-
-        console.log(
-            `Admin order email sent for ${order.orderNumber}. Resend ID: ${data?.id}`
-        )
-
-        return data
+        return result
     } catch (error) {
-        console.error(
-            `Unexpected error while sending admin order email for ${order.orderNumber}:`,
-            error
+        /*
+         * A failed notification must never fail the order; the caller already
+         * persists the order before this runs.
+         */
+        logger.error(
+            { err: error, orderNumber: order.orderNumber },
+            'Failed to send admin order email'
         )
 
         return null

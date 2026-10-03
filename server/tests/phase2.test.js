@@ -10,6 +10,8 @@
  *   node --test --test-concurrency=1 tests/phase2.test.js
  */
 
+import { fakeRazorpay } from "./helpers/testEnv.js";
+
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
@@ -674,35 +676,56 @@ describe('webhook handling', () => {
     })
 
     const orderId = created.json.order._id
-    const razorpayOrderId = `order_nofinal_${Date.now()}`
+
+    // Create the provider order through the injected fake (no network).
+    const pay = await apiFetch('/api/payments/razorpay/create', {
+      method: 'POST',
+      body: { orderId },
+    })
+    assert.equal(pay.status, 200)
+
+    const razorpayOrderId = pay.json.payment.razorpayOrderId
+    assert.match(razorpayOrderId, /^order_fake_\d+$/)
+
+    // The server must have asked the provider for the exact paise total.
+    const createCalls = fakeRazorpay.getCallsOfOperation('orders.create')
+    assert.equal(createCalls.length >= 1, true)
+    assert.equal(createCalls[createCalls.length - 1].payload.amount, 100000)
+
     const razorpayPaymentId = `pay_nofinal_${Date.now()}`
 
-    await orderModel.updateOne(
-      { _id: orderId },
-      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
-    )
-
-    /*
-     * Simulate what verify would persist (it cannot run here without a provider
-     * call) and assert the resulting state is confirmed-but-not-fulfilled.
-     */
-    const order = await orderModel.findById(orderId)
-    order.payment.razorpayPaymentId = razorpayPaymentId
-    order.payment.status = 'paid'
-    applyTransition(order, 'confirmed')
-    await order.save()
-
-    const afterVerify = await orderModel.findById(orderId).lean()
-    assert.equal(afterVerify.orderStatus, 'confirmed')
-    assert.equal(afterVerify.stockConsumedAt, null)
-    assert.equal((await reloadProduct(product._id)).stock, 3)
+    fakeRazorpay.stagePayment(razorpayPaymentId, {
+      id: razorpayPaymentId,
+      order_id: razorpayOrderId,
+      amount: 100000,
+      currency: 'INR',
+      status: 'captured',
+    })
 
     const signature = crypto
-      .createHmac('sha256', config.RAZORPAY_WEBHOOK_SECRET)
-      .update('x')
+      .createHmac('sha256', config.RAZORPAY_KEY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest('hex')
-    assert.equal(typeof signature, 'string')
 
+    const verify = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: { orderId, razorpayPaymentId, razorpayOrderId, razorpaySignature: signature },
+    })
+
+    assert.equal(verify.status, 200)
+    assert.equal(verify.json.orderStatus, 'confirmed')
+
+    // Confirmed, but nothing is fulfilled and no stock has been consumed.
+    const afterVerify = await orderModel.findById(orderId).lean()
+    assert.equal(afterVerify.orderStatus, 'confirmed')
+    assert.equal(afterVerify.payment.status, 'paid')
+    assert.equal(afterVerify.stockConsumedAt, null)
+
+    const afterVerifyStock = await reloadProduct(product._id)
+    assert.equal(afterVerifyStock.stock, 3)
+    assert.equal(afterVerifyStock.reservedStock, 1)
+
+    // Only the webhook finalizes.
     await processRazorpayWebhook({
       eventId: `evt_nofinal_${Date.now()}`,
       event: 'payment.captured',

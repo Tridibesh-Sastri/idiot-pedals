@@ -9,6 +9,8 @@
  *   node --test tests/config.phase1.test.js
  */
 
+import "./helpers/testEnv.js";
+
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
@@ -67,9 +69,19 @@ const buildEnvFile = ({
 const loadConfig = async ({ envFile, envOverrides = {} }) => {
   await writeFile(path.join(workDir, '.env'), envFile, 'utf8')
 
-  // Start from the parent env, then remove NODE_ENV so "absent" is genuine.
+  /*
+   * The child must see ONLY the synthetic .env. dotenv never overwrites already
+   * present process variables, so any inherited key that the synthetic file
+   * also defines would silently win and invalidate the case under test.
+   */
+  const syntheticNames = envFile
+    .split('\n')
+    .map((line) => line.match(/^([A-Z0-9_]+)=/)?.[1])
+    .filter(Boolean)
+
   const env = { ...process.env }
   delete env.NODE_ENV
+  for (const name of syntheticNames) delete env[name]
   Object.assign(env, envOverrides)
 
   try {

@@ -1,22 +1,19 @@
-import nodemailer from "nodemailer";
 import config from "../config/config.js";
+import { sendMail } from "./mailer.service.js";
 
-const transporter = nodemailer.createTransport({
-  host: config.SMTP_HOST,
-  port: config.SMTP_PORT,
-  secure: config.SMTP_SECURE,
-
-  auth: {
-    user: config.SMTP_USER,
-    pass: config.SMTP_PASSWORD,
-  },
-});
-
-
+/**
+ * Verification email for a newly registered account.
+ *
+ * Delivery goes through the mailer gate, so this respects
+ * EMAIL_NOTIFICATIONS_ENABLED and can never reach SMTP during tests.
+ */
 export const sendVerificationEmail = async ({name,email,token,}) => {
   const verificationUrl =`${config.FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
-  await transporter.sendMail({
+  return sendMail({
+    channel: "smtp",
+    kind: "email-verification",
+
     from: config.EMAIL_FROM,
 
     to: email,

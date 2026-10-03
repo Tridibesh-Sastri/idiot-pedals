@@ -6,6 +6,8 @@
  * query path uses an index rather than a collection scan.
  */
 
+import "./helpers/testEnv.js";
+
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'

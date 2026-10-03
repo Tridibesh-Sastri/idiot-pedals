@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import razorpay from "./razorpay.client.js";
+import { getRazorpayProvider } from "./razorpay.client.js";
 import config from "../../config/config.js";
 
 const createOrder = async ({
@@ -8,7 +8,7 @@ const createOrder = async ({
   receipt,
   notes = {},
 }) => {
-  const order = await razorpay.orders.create({
+  const order = await getRazorpayProvider().orders.create({
     amount,
     currency,
     receipt,
@@ -72,7 +72,7 @@ const verifyPaymentSignature = ({
 };
 
 const fetchPayment = async (paymentId) => {
-  const payment = await razorpay.payments.fetch(paymentId);
+  const payment = await getRazorpayProvider().payments.fetch(paymentId);
 
   return payment;
 };

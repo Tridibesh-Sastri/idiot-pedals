@@ -179,6 +179,14 @@ const SPEC = {
   },
   RESEND_FROM: { type: 'string', required: true },
   ADMIN_ORDER_EMAIL: { type: 'string', required: true },
+
+  /*
+   * Master switch for outbound email. `false` skips every send (and logs the
+   * skip without a recipient). Automated runs set this to false so they can
+   * never deliver mail. In NODE_ENV=test the mailer additionally uses an
+   * in-memory fake regardless of this value.
+   */
+  EMAIL_NOTIFICATIONS_ENABLED: { type: 'bool', default: true },
 }
 
 /* -------------------------------------------------------------------------- */
@@ -557,6 +565,9 @@ const config = {
   RESEND_API_KEY: resolved.RESEND_API_KEY,
   RESEND_FROM: resolved.RESEND_FROM,
   ADMIN_ORDER_EMAIL: resolved.ADMIN_ORDER_EMAIL,
+
+  /* Outbound email master switch */
+  EMAIL_NOTIFICATIONS_ENABLED: resolved.EMAIL_NOTIFICATIONS_ENABLED,
 }
 
 export { ConfigError }

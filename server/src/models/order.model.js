@@ -355,6 +355,22 @@ const orderSchema = new mongoose.Schema(
       ref: "Shipment",
       index: true,
     },
+
+    /*
+     * Set when money was captured for an order that can no longer be fulfilled
+     * (it was cancelled — e.g. its reservation expired first). The record is
+     * kept so the payment is never silently dropped and can be refunded.
+     */
+    needsRefund: {
+      type: Boolean,
+      default: false,
+    },
+
+    refundReason: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+    },
   },
   {
     timestamps: true,

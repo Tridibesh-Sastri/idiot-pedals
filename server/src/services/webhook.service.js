@@ -9,6 +9,7 @@ import { logger } from "../utils/logger.js";
 import {
   ORDER_STATUS,
   applyTransition,
+  isTerminal,
 } from "../domain/orderStateMachine.js";
 import {
   consumeReservedStock,
@@ -148,7 +149,39 @@ const processPaymentCaptured = async ({
    * The webhook is the source of truth, so it is the only path allowed to
    * finalize fulfilment. A repeat delivery is a no-op.
    */
-  if (order.payment.status === "paid" && order.stockConsumedAt) {
+  if (order.payment.status === "paid" && (order.stockConsumedAt || order.needsRefund)) {
+    return order;
+  }
+
+  /*
+   * Late capture: the money arrived for an order that is already terminal
+   * (cancelled, typically because its stock reservation expired first).
+   *
+   * The payment must never be dropped — it is recorded, flagged for refund and
+   * logged. The delivery still succeeds (200) so the provider stops retrying;
+   * only a signature failure is a 4xx.
+   */
+  if (isTerminal(order.orderStatus)) {
+    if (!order.payment.razorpayPaymentId) {
+      order.payment.razorpayPaymentId = razorpayPaymentId;
+    }
+
+    order.payment.status = "paid";
+    order.needsRefund = true;
+    order.refundReason = "captured_after_cancellation";
+
+    await order.save();
+
+    logger.error(
+      {
+        orderNumber: order.orderNumber,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.payment.status,
+        needsRefund: order.needsRefund,
+      },
+      "Payment captured for a cancelled order; flagged for refund"
+    );
+
     return order;
   }
 
@@ -252,102 +285,78 @@ const processPaymentFailed = async ({
   return order;
 };
 
+/**
+ * Atomically claims an event for processing.
+ *
+ * Claiming is what makes concurrent deliveries safe: exactly one caller can
+ * hold an event in `processing`, and every other delivery of the same id is
+ * acknowledged without doing the work.
+ *
+ *   - a `failed` event can be re-claimed, so provider retries still work
+ *   - otherwise we try to CREATE the event; a duplicate-key error means another
+ *     delivery got there first, so we do not claim it
+ */
+const claimWebhookEvent = async ({ eventId, event }) => {
+  const retryable = await WebhookEvent.findOneAndUpdate(
+    { eventId, status: "failed" },
+    { $set: { status: "processing", errorMessage: undefined } },
+    { returnDocument: "after" }
+  );
+
+  if (retryable) {
+    return { webhookEvent: retryable, claimed: true, retried: true };
+  }
+
+  try {
+    const created = await WebhookEvent.create({
+      eventId,
+      event,
+      status: "processing",
+    });
+
+    return { webhookEvent: created, claimed: true, retried: false };
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    // Another delivery already owns (or finished) this event.
+    const existing = await WebhookEvent.findOne({ eventId });
+
+    return { webhookEvent: existing, claimed: false, retried: false };
+  }
+};
+
 const processRazorpayWebhook = async ({
   eventId,
   event,
   payload,
 }) => {
-  let webhookEvent;
-
   /*
    * -------------------------------------------------------
-   * 1. Check whether this event was already processed
+   * 1. Claim the event
    * -------------------------------------------------------
+   *
+   * A delivery that cannot claim the event does no work and is acknowledged:
+   * either it is already processed/ignored, or another delivery is handling it
+   * right now. This is what keeps a duplicate delivery from fulfilling twice.
    */
-  webhookEvent = await WebhookEvent.findOne({
+  const { webhookEvent, claimed, retried } = await claimWebhookEvent({
     eventId,
+    event,
   });
 
-  /*
-   * A successfully processed event is permanently idempotent.
-   */
-  if (webhookEvent?.status === "processed") {
+  if (!claimed) {
     return {
       alreadyProcessed: true,
       retried: false,
+      ignored: webhookEvent?.status === "ignored",
     };
   }
 
   /*
    * -------------------------------------------------------
-   * 2. Existing failed event
-   * -------------------------------------------------------
-   *
-   * Allow Razorpay to retry a previously failed event.
-   */
-  if (webhookEvent?.status === "failed") {
-    webhookEvent.status = "processing";
-    webhookEvent.errorMessage = undefined;
-
-    await webhookEvent.save();
-  }
-
-  /*
-   * -------------------------------------------------------
-   * 3. New event
-   * -------------------------------------------------------
-   */
-  if (!webhookEvent) {
-    try {
-      webhookEvent = await WebhookEvent.create({
-        eventId,
-        event,
-        status: "processing",
-      });
-    } catch (error) {
-      /*
-       * Another request may have created the same event
-       * between our findOne() and create().
-       */
-      if (error?.code === 11000) {
-        webhookEvent = await WebhookEvent.findOne({
-          eventId,
-        });
-
-        /*
-         * If the other request already completed it,
-         * treat this delivery as a duplicate.
-         */
-        if (webhookEvent?.status === "processed") {
-          return {
-            alreadyProcessed: true,
-            retried: false,
-          };
-        }
-
-        /*
-         * If the other request is still processing,
-         * don't process the same event concurrently.
-         */
-        if (webhookEvent?.status === "processing") {
-          return {
-            alreadyProcessed: true,
-            retried: false,
-          };
-        }
-
-        /*
-         * If it failed, we'll retry below.
-         */
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  /*
-   * -------------------------------------------------------
-   * 4. Process event
+   * 2. Process event
    * -------------------------------------------------------
    */
   try {
