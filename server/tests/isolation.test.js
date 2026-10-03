@@ -9,7 +9,7 @@ import { fakeRazorpay } from "./helpers/testEnv.js";
  *   - the network guard refuses any non-loopback request outright.
  */
 
-import { after, before, describe, test } from 'node:test'
+import { after, before, beforeEach, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import http from 'node:http'
@@ -141,6 +141,33 @@ const createProduct = async ({ price = 1000, stock = 5 } = {}) => {
 
 const reloadProduct = (id) => productModel.findById(id).lean()
 
+let userCounter = 0
+
+/*
+ * Fixture helper: a brand-new authenticated user. POST /api/order carries a
+ * per-user rate limit, so tests must not share one user for order creation —
+ * each test gets its own budget. No test reads the shared `user`/`token` for
+ * anything but authentication, so this is setup-only.
+ */
+const freshAuth = async () => {
+  userCounter += 1
+  const stamp = `${Date.now()}_${userCounter}_${Math.random().toString(36).slice(2, 8)}`
+  const email = `iso-rot-${stamp}@mailhost.test`
+
+  const freshUser = await userModel.create({
+    name: 'Isolation Rotated User',
+    email,
+    emailVerified: true,
+    phone: String(9000200000 + userCounter),
+    phoneVerified: false,
+    authProviders: [{ provider: 'email', providerId: email }],
+    passwordHash: 'test-hash',
+    role: 'customer',
+  })
+
+  return accessTokenGenerator({ userId: freshUser._id, role: freshUser.role })
+}
+
 /** Creates an order with a provider order id already attached. */
 const createOrderWithRazorpayId = async ({
   method = 'razorpay',
@@ -210,6 +237,15 @@ before(async () => {
   server = http.createServer(app)
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   baseUrl = `http://127.0.0.1:${server.address().port}`
+})
+
+/*
+ * Fresh authenticated user per test (see freshAuth): keeps every test's
+ * order-creation budget independent. Fixture setup only — test bodies and
+ * assertions are untouched.
+ */
+beforeEach(async () => {
+  token = await freshAuth()
 })
 
 after(async () => {
