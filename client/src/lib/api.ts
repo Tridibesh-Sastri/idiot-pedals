@@ -107,6 +107,20 @@ export class ApiError extends Error {
 /** Human-friendly fallback copy per error kind (never leaks raw error objects). */
 export function describeApiError(error: unknown): string {
   if (error instanceof ApiError) {
+    /*
+     * Paying a cancelled/expired order is rejected by the order state machine,
+     * whose raw message ("Illegal order status transition: ...") would
+     * otherwise reach the user at the most anxious moment of checkout.
+     * Reassure instead of leaking internals. Scoped to 409 + that exact
+     * backend wording so no other conflict message is relabelled.
+     */
+    if (
+      error.status === 409 &&
+      /illegal order status transition/i.test(error.message)
+    ) {
+      return "This order is no longer available for payment. If you were charged, contact us and we'll sort it out immediately.";
+    }
+
     // Prefer the backend's specific field message over a generic envelope
     // message ("Invalid request", "Validation failed.").
     const genericEnvelope = /^(invalid request|validation failed\.?|bad request)$/i.test(error.message.trim());
