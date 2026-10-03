@@ -37,6 +37,38 @@ const normalizeEmail = (email) =>
         ? email.trim().toLowerCase()
         : ''
 
+/*
+ * Verification-mail cooldown: at most one send per window and at most a fixed
+ * number of sends per pending record. Constants, not env: these are product
+ * policy, and the counts live on the pending record so they survive restarts.
+ */
+const VERIFICATION_RESEND_COOLDOWN_MS = 60_000
+const MAX_VERIFICATION_SENDS_PER_PENDING = 5
+
+/**
+ * Pure send/no-send decision for verification mail (unit-tested).
+ *
+ * isLive: a pending record exists and has not expired.
+ * Returns { action: 'send', resetCount } | { action: 'cooldown', retryAfterSeconds } | { action: 'capped' }.
+ */
+export const verificationSendDecision = ({ isLive, sendCount, lastSentAtMs }, nowMs) => {
+    if (!isLive) return { action: 'send', resetCount: true }
+
+    if (sendCount >= MAX_VERIFICATION_SENDS_PER_PENDING) return { action: 'capped' }
+
+    if (Number.isFinite(lastSentAtMs) && nowMs - lastSentAtMs < VERIFICATION_RESEND_COOLDOWN_MS) {
+        return {
+            action: 'cooldown',
+            retryAfterSeconds: Math.max(
+                1,
+                Math.ceil((VERIFICATION_RESEND_COOLDOWN_MS - (nowMs - lastSentAtMs)) / 1000)
+            ),
+        }
+    }
+
+    return { action: 'send', resetCount: false }
+}
+
 /* ============================================================
    REGISTER
    ============================================================ */
@@ -86,7 +118,7 @@ export const registerController = async (req, res) => {
             .digest('hex')
 
         const now = Date.now()
-            
+
         // set expiry time for verification token
         const verificationTokenExpiresAt = new Date(
             now + config.EMAIL_VERIFICATION_TOKEN_TTL_MS
@@ -96,6 +128,59 @@ export const registerController = async (req, res) => {
         const registrationExpiresAt = new Date(
             now + config.PENDING_REGISTRATION_TTL_MS
         )
+
+        /*
+         * Cooldown: a live pending record may already hold a working token.
+         * Inside the window we send nothing and rotate nothing (the earlier
+         * link keeps working) but still take the corrected name/password so
+         * a user who mistyped can retry. Past the window, or when capped,
+         * the normal rotate-and-send path (or a refusal) applies.
+         */
+        const existingPending = await pendingRegistrationModel
+            .findOne({ email: normalizedEmail })
+            .lean()
+
+        const pendingIsLive =
+            !!existingPending &&
+            existingPending.registrationExpiresAt instanceof Date &&
+            existingPending.registrationExpiresAt.getTime() > now
+
+        const decision = verificationSendDecision(
+            {
+                isLive: pendingIsLive,
+                sendCount: existingPending?.verificationSendCount ?? 0,
+                lastSentAtMs: existingPending?.lastVerificationSentAt instanceof Date
+                    ? existingPending.lastVerificationSentAt.getTime()
+                    : undefined,
+            },
+            now
+        )
+
+        if (decision.action === 'capped') {
+            return res.status(429).json({
+                success: false,
+                message:
+                    'Too many verification emails have been sent for this address. Please try again later.',
+            })
+        }
+
+        if (decision.action === 'cooldown') {
+            await pendingRegistrationModel.updateOne(
+                { email: normalizedEmail },
+                { $set: { name: name.trim(), passwordHash } }
+            )
+
+            return res.status(200).json({
+                success: true,
+                message:
+                    'Registration started successfully. Please check your email to verify your account.',
+                data: {
+                    name: name.trim(),
+                    email: normalizedEmail,
+                },
+                retryAfterSeconds: decision.retryAfterSeconds,
+            })
+        }
 
         // save the registration data into pending rgistration collection
         const pendingRegistration =
@@ -111,6 +196,10 @@ export const registerController = async (req, res) => {
                         verificationTokenHash,
                         verificationTokenExpiresAt,
                         registrationExpiresAt,
+                        lastVerificationSentAt: new Date(now),
+                        verificationSendCount: decision.resetCount
+                            ? 1
+                            : (existingPending?.verificationSendCount ?? 0) + 1,
                     },
                 },
                 {
