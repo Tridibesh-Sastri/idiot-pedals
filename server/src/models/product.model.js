@@ -72,6 +72,29 @@ const productSchema = new mongoose.Schema(
       },
     },
 
+    /*
+     * Optional "was" price, used only for display (a strikethrough beside the
+     * live price). Representation rules match `price`, and it is NEVER an input
+     * to money arithmetic: order totals, payment amounts and stock all derive
+     * from `price` alone.
+     *
+     * "compareAtPrice must be strictly greater than price" is enforced at the API
+     * layer (create validator + update service) rather than here, because an
+     * update runs with `context: "query"`, where a field validator cannot see the
+     * stored price.
+     */
+    compareAtPrice: {
+      type: Number,
+      default: null,
+      min: 0,
+      validate: {
+        validator(value) {
+          return value === null || value === undefined || Number.isFinite(value);
+        },
+        message: "Compare-at price must be a finite number.",
+      },
+    },
+
     currency: {
       type: String,
       required: true,

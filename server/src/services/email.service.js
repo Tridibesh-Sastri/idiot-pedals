@@ -1,22 +1,20 @@
-import nodemailer from "nodemailer";
 import config from "../config/config.js";
+import mailer from "./mailer.service.js";
+import { escapeHtml } from "./order.email.service.js";
 
-const transporter = nodemailer.createTransport({
-  host: config.SMTP_HOST,
-  port: config.SMTP_PORT,
-  secure: config.SMTP_SECURE,
-
-  auth: {
-    user: config.SMTP_USER,
-    pass: config.SMTP_PASSWORD,
-  },
-});
-
-
+/**
+ * Verification email for a newly registered account.
+ *
+ * Delivery goes through the mailer gate, so this respects
+ * EMAIL_NOTIFICATIONS_ENABLED and can never reach SMTP during tests.
+ */
 export const sendVerificationEmail = async ({name,email,token,}) => {
   const verificationUrl =`${config.FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
-  await transporter.sendMail({
+  return mailer.sendMail({
+    channel: "smtp",
+    kind: "email-verification",
+
     from: config.EMAIL_FROM,
 
     to: email,
@@ -44,7 +42,7 @@ IDIOT Pedals
 
         <h2>Verify your IDIOT Pedals account</h2>
 
-        <p>Hi ${name},</p>
+        <p>Hi ${escapeHtml(name)},</p>
 
         <p>
           Thanks for registering with IDIOT Pedals.

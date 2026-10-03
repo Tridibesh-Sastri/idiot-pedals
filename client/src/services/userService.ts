@@ -1,46 +1,67 @@
-import { User } from '../types';
-import { STORAGE_KEYS, sleep } from './apiConfig';
-import { safeJsonParse } from '../lib/security';
+import { ApiError, api } from '../lib/api';
+import { normalizeUser } from '../lib/normalize';
+import type { User } from '../types';
+
+/** Only the fields the API actually accepts on PATCH /api/users/me. */
+export interface ProfileUpdate {
+  name?: string;
+  phone?: string;
+}
+
+interface MeEnvelope {
+  message?: string;
+  data?: { user?: unknown };
+}
 
 /**
- * UserService Class
+ * Profile service backed by GET/PATCH /api/users/me.
  *
- * Manages customer account profile retrieval and field updates
- * with browser localStorage persistence.
+ * There is no local persistence here: the server is the single source of truth,
+ * so a change made on another device (or a failed request) can never leave a
+ * stale profile cached in this browser.
  */
 class UserService {
-  /**
-   * Retrieves the current user's profile from localStorage
-   */
+  /** Current profile, or null when not signed in. */
   async getProfile(): Promise<User | null> {
-    await sleep(200);
-    const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-    const parsed = safeJsonParse<User | null>(data, null);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    try {
+      const envelope = await api.get<MeEnvelope>('/users/me');
+      const user = envelope?.data?.user;
+
+      return user ? normalizeUser(user) : null;
+    } catch (error) {
+      // Not signed in (or the session expired) is a normal state, not an error.
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   /**
-   * Updates select fields of the user profile (e.g. name, phone, email)
+   * Updates the caller's name and/or phone.
    *
-   * @param updates Partial object containing fields to update
-   * @returns Updated User profile
+   * The server whitelists these two fields and rejects everything else, so any
+   * other key is stripped here rather than being sent and 400ed.
    */
-  async updateProfile(updates: Partial<Pick<User, 'name' | 'phone' | 'email'>>): Promise<User> {
-    await sleep(400);
-    const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-    if (!data) throw new Error('No user currently logged in');
+  async updateProfile(updates: ProfileUpdate): Promise<User> {
+    const payload: ProfileUpdate = {};
 
-    const currentUser = safeJsonParse<User | null>(data, null);
-    if (!currentUser || typeof currentUser !== 'object') {
-      throw new Error('No user currently logged in');
+    if (typeof updates.name === 'string') payload.name = updates.name.trim();
+    if (typeof updates.phone === 'string') payload.phone = updates.phone.trim();
+
+    if (payload.name === undefined && payload.phone === undefined) {
+      throw new ApiError('validation', 'Nothing to update.');
     }
-    const updatedUser: User = {
-      ...currentUser,
-      ...updates,
-    };
 
-    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(updatedUser));
-    return updatedUser;
+    const envelope = await api.patch<MeEnvelope>('/users/me', payload);
+    const user = envelope?.data?.user;
+
+    if (!user) {
+      throw new ApiError('server', 'The server did not return the updated profile.');
+    }
+
+    return normalizeUser(user);
   }
 }
 

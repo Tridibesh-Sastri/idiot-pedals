@@ -1,9 +1,70 @@
-import { body, cookie, query, validationResult } from 'express-validator'
+import { body, cookie, validationResult } from 'express-validator'
+
+import config from '../config/config.js'
+
+/*
+ * Address item shape, mirroring pendingRegistration addressSchema so a
+ * malformed item is a 400 here instead of a 500 from Mongoose strict mode.
+ * Pure and unit-tested below.
+ */
+const ADDRESS_MAX_ITEMS = 20
+const ADDRESS_STRING_LIMITS = {
+    label: 30,
+    name: 100,
+    phone: 20,
+    addressLine1: 200,
+    addressLine2: 200,
+    city: 100,
+    state: 100,
+    postalCode: 20,
+    country: 100,
+}
+const ADDRESS_ALLOWED_FIELDS = new Set([...Object.keys(ADDRESS_STRING_LIMITS), 'isDefault'])
+const ADDRESS_REQUIRED_FIELDS = ['name', 'phone', 'addressLine1', 'city', 'state', 'postalCode']
+
+export const validateAddressItem = (item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return 'Each address must be an object.'
+    }
+
+    for (const key of Object.keys(item)) {
+        if (!ADDRESS_ALLOWED_FIELDS.has(key)) {
+            return `Unexpected address field: ${key}.`
+        }
+    }
+
+    for (const field of ADDRESS_REQUIRED_FIELDS) {
+        if (typeof item[field] !== 'string' || !item[field].trim()) {
+            return `Address ${field} is required.`
+        }
+    }
+
+    for (const [field, max] of Object.entries(ADDRESS_STRING_LIMITS)) {
+        if (
+            item[field] !== undefined &&
+            (typeof item[field] !== 'string' || item[field].length > max)
+        ) {
+            return `Address ${field} is too long.`
+        }
+    }
+
+    if (item.isDefault !== undefined && typeof item.isDefault !== 'boolean') {
+        return 'Address isDefault must be a boolean.'
+    }
+
+    return null
+}
 
 const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 50
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_MAX_LENGTH = 128
+/*
+ * bcrypt silently truncates past 72 bytes: without this cap, two different
+ * long passwords sharing a 72-byte prefix would be identical. Login keeps no
+ * byte rule so previously registered passwords always still verify.
+ */
+const PASSWORD_MAX_BYTES = 72
 const PHONE_PATTERN = /^[6-9]\d{9}$/
 
 export const handleValidationErrors = (req, res, next) => {
@@ -21,7 +82,7 @@ export const handleValidationErrors = (req, res, next) => {
     next()
 }
 
-const rejectUnknownFields = (allowedFields) => (req, res, next) => {
+export const rejectUnknownFields = (allowedFields) => (req, res, next) => {
     const unknownFields = Object.keys(req.body ?? {}).filter(
         (field) => !allowedFields.includes(field)
     )
@@ -102,7 +163,16 @@ export const registerValidator = [
         })
         .withMessage(
             `Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`
-        ),
+        )
+        .bail()
+        .custom((value) => {
+            if (Buffer.byteLength(value, 'utf8') > PASSWORD_MAX_BYTES) {
+                throw new Error(
+                    `Password must be at most ${PASSWORD_MAX_BYTES} bytes.`
+                )
+            }
+            return true
+        }),
 
     body('phone')
         .exists()
@@ -119,8 +189,16 @@ export const registerValidator = [
 
     body('addresses')
         .optional()
-        .isArray()
-        .withMessage('Addresses must be an array'),
+        .isArray({ max: ADDRESS_MAX_ITEMS })
+        .withMessage(`Addresses must be an array of at most ${ADDRESS_MAX_ITEMS} items.`)
+        .bail()
+        .custom((items) => {
+            for (const item of items) {
+                const problem = validateAddressItem(item)
+                if (problem) throw new Error(problem)
+            }
+            return true
+        }),
 
     handleValidationErrors,
 ]
@@ -198,11 +276,14 @@ export const validateRefreshCookie = [
       // Security Practice: Extract the first error message precisely
       const firstError = errors.array()[0].msg;
 
-      // Always clear out any unauthenticated cookies if an active mismatch occurs
+      // Always clear out any unauthenticated cookies if an active mismatch occurs.
+      // path must mirror the set options (Path=/), otherwise the browser
+      // treats the clear as a different cookie and the stale one survives.
       res.clearCookie('refreshToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: config.IS_PRODUCTION,
         sameSite: 'strict',
+        path: '/',
       });
 
       return res.status(401).json({
@@ -214,42 +295,43 @@ export const validateRefreshCookie = [
   },
 ];
 
-export const validateGoogleCallback = [
-  // 1. Ensure the authorization code is a non-empty string
-  query('code')
-    .exists({ checkFalsy: true })
-    .withMessage('Google authorization code is missing.')
-    .bail()
-    .isString()
-    .withMessage('Malformed authorization layout.')
-    .trim(),
+/*
+ * NOTE: `validateGoogleCallback` was removed in Phase 1.
+ *
+ * The Google callback no longer returns JSON, so it no longer runs through an
+ * express-validator chain: every failure path must issue a 302 into the SPA
+ * (FRONTEND_URL/login?error=<code>). Code and state validation now live in
+ * `googleCallbackController`, which redirects instead of returning a body.
+ */
 
-  // 2. State parameter validation (Mandatory for CSRF defense)
-  query('state')
-    .exists({ checkFalsy: true })
-    .withMessage('Security state identifier is missing.')
-    .bail()
-    .isString()
-    .withMessage('Malformed security state layout.')
-    .trim(),
+/*
+ * POST /api/auth/resend-verification takes an email only. Rules mirror the
+ * register email rules exactly (same shape in, same 400s out).
+ */
+export const resendVerificationValidator = [
+    body('email')
+        .exists()
+        .withMessage('Email is required')
+        .bail()
+        .isString()
+        .withMessage('Email must be a string')
+        .bail()
+        .trim()
+        .toLowerCase()
+        .isEmail()
+        .withMessage('Enter a valid email')
+        .bail()
+        .isLength({ max: 254 })
+        .withMessage('Email is too long'),
 
-  /**
-   * Validation short-circuit interceptor
-   */
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: errors.array()[0].msg, // Return the exact error context securely
-      });
-    }
-    next();
-  },
-];
+    handleValidationErrors,
+]
 
 export const validateVerifyEmail = (req, res, next) => {
-    const { token } = req.query;
+    // POST body only: the token must never travel in a URL for the API call
+    // (URLs leak via history, referrers and logs; the emailed link itself
+    // only carries it to the page, which POSTs it from memory).
+    const { token } = req.body ?? {};
 
     if (
         typeof token !== 'string' ||
@@ -258,6 +340,7 @@ export const validateVerifyEmail = (req, res, next) => {
     ) {
         return res.status(400).json({
             success: false,
+            code: 'EMAIL_TOKEN_INVALID',
             message: 'Invalid verification token.'
         });
     }

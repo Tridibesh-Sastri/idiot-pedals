@@ -12,15 +12,14 @@ import { SmoothScroll } from './components/SmoothScroll';
 // Common Global Layout Components
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
-// NOTE (hidden 2026-09-25): Bag/Cart drawer kept in code but never mounted on the website.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { CartDrawer as _CartDrawer } from './components/common/CartDrawer';
+import { CartDrawer } from './components/common/CartDrawer';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 
-// Page Views: Public marketing, product showcase, and support
+// Page Views: Public marketing, product catalogue, and support
 import { HomePage } from './pages/HomePage';
-import { ProductPage } from './pages/ProductPage';
+import { ProductsPage } from './pages/ProductsPage';
+import { ProductDetailPage } from './pages/ProductPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 
@@ -29,6 +28,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { VerifyPhonePage } from './pages/VerifyPhonePage';
+import { AuthCallbackPage } from './pages/AuthCallbackPage';
 
 // Page Views: E-commerce checkout, order history, and account profile
 import { CheckoutPage } from './pages/CheckoutPage';
@@ -61,7 +61,10 @@ export default function App() {
                   <Routes>
                     {/* Public marketing and catalog routes */}
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/product" element={<ProductPage />} />
+                    <Route path="/products" element={<ProductsPage />} />
+                    <Route path="/products/:id" element={<ProductDetailPage />} />
+                    {/* Legacy single-product route kept working */}
+                    <Route path="/product" element={<Navigate to="/products" replace />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/contact" element={<ContactPage />} />
 
@@ -70,6 +73,8 @@ export default function App() {
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/verify-email" element={<VerifyEmailPage />} />
                     <Route path="/verify-phone" element={<VerifyPhonePage />} />
+                    {/* Google OAuth lands here once the backend has set the session cookie. */}
+                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
                     {/* Customer Orders & Checkout routes */}
                     <Route path="/checkout" element={<CheckoutPage />} />
@@ -83,9 +88,7 @@ export default function App() {
                 </main>
 
                 {/* Global Overlays: Floating Toast Notifications */}
-                {/* HIDDEN FROM WEBSITE (kept in code): <_CartDrawer /> is never mounted,
-                    so the Bag/cart drawer does not load at all. Buy flow goes direct to /checkout. */}
-                {/* <_CartDrawer /> */}
+                <CartDrawer />
                 <ToastContainer />
 
                 {/* Global Brand Footer */}

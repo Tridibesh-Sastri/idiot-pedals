@@ -1,27 +1,22 @@
-// import express from "express";
-
-// import razorpayWebhookController from "../controllers/webhook.controller.js";
-
-// const router = express.Router();
-
-// router.post(
-//   "/razorpay",
-//   express.raw({
-//     type: "application/json",
-//     limit: "100kb",
-//   }),
-//   razorpayWebhookController
-// );
-
-// export default router;
-
 import express from "express";
 
 import razorpayWebhookController from "../controllers/webhook.controller.js";
 
 import validateRazorpayWebhook from "../validators/webhook.validator.js"
+import { createRateLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
+
+/*
+ * Webhooks are server-to-server, so the allowance is generous: Razorpay retries
+ * deliveries, and throttling a legitimate retry would lose a payment event. The
+ * limiter is here to bound a flood, not to shape normal traffic.
+ */
+const webhookRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  message: "Too many webhook deliveries.",
+});
 
 const razorpayRawBody = express.raw({
   type: "application/json",
@@ -47,12 +42,11 @@ const parseRazorpayWebhook = (req, res, next) => {
 
 router.post(
   "/razorpay",
+  webhookRateLimiter,
   razorpayRawBody,
   parseRazorpayWebhook,
   validateRazorpayWebhook,
   razorpayWebhookController
 );
-
-// console.log('webhookrouter is running')
 
 export default router;

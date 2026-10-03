@@ -2,8 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, ShieldCheck, Truck, Wrench } from 'lucide-react';
 import { IdiotPedalsLogo } from './IdiotPedalsLogo';
+import { useNeonFuzzBox } from '../../hooks/useNeonFuzzBox';
 
 export const Footer: React.FC = () => {
+  // Price comes from the catalogue; nothing is shown if it cannot be loaded.
+  const { priceLabel } = useNeonFuzzBox();
+
   return (
     <footer className="bg-white border-t border-[#F0D3B8] pt-20 pb-14 text-[#8A6A54] relative overflow-hidden">
       {/* Ambient background bloom */}
@@ -117,7 +121,7 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-6">
             <span>Play Different.</span>
             <span>Zero Pretension.</span>
-            <span className="text-[#FF5E1E] font-bold">₹2,399 Flat</span>
+            {priceLabel && <span className="text-[#FF5E1E] font-bold">₹{priceLabel} Flat</span>}
           </div>
         </div>
       </div>

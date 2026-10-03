@@ -37,7 +37,13 @@ const verifyRazorpayPaymentController = async (req, res, next) => {
       razorpaySignature: req.body.razorpaySignature,
     });
 
-    void sendAdminOrderEmail(order);
+    /*
+     * Notify only on a genuine confirmation. A replayed verify (client retry or
+     * double submit) must not re-send the admin notification email.
+     */
+    if (!order.alreadyPaid) {
+      void sendAdminOrderEmail(order);
+    }
 
     return res.status(200).json({
       success: true,

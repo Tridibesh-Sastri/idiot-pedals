@@ -1,10 +1,10 @@
 import refreshModel from '../models/refreshToken.model.js'
-import config from '../config/config.js'
 import {
     verifyRefreshToken,
     hashToken,
 } from '../utils/tokenManager.js'
 import { clearRefreshCookie } from '../services/auth.service.js'
+import { logger } from '../utils/logger.js'
 
 export const logoutController = async (req, res) => {
     const refreshToken = req.cookies?.refreshToken
@@ -32,10 +32,9 @@ export const logoutController = async (req, res) => {
         }
     } catch (error) {
         // Logout is intentionally idempotent. Never expose token
-        // validation/database details to the client.
-        if (config.NODE_ENV !== 'production') {
-            console.error('Logout error:', error)
-        }
+        // validation/database details to the client. The redacting logger
+        // keeps stacks out of production logs (dev keeps them for debugging).
+        logger.error({ err: error }, 'Logout error:')
     } finally {
         clearRefreshCookie(res)
     }

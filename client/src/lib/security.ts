@@ -1,54 +1,22 @@
 /**
  * Security & Anti-Tamper Hardening Core
  *
- * Provides enterprise-grade client-side defenses:
- * 1. Prototype Pollution Defense
- * 2. Immutable Frozen Catalog Ledger (Anti-Price-Tampering)
- * 3. Secure Storage Wrapper with Integrity Checks
- * 4. Safe URL Protocol Validator (Anti-Open-Redirect / XSS)
- * 5. Input Sanitizer
+ * Provides client-side defenses that are independent of any data source:
+ * 1. Prototype-pollution-proof JSON parsing
+ * 2. Secure storage wrapper with integrity & type checking
+ * 3. Safe URL protocol validator (anti-open-redirect / XSS)
+ * 4. Internal redirect whitelist
+ * 5. Input sanitizer
+ * 6. Runtime integrity guards (framebusting)
+ *
+ * NOTE: The previous hardcoded "immutable price ledger" was removed when the
+ * catalogue moved to the server (GET /api/products). Prices are now always
+ * fetched from the backend and the backend remains the sole authority for
+ * order totals — the client only ever sends productId + quantity.
  */
 
-// 1. Immutable Official Product Catalog Ledger
-export interface OfficialProduct {
-  readonly id: string;
-  readonly name: string;
-  readonly price: number;
-  readonly originalPrice: number;
-  readonly maxOrderQuantity: number;
-}
-
-export const IMMUTABLE_CATALOG: Readonly<Record<string, Readonly<OfficialProduct>>> = Object.freeze({
-  'neon-fuzz-box': Object.freeze({
-    id: 'neon-fuzz-box',
-    name: 'Neon Fuzz Box',
-    price: 2399,
-    originalPrice: 3499,
-    maxOrderQuantity: 5,
-  }),
-});
-
 /**
- * Validates and binds a cart item price to the immutable ledger.
- * Prevents DevTools / localStorage price tampering.
- * Fail-safe: unknown ids (including '__proto__'-style prototype-chain
- * lookups, which resolve truthy on plain objects) fall back to the
- * official flagship price instead of producing undefined/NaN.
- */
-export function getAuthoritativePrice(productId: string): number {
-  const item =
-    typeof productId === 'string' &&
-    Object.prototype.hasOwnProperty.call(IMMUTABLE_CATALOG, productId)
-      ? IMMUTABLE_CATALOG[productId]
-      : undefined;
-  if (!item) {
-    return 2399; // Fallback to official price
-  }
-  return item.price;
-}
-
-/**
- * 2. Prototype-Pollution-Proof JSON Parser
+ * 1. Prototype-Pollution-Proof JSON Parser
  * Recursively strips dangerous object keys: __proto__, constructor, prototype
  */
 export function safeJsonParse<T>(raw: string | null, fallback: T): T {
@@ -67,7 +35,7 @@ export function safeJsonParse<T>(raw: string | null, fallback: T): T {
 }
 
 /**
- * 3. Input Sanitizer (XSS, fuzz & Injection Protection)
+ * 2. Input Sanitizer (XSS, fuzz & Injection Protection)
  *
  * Strips: HTML brackets, null bytes, C0/C1 control characters, Unicode
  * bidirectional overrides (U+202A–U+202E, U+2060–U+206F — spoofing /
@@ -85,12 +53,12 @@ export function sanitizeString(input: unknown): string {
 }
 
 /**
- * 4. Safe URL / Protocol Validator (Anti-Open-Redirect & Script Injection)
+ * 3. Safe URL / Protocol Validator (Anti-Open-Redirect & Script Injection)
  */
 export function isSafeUrl(url: unknown): boolean {
   if (typeof url !== 'string' || !url.trim()) return false;
   const clean = url.trim().toLowerCase();
-  
+
   // Reject malicious schemes
   if (
     clean.startsWith('javascript:') ||
@@ -104,31 +72,26 @@ export function isSafeUrl(url: unknown): boolean {
   // Allow internal relative paths
   if (clean.startsWith('/') || clean.startsWith('#')) return true;
 
-  // Whitelist safe external domains (Razorpay, GitHub, official assets)
+  // Only http(s) is allowed beyond that
   try {
     const parsed = new URL(url);
-    return (
-      parsed.protocol === 'https:' ||
-      parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
-    );
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
   } catch {
     return false;
   }
 }
 
 /**
- * 4b. Internal Redirect Whitelist (Anti-Open-Redirect)
+ * 4. Internal Redirect Whitelist (Anti-Open-Redirect)
  *
  * True whitelist: only known in-app routes are honored, with an optional
  * order id and an optional #fragment. Everything else — protocol-relative
  * URLs (//evil.com), backslash variants (/\evil.com), schemes
  * (javascript:, https:), percent-encoded separators (%2F, %5C, %09, %0A),
  * query strings, whitespace, angle brackets — falls back to the default.
- * Nothing in the app generates redirects outside this set (verified: no
- * `state={{ from }}` producer exists), so safe failure is free.
  */
 const SAFE_REDIRECT_RE =
-  /^\/(?:#[-A-Za-z0-9_]+|(?:checkout|orders(?:\/[-A-Za-z0-9_]+)?|account|about|contact|product)?(?:#[-A-Za-z0-9_]+)?)$/;
+  /^\/(?:#[-A-Za-z0-9_]+|(?:checkout|orders(?:\/[-A-Za-z0-9_]+)?|products(?:\/[-A-Za-z0-9_]+)?|account|about|contact|product)?(?:#[-A-Za-z0-9_]+)?)$/;
 
 export function isSafeRedirectPath(path: unknown, fallback = '/account'): string {
   if (typeof path !== 'string') return fallback;
@@ -186,21 +149,19 @@ export const secureStorage = {
 };
 
 /**
- * 6. Runtime Integrity Lock: Freeze sensitive prototypes against script injection
+ * 6. Runtime Integrity Guards
+ * Framebusting (anti-clickjacking defense in JS). The authoritative header is
+ * server-set; this is a client-side backstop only.
  */
 export function initRuntimeSecurity(): void {
   if (typeof window === 'undefined') return;
 
-  // Framebusting (Anti-Clickjacking defense in JS)
   try {
     if (window.top && window.top !== window.self) {
       window.top.location.href = window.self.location.href;
     }
   } catch {
-    // If cross-origin framing blocks access, redirect current frame
+    // If cross-origin framing blocks access, blank the current frame
     window.location.href = 'about:blank';
   }
-
-  // Freeze core product objects
-  Object.freeze(IMMUTABLE_CATALOG);
 }

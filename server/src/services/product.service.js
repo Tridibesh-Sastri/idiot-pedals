@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Product from "../models/product.model.js";
+import { toMinor } from "../utils/money.js";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -57,6 +58,26 @@ export const createProduct = async (data) => {
   ) {
     const error = new Error(
       "Reserved stock cannot exceed total stock."
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+   * Business rule: a compare-at price must be strictly above the price.
+   *
+   * Mirrors the validator so a direct service call (a seed, a test) cannot store
+   * an impossible discount either. Integer paise, never floats.
+   */
+  if (
+    productData.compareAtPrice !== null &&
+    productData.compareAtPrice !== undefined &&
+    typeof productData.price === "number" &&
+    toMinor(productData.compareAtPrice) <= toMinor(productData.price)
+  ) {
+    const error = new Error(
+      "Compare-at price must be greater than the price."
     );
 
     error.statusCode = 400;
@@ -224,6 +245,39 @@ export const updateProduct = async (productId, data) => {
   }
 
   const updateData = normalizeProductData(data);
+
+  /* ---------------------------------------------------------------------- */
+  /* Compare-at price must stay strictly above the effective price           */
+  /* ---------------------------------------------------------------------- */
+
+  /*
+   * The effective price is the one in this request if it carries a price,
+   * otherwise the stored one — so lowering a price onto (or below) an existing
+   * compareAtPrice is rejected, and raising a compareAtPrice to (or below) the
+   * price is rejected too.
+   *
+   * Compared in integer paise, never with floats. `null` clears the field.
+   */
+  const effectivePrice =
+    updateData.price !== undefined ? updateData.price : existingProduct.price;
+
+  const effectiveCompareAtPrice =
+    updateData.compareAtPrice !== undefined
+      ? updateData.compareAtPrice
+      : existingProduct.compareAtPrice;
+
+  if (
+    effectiveCompareAtPrice !== null &&
+    effectiveCompareAtPrice !== undefined &&
+    toMinor(effectiveCompareAtPrice) <= toMinor(effectivePrice)
+  ) {
+    const error = new Error(
+      "Compare-at price must be greater than the price."
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
 
   /*
    * Calculate the resulting stock state using the existing

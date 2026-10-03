@@ -1,5 +1,12 @@
-import resend from '../integrations/resend/resend.client.js'
 import config from '../config/config.js'
+import { sendMail } from './mailer.service.js'
+/*
+ * Default-export access to the same gate, used by sendAdminOrderEmail and
+ * sendAdminRefundAlertEmail below so tests can simulate a provider outage
+ * with mock.method. Production behavior is identical to sendMail.
+ */
+import mailer from './mailer.service.js'
+import { logger } from '../utils/logger.js'
 
 const escapeHtml = (value) => {
     return String(value ?? '')
@@ -468,37 +475,116 @@ ${address}
 
 const sendAdminOrderEmail = async (order) => {
     try {
-        const { data, error } = await resend.emails.send(
-            {
-                from: config.RESEND_FROM,
-                to: [config.ADMIN_ORDER_EMAIL],
-                subject: `New IDIOT Pedals Order — ${order.orderNumber}`,
-                html: buildAdminOrderHtml(order),
-                text: buildAdminOrderText(order),
-            },
-            {
-                idempotencyKey: `admin-order-${order._id.toString()}`,
-            }
+        /*
+         * Delivery goes through the mailer gate: it honours
+         * EMAIL_NOTIFICATIONS_ENABLED and, in tests, records the message in the
+         * in-memory outbox instead of calling Resend.
+         */
+        const result = await mailer.sendMail({
+            channel: 'resend',
+            kind: 'admin-order',
+            from: config.RESEND_FROM,
+            to: [config.ADMIN_ORDER_EMAIL],
+            subject: `New IDIOT Pedals Order — ${order.orderNumber}`,
+            html: buildAdminOrderHtml(order),
+            text: buildAdminOrderText(order),
+            idempotencyKey: `admin-order-${order._id.toString()}`,
+        })
+
+        logger.info(
+            { orderNumber: order.orderNumber, messageId: result?.id ?? null },
+            'Admin order email dispatched'
         )
 
-        if (error) {
-            console.error(
-                `Failed to send admin order email for ${order.orderNumber}:`,
-                error
-            )
-
-            return null
-        }
-
-        console.log(
-            `Admin order email sent for ${order.orderNumber}. Resend ID: ${data?.id}`
-        )
-
-        return data
+        return result
     } catch (error) {
-        console.error(
-            `Unexpected error while sending admin order email for ${order.orderNumber}:`,
-            error
+        /*
+         * A failed notification must never fail the order; the caller already
+         * persists the order before this runs.
+         */
+        logger.error(
+            { err: error, orderNumber: order.orderNumber },
+            'Failed to send admin order email'
+        )
+
+        return null
+    }
+}
+
+/**
+ * Late-capture refund alert.
+ *
+ * Fires when money arrives for an already-terminal (cancelled) order: the
+ * payment is recorded and flagged needsRefund, but nothing moves the money
+ * back automatically — a human must refund from the Razorpay dashboard. This
+ * email is that human's work ticket.
+ *
+ * Same contract as sendAdminOrderEmail: never throws (delivery failures are
+ * logged with a code only), returns the transport result or null.
+ */
+const sendAdminRefundAlertEmail = async (order, { razorpayPaymentId, amountMinor, currency = 'INR', refundReason }) => {
+    try {
+        const amountMajor = amountMinor / 100
+
+        const text =
+`A payment was captured for an already-cancelled order and needs a MANUAL REFUND.
+
+Order: ${order.orderNumber} (${order._id.toString()})
+Razorpay payment id: ${razorpayPaymentId}
+Amount captured: ${formatMoney(amountMajor, currency)}
+Reason flag: ${refundReason}
+
+Action required: refund manually from the Razorpay dashboard (Payments -> this payment id -> Refund). Nothing in the app moves the money back automatically; the order stays flagged needsRefund until you confirm the refund there.`
+
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Manual refund needed</title>
+</head>
+
+<body style="
+    margin:0;
+    padding:0;
+    background:#f4f4f4;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#222;
+">
+    <p><strong>Order:</strong> ${escapeHtml(order.orderNumber)} (${escapeHtml(order._id.toString())})</p>
+    <p><strong>Razorpay payment id:</strong> ${escapeHtml(razorpayPaymentId)}</p>
+    <p><strong>Amount captured:</strong> ${escapeHtml(formatMoney(amountMajor, currency))}</p>
+    <p><strong>Reason flag:</strong> ${escapeHtml(refundReason)}</p>
+    <p><strong>Action required:</strong> refund manually from the Razorpay dashboard (Payments -&gt; this payment id -&gt; Refund). Nothing in the app moves the money back automatically; the order stays flagged needsRefund until you confirm the refund there.</p>
+</body>
+</html>`
+
+        const result = await mailer.sendMail({
+            channel: 'resend',
+            kind: 'admin-refund-alert',
+            from: config.RESEND_FROM,
+            to: [config.ADMIN_ORDER_EMAIL],
+            subject: `Manual refund needed — ${order.orderNumber} (${formatMoney(amountMajor, currency)})`,
+            html,
+            text,
+            idempotencyKey: `admin-refund-${order._id.toString()}`,
+        })
+
+        logger.info(
+            { orderNumber: order.orderNumber, messageId: result?.id ?? null },
+            'Admin refund alert dispatched'
+        )
+
+        return result
+    } catch (error) {
+        /*
+         * A failed notification must never fail the order; the caller already
+         * persists the order before this runs.
+         */
+        logger.error(
+            { err: error, orderNumber: order.orderNumber },
+            'Failed to send admin refund alert'
         )
 
         return null
@@ -506,5 +592,7 @@ const sendAdminOrderEmail = async (order) => {
 }
 
 export {
+    escapeHtml,
     sendAdminOrderEmail,
+    sendAdminRefundAlertEmail,
 }

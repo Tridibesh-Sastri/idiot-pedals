@@ -2,14 +2,15 @@ import React, { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { PedalModel } from './PedalModel';
 import { PEDAL_COMPONENTS } from '../data';
-import { useCart } from '../context/CartContext';
-import { useToast } from '../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
+import { useNeonFuzzBox } from '../hooks/useNeonFuzzBox';
 import { ArrowRight, Cpu } from 'lucide-react';
 
 export function ExplodedView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { addItem } = useCart();
-  const { showToast } = useToast();
+  // Catalogue-driven price.
+  const { priceLabel } = useNeonFuzzBox();
+  const navigate = useNavigate();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -21,10 +22,14 @@ export function ExplodedView() {
   const rotationZ = useTransform(scrollYProgress, [0, 1], [-30, -10]);
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [1, 1.15, 1.15, 1]);
 
-  const handleQuickAdd = () => {
-    addItem();
-    showToast('Neon Fuzz Box added to workbench cart!');
-  };
+  /**
+   * Goes to the shop listing to browse. It deliberately does not touch the
+   * cart and does not jump to a specific product: this is a "browse the shop"
+   * entry point, not a purchase action.
+   * Previously this called `addItem()` with no arguments and toasted "added to
+   * cart" — it lied and produced no cart line.
+   */
+  const handleQuickAdd = () => navigate('/products');
 
   return (
     <section ref={containerRef} className="relative h-[360vh] w-full bg-[#080B0F] border-t border-white/10">
@@ -130,7 +135,7 @@ export function ExplodedView() {
                 onClick={handleQuickAdd}
                 className="px-8 py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase rounded-full transition-all shadow-xl shadow-[#FF5E1E]/30 glow-neon-orange inline-flex items-center gap-2 cursor-pointer"
               >
-                <span>Buy Neon Fuzz Box — ₹2,399</span>
+                <span>Buy Neon Fuzz Box{priceLabel ? ` — ₹${priceLabel}` : ''}</span>
                 <ArrowRight size={14} />
               </button>
             </motion.div>

@@ -20,6 +20,8 @@ import {
 
 import { sendVerificationEmail } from '../services/email.service.js'
 import { getGoogleUser } from '../integrations/google/google.service.js'
+import { PUBLIC_USER_FIELDS, serializeUser as publicUser } from '../utils/serializeUser.js'
+import { logger } from '../utils/logger.js'
 
 
 const INTERNAL_ERROR_MESSAGE = 'Internal Server Error.'
@@ -35,15 +37,37 @@ const normalizeEmail = (email) =>
         ? email.trim().toLowerCase()
         : ''
 
-const publicUser = (user) => ({
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    addresses: user.addresses,
-    role: user.role,
-    emailVerified: user.emailVerified,
-})
+/*
+ * Verification-mail cooldown: at most one send per window and at most a fixed
+ * number of sends per pending record. Constants, not env: these are product
+ * policy, and the counts live on the pending record so they survive restarts.
+ */
+const VERIFICATION_RESEND_COOLDOWN_MS = 60_000
+const MAX_VERIFICATION_SENDS_PER_PENDING = 5
+
+/**
+ * Pure send/no-send decision for verification mail (unit-tested).
+ *
+ * isLive: a pending record exists and has not expired.
+ * Returns { action: 'send', resetCount } | { action: 'cooldown', retryAfterSeconds } | { action: 'capped' }.
+ */
+export const verificationSendDecision = ({ isLive, sendCount, lastSentAtMs }, nowMs) => {
+    if (!isLive) return { action: 'send', resetCount: true }
+
+    if (sendCount >= MAX_VERIFICATION_SENDS_PER_PENDING) return { action: 'capped' }
+
+    if (Number.isFinite(lastSentAtMs) && nowMs - lastSentAtMs < VERIFICATION_RESEND_COOLDOWN_MS) {
+        return {
+            action: 'cooldown',
+            retryAfterSeconds: Math.max(
+                1,
+                Math.ceil((VERIFICATION_RESEND_COOLDOWN_MS - (nowMs - lastSentAtMs)) / 1000)
+            ),
+        }
+    }
+
+    return { action: 'send', resetCount: false }
+}
 
 /* ============================================================
    REGISTER
@@ -94,7 +118,7 @@ export const registerController = async (req, res) => {
             .digest('hex')
 
         const now = Date.now()
-            
+
         // set expiry time for verification token
         const verificationTokenExpiresAt = new Date(
             now + config.EMAIL_VERIFICATION_TOKEN_TTL_MS
@@ -104,6 +128,59 @@ export const registerController = async (req, res) => {
         const registrationExpiresAt = new Date(
             now + config.PENDING_REGISTRATION_TTL_MS
         )
+
+        /*
+         * Cooldown: a live pending record may already hold a working token.
+         * Inside the window we send nothing and rotate nothing (the earlier
+         * link keeps working) but still take the corrected name/password so
+         * a user who mistyped can retry. Past the window, or when capped,
+         * the normal rotate-and-send path (or a refusal) applies.
+         */
+        const existingPending = await pendingRegistrationModel
+            .findOne({ email: normalizedEmail })
+            .lean()
+
+        const pendingIsLive =
+            !!existingPending &&
+            existingPending.registrationExpiresAt instanceof Date &&
+            existingPending.registrationExpiresAt.getTime() > now
+
+        const decision = verificationSendDecision(
+            {
+                isLive: pendingIsLive,
+                sendCount: existingPending?.verificationSendCount ?? 0,
+                lastSentAtMs: existingPending?.lastVerificationSentAt instanceof Date
+                    ? existingPending.lastVerificationSentAt.getTime()
+                    : undefined,
+            },
+            now
+        )
+
+        if (decision.action === 'capped') {
+            return res.status(429).json({
+                success: false,
+                message:
+                    'Too many verification emails have been sent for this address. Please try again later.',
+            })
+        }
+
+        if (decision.action === 'cooldown') {
+            await pendingRegistrationModel.updateOne(
+                { email: normalizedEmail },
+                { $set: { name: name.trim(), passwordHash } }
+            )
+
+            return res.status(200).json({
+                success: true,
+                message:
+                    'Registration started successfully. Please check your email to verify your account.',
+                data: {
+                    name: name.trim(),
+                    email: normalizedEmail,
+                },
+                retryAfterSeconds: decision.retryAfterSeconds,
+            })
+        }
 
         // save the registration data into pending rgistration collection
         const pendingRegistration =
@@ -119,6 +196,10 @@ export const registerController = async (req, res) => {
                         verificationTokenHash,
                         verificationTokenExpiresAt,
                         registrationExpiresAt,
+                        lastVerificationSentAt: new Date(now),
+                        verificationSendCount: decision.resetCount
+                            ? 1
+                            : (existingPending?.verificationSendCount ?? 0) + 1,
                     },
                 },
                 {
@@ -139,9 +220,11 @@ export const registerController = async (req, res) => {
                 token: verificationToken,
             })
         } catch (emailError) {
-            console.error(
-                'Verification email failed:',
-                emailError
+            // Log only a stable code: mailer errors can carry recipient
+            // addresses and SMTP responses, which must never reach the logs.
+            logger.error(
+                { code: emailError?.code ?? 'EMAIL_SEND_FAILED' },
+                'Verification email failed:'
             )
 
             await pendingRegistrationModel.deleteOne({
@@ -166,7 +249,7 @@ export const registerController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error('Register controller error:', error)
+        logger.error({ err: error }, 'Register controller error:')
 
         if (error?.code === 11000) {
             return res.status(409).json({
@@ -186,8 +269,8 @@ export const registerController = async (req, res) => {
 
 export const verifyEmailController = async (req, res) => {
     try {
-        // extract the token from url query
-        const { token } = req.query
+        // extract the token from the POST body (never the URL query)
+        const { token } = req.body ?? {}
 
         // token validation
         if (
@@ -197,6 +280,7 @@ export const verifyEmailController = async (req, res) => {
         ) {
             return res.status(400).json({
                 success: false,
+                code: 'EMAIL_TOKEN_INVALID',
                 message: 'Invalid verification token.',
             })
         }
@@ -207,24 +291,35 @@ export const verifyEmailController = async (req, res) => {
             .update(token)
             .digest('hex')
 
-        // find the user inside temporary user register with the token hash
+        /*
+         * Look the token up WITHOUT an expiry filter first, so we can tell
+         * "this link expired" apart from "this token is not valid".
+         */
         const pendingRegistration =
             await pendingRegistrationModel.findOne({
                 verificationTokenHash,
-                verificationTokenExpiresAt: {
-                    $gt: new Date(),
-                },
-                registrationExpiresAt: {
-                    $gt: new Date(),
-                },
             })
 
-        // if no pending user find then return the request
         if (!pendingRegistration) {
             return res.status(400).json({
                 success: false,
+                code: 'EMAIL_TOKEN_INVALID',
                 message:
-                    'Invalid or expired verification link.',
+                    'This verification link is not valid. It may have already been used.',
+            })
+        }
+
+        const now = new Date()
+
+        if (
+            pendingRegistration.verificationTokenExpiresAt <= now ||
+            pendingRegistration.registrationExpiresAt <= now
+        ) {
+            return res.status(410).json({
+                success: false,
+                code: 'EMAIL_TOKEN_EXPIRED',
+                message:
+                    'This verification link has expired. Please register again to receive a new one.',
             })
         }
 
@@ -242,8 +337,9 @@ export const verifyEmailController = async (req, res) => {
 
             return res.status(409).json({
                 success: false,
+                code: 'ACCOUNT_ALREADY_VERIFIED',
                 message:
-                    'An account already exists with this email address.',
+                    'This email address already has a verified account. Please sign in instead.',
             })
         }
 
@@ -274,6 +370,7 @@ export const verifyEmailController = async (req, res) => {
         // return with new user id, name, email, email varification status
         return res.status(200).json({
             success: true,
+            code: 'EMAIL_VERIFIED',
             message:
                 'Email verified successfully. Your account has been created.',
             data: {
@@ -286,17 +383,119 @@ export const verifyEmailController = async (req, res) => {
     } catch (error) {
         console.error(
             'Email verification error:',
-            error
+            error?.message ?? 'unknown error'
         )
 
         if (error?.code === 11000) {
             return res.status(409).json({
                 success: false,
+                code: 'ACCOUNT_ALREADY_VERIFIED',
                 message:
-                    'An account already exists with this email address.',
+                    'This email address already has a verified account. Please sign in instead.',
             })
         }
 
+        return sendInternalError(res)
+    }
+}
+
+/* ============================================================
+   RESEND VERIFICATION EMAIL
+   ============================================================
+ *
+ * Public retry path for a lost verification mail. Answers the SAME generic
+ * 200 body on every path — missing record, expired record, capped record,
+ * in-cooldown record and freshly-sent record are indistinguishable from the
+ * outside, so nothing here reveals whether an address is pending.
+ * retryAfterSeconds is a constant for the same reason (never computed from
+ * per-address state).
+ */
+
+const RESEND_RETRY_AFTER_SECONDS = 60
+
+const resendGenericResponse = (res) =>
+    res.status(200).json({
+        success: true,
+        message:
+            'If a verification email is pending for this address, a new link is on its way. Only the newest email works.',
+        retryAfterSeconds: RESEND_RETRY_AFTER_SECONDS,
+    })
+
+export const resendVerificationController = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email)
+
+        const existing = await pendingRegistrationModel
+            .findOne({ email })
+            .lean()
+
+        const now = Date.now()
+        const isLive =
+            !!existing &&
+            existing.registrationExpiresAt instanceof Date &&
+            existing.registrationExpiresAt.getTime() > now
+
+        if (isLive) {
+            const decision = verificationSendDecision(
+                {
+                    isLive: true,
+                    sendCount: existing.verificationSendCount ?? 0,
+                    lastSentAtMs: existing.lastVerificationSentAt instanceof Date
+                        ? existing.lastVerificationSentAt.getTime()
+                        : undefined,
+                },
+                now
+            )
+
+            if (decision.action === 'send') {
+                const verificationToken = crypto
+                    .randomBytes(32)
+                    .toString('hex')
+
+                const verificationTokenHash = crypto
+                    .createHash('sha256')
+                    .update(verificationToken)
+                    .digest('hex')
+
+                await pendingRegistrationModel.updateOne(
+                    { email },
+                    {
+                        $set: {
+                            verificationTokenHash,
+                            verificationTokenExpiresAt: new Date(
+                                now + config.EMAIL_VERIFICATION_TOKEN_TTL_MS
+                            ),
+                            lastVerificationSentAt: new Date(now),
+                            verificationSendCount:
+                                (existing.verificationSendCount ?? 0) + 1,
+                        },
+                    }
+                )
+
+                try {
+                    await sendVerificationEmail({
+                        name: existing.name,
+                        email,
+                        token: verificationToken,
+                    })
+                } catch (mailError) {
+                    /*
+                     * A distinct status here would reveal that a pending
+                     * record exists, so mail failure stays inside the generic
+                     * body. The user simply retries after the countdown; a
+                     * transient failure self-heals on the next attempt.
+                     */
+                    logger.error(
+                        { code: mailError?.code ?? 'EMAIL_SEND_FAILED' },
+                        'Resend verification email failed:'
+                    )
+                }
+            }
+        }
+
+        return resendGenericResponse(res)
+    } catch (error) {
+        logger.error({ err: error }, 'Resend verification controller error:')
         return sendInternalError(res)
     }
 }
@@ -385,7 +584,7 @@ export const loginController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error('Login controller error:', error)
+        logger.error({ err: error }, 'Login controller error:')
         return sendInternalError(res)
     }
 }
@@ -580,10 +779,7 @@ export const refreshController = async (req, res) => {
             accessToken: newAccessToken,
         })
     } catch (error) {
-        console.error(
-            'Refresh controller error:',
-            error
-        )
+        logger.error({ err: error }, 'Refresh controller error:')
 
         clearRefreshCookie(res)
         return sendInternalError(res)
@@ -600,9 +796,7 @@ export const getMeController = async (req, res) => {
 
         const user = await userModel
             .findById(userId)
-            .select(
-                '_id name email phone addresses role emailVerified'
-            )
+            .select(PUBLIC_USER_FIELDS)
 
         if (!user) {
             return res.status(404).json({
@@ -619,10 +813,7 @@ export const getMeController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error(
-            'Get me controller error:',
-            error
-        )
+        logger.error({ err: error }, 'Get me controller error:')
 
         return sendInternalError(res)
     }
@@ -630,40 +821,103 @@ export const getMeController = async (req, res) => {
 
 /* ============================================================
    GOOGLE CALLBACK
-   ============================================================ */
+   ============================================================
+ *
+ * This endpoint is reached by a top-level browser navigation from Google, so it
+ * must ALWAYS answer with a redirect — never a JSON body. Every failure path
+ * redirects to FRONTEND_URL/login?error=<code>.
+ *
+ * The redirect target is built exclusively from config.FRONTEND_URL (validated
+ * at boot) and never from query parameters, so this cannot become an open
+ * redirect.
+ *
+ * On success the refresh cookie is set here and the SPA then calls
+ * POST /api/auth/refresh to mint a short-lived access token. No access token is
+ * ever placed in the URL, where it would leak via history, referrer headers and
+ * server logs.
+ */
 
-export const googleCallbackController = async (
-    req,
-    res
-) => {
+const OAUTH_STATE_COOKIE = 'oauth_state'
+
+const clearOAuthStateCookie = (res) => {
+    res.clearCookie(OAUTH_STATE_COOKIE, {
+        httpOnly: true,
+        secure: config.IS_PRODUCTION,
+        sameSite: 'lax',
+        signed: true,
+        path: '/',
+    })
+}
+
+const redirectToFrontend = (res, path) =>
+    res.redirect(302, `${config.FRONTEND_URL}${path}`)
+
+const redirectWithError = (res, errorCode) => {
+    clearOAuthStateCookie(res)
+    return redirectToFrontend(
+        res,
+        `/login?error=${encodeURIComponent(errorCode)}`
+    )
+}
+
+const timingSafeStringEqual = (a, b) => {
+    if (typeof a !== 'string' || typeof b !== 'string') return false
+
+    const left = Buffer.from(a, 'utf8')
+    const right = Buffer.from(b, 'utf8')
+
+    if (left.length !== right.length) return false
+
+    return crypto.timingSafeEqual(left, right)
+}
+
+export const googleCallbackController = async (req, res) => {
+    const { code, state } = req.query
+    const savedState = req.signedCookies?.[OAUTH_STATE_COOKIE]
+
+    // 1. Google surfaced an error (for example the user cancelled consent).
+    if (typeof code !== 'string' || code.length === 0) {
+        return redirectWithError(res, 'google_cancelled')
+    }
+
+    // 2. CSRF defence: the state must exist on both sides and match, compared
+    //    in constant time.
+    if (
+        typeof state !== 'string' ||
+        state.length === 0 ||
+        !timingSafeStringEqual(savedState ?? '', state)
+    ) {
+        return redirectWithError(res, 'google_state_invalid')
+    }
+
+    // State is single-use — drop it before doing anything else.
+    clearOAuthStateCookie(res)
+
+    // 3. Exchange the authorization code for a verified Google identity.
+    let googleUser
     try {
-        const { code, state } = req.query
+        googleUser = await getGoogleUser(code)
+    } catch (error) {
+        console.error(
+            'Google token exchange failed:',
+            error?.message ?? 'unknown error'
+        )
+        return redirectToFrontend(res, '/login?error=google_exchange_failed')
+    }
 
-        if (
-            typeof code !== 'string' ||
-            code.length === 0
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    'Google authorization code is missing.',
-            })
-        }
+    if (
+        !googleUser ||
+        typeof googleUser.email !== 'string' ||
+        typeof googleUser.providerId !== 'string' ||
+        !googleUser.emailVerified
+    ) {
+        return redirectToFrontend(
+            res,
+            '/login?error=google_account_unverified'
+        )
+    }
 
-        const googleUser = await getGoogleUser(code, state)
-
-        if (
-            !googleUser ||
-            typeof googleUser.email !== 'string' ||
-            typeof googleUser.providerId !== 'string' ||
-            !googleUser.emailVerified
-        ) {
-            return res.status(403).json({
-                success: false,
-                message:
-                    'Unable to verify Google account.',
-            })
-        }
+    try {
 
         const normalizedEmail =
             normalizeEmail(googleUser.email)
@@ -687,12 +941,6 @@ export const googleCallbackController = async (
                 role: 'customer',
             })
 
-            const accessToken =
-                await accessTokenGenerator({
-                    userId: user._id,
-                    role: user.role,
-                })
-
             const session =
                 await createRefreshSession(
                     user._id,
@@ -705,15 +953,8 @@ export const googleCallbackController = async (
                 session.expiresAt
             )
 
-            return res.status(201).json({
-                success: true,
-                message:
-                    'Google account created and logged in successfully.',
-                data: {
-                    user: publicUser(user),
-                    accessToken,
-                },
-            })
+            // New Google account: session established, hand back to the SPA.
+            return redirectToFrontend(res, '/auth/callback')
         }
 
         const googleProvider =
@@ -726,11 +967,10 @@ export const googleCallbackController = async (
 
         if (!googleProvider) {
             if (!user.emailVerified) {
-                return res.status(403).json({
-                    success: false,
-                    message:
-                        'This email account has not been verified. Please verify your email before linking Google.',
-                })
+                return redirectToFrontend(
+                    res,
+                    '/login?error=google_account_unverified'
+                )
             }
 
             const emailProvider =
@@ -740,11 +980,10 @@ export const googleCallbackController = async (
                 )
 
             if (!emailProvider) {
-                return res.status(409).json({
-                    success: false,
-                    message:
-                        'This account cannot be automatically linked with Google.',
-                })
+                return redirectToFrontend(
+                    res,
+                    '/login?error=google_link_conflict'
+                )
             }
 
             const providerAlreadyLinked =
@@ -766,12 +1005,6 @@ export const googleCallbackController = async (
             }
         }
 
-        const accessToken =
-            await accessTokenGenerator({
-                userId: user._id,
-                role: user.role,
-            })
-
         const session =
             await createRefreshSession(
                 user._id,
@@ -784,33 +1017,25 @@ export const googleCallbackController = async (
             session.expiresAt
         )
 
-        return res.status(200).json({
-            success: true,
-            message: googleProvider
-                ? 'Google login successful.'
-                : 'Google account linked successfully.',
-            data: {
-                user: publicUser(user),
-                accessToken,
-            },
-        })
+        // Session established (login or account link) — hand back to the SPA.
+        // `googleProvider` distinguishes "signed in" from "linked"; the SPA only
+        // needs the session at this point.
+        void googleProvider
+
+        return redirectToFrontend(res, '/auth/callback')
     } catch (error) {
         console.error(
             'Google authentication error:',
-            error
+            error?.message ?? 'unknown error'
         )
 
         if (error?.code === 11000) {
-            return res.status(409).json({
-                success: false,
-                message:
-                    'This Google account is already linked to another account.',
-            })
+            return redirectToFrontend(
+                res,
+                '/login?error=google_link_conflict'
+            )
         }
 
-        return sendInternalError(
-            res,
-            'Google authentication failed.'
-        )
+        return redirectToFrontend(res, '/login?error=google_failed')
     }
 }

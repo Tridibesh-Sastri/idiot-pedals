@@ -1,10 +1,20 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 
 import Product from "../models/product.model.js";
 import Order from "../models/order.model.js";
 import {
     sendAdminOrderEmail,
 } from './order.email.service.js'
+
+import { multiplyMinor, toMajor, toMinor } from "../utils/money.js";
+import {
+    releaseReservedStock,
+    reserveOrderStock,
+} from "./stock.service.js";
+
+/** Mirrors the order line quantity bounds enforced by the schema. */
+const MAX_ITEM_QUANTITY = 100;
 
 const generateOrderNumber = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -30,10 +40,6 @@ const createOrder = async ({
     _id: { $in: productIds },
   }).lean();
 
-  // --------------------------------------------------
-  // 2. Make sure every requested product exists
-  // --------------------------------------------------
-
   const productMap = new Map(
     products.map((product) => [
       product._id.toString(),
@@ -43,12 +49,15 @@ const createOrder = async ({
 
   const orderItems = [];
 
-  let subtotal = 0;
+  let subtotalMinor = 0;
 
   // --------------------------------------------------
-  // 3. Validate products and calculate authoritative
-  //    order values
+  // 2. Build authoritative line items
   // --------------------------------------------------
+  //
+  // Every amount here is derived from the database price in integer paise.
+  // Any price the client may have sent is never read — it is not part of the
+  // line-item contract at all.
 
   for (const requestedItem of items) {
     const product = productMap.get(
@@ -75,24 +84,31 @@ const createOrder = async ({
       throw error;
     }
 
-    const availableStock =
-      product.stock - product.reservedStock;
+    const quantity = requestedItem.quantity;
 
-    if (requestedItem.quantity > availableStock) {
+    /*
+     * Defence in depth: the validator and the schema both enforce this, but a
+     * non-integer quantity here would corrupt the paise arithmetic.
+     */
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity < 1 ||
+      quantity > MAX_ITEM_QUANTITY
+    ) {
       const error = new Error(
-        `Insufficient stock for "${product.name}".`
+        `Quantity for "${product.name}" must be a whole number between 1 and ${MAX_ITEM_QUANTITY}.`
       );
 
-      error.statusCode = 409;
+      error.statusCode = 400;
+      error.code = "INVALID_QUANTITY";
 
       throw error;
     }
 
-    const unitPrice = product.price;
-    const quantity = requestedItem.quantity;
-    const itemTotal = unitPrice * quantity;
+    const unitPriceMinor = toMinor(product.price);
+    const itemTotalMinor = multiplyMinor(unitPriceMinor, quantity);
 
-    subtotal += itemTotal;
+    subtotalMinor += itemTotalMinor;
 
     orderItems.push({
       productId: product._id,
@@ -100,58 +116,167 @@ const createOrder = async ({
       sku: product.sku,
       quantity,
       unitPrice: {
-        amount: unitPrice,
+        amount: toMajor(unitPriceMinor),
+        amountMinor: unitPriceMinor,
         currency: product.currency,
       },
       total: {
-        amount: itemTotal,
+        amount: toMajor(itemTotalMinor),
+        amountMinor: itemTotalMinor,
         currency: product.currency,
       },
     });
   }
 
   // --------------------------------------------------
-  // 4. Calculate order-level pricing
+  // 3. Calculate order-level pricing (integer paise)
   // --------------------------------------------------
 
-  const shipping = 0;
-  const discount = 0;
+  const shippingMinor = 0;
+  const discountMinor = 0;
 
-  const total =
-    subtotal +
-    shipping -
-    discount;
+  const totalMinor = subtotalMinor + shippingMinor - discountMinor;
 
   // --------------------------------------------------
-  // 5. Create internal order
+  // --------------------------------------------------
+  // 3b. Reuse or supersede an open pending order
+  // --------------------------------------------------
+  //
+  // A checkout submitted twice (a double tap, or a retry after a cancelled or
+  // abandoned payment) must not create a second pending order and a second stock
+  // reservation. COD is excluded: its `pending` means awaiting confirmation,
+  // not awaiting payment, and a customer may legitimately place several.
+  if (paymentMethod !== "cod") {
+    const openOrders = await Order.find({
+      userId,
+      orderStatus: "pending",
+      "payment.status": "pending",
+      stockReservedAt: { $ne: null },
+      stockReleasedAt: null,
+    })
+      .select("_id orderNumber items shippingAddress stockReservedAt")
+      .lean();
+
+    const sameItems = (existing, wanted) =>
+      existing.length === wanted.length &&
+      wanted.every((line) =>
+        existing.some(
+          (other) =>
+            other.productId?.toString() === line.productId?.toString() &&
+            other.quantity === line.quantity
+        )
+      );
+
+    const sameAddress = (existing, wanted) =>
+      (existing?.addressLine1 ?? "") === (wanted?.addressLine1 ?? "") &&
+      (existing?.addressLine2 ?? "") === (wanted?.addressLine2 ?? "") &&
+      (existing?.city ?? "") === (wanted?.city ?? "") &&
+      (existing?.state ?? "") === (wanted?.state ?? "") &&
+      (existing?.postalCode ?? "") === (wanted?.postalCode ?? "") &&
+      (existing?.country ?? "") === (wanted?.country ?? "");
+
+    const wantedItems = orderItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
+
+    for (const open of openOrders) {
+      if (
+        sameItems(open.items ?? [], wantedItems) &&
+        sameAddress(open.shippingAddress, shippingAddress)
+      ) {
+        // Identical checkout: hand back the order that already holds the stock.
+        return { ...open, reused: true };
+      }
+    }
+
+    for (const open of openOrders) {
+      /*
+       * Claim before releasing. The conditional update is what makes this
+       * race-safe: of two concurrent checkouts only one matches, so a
+       * reservation cannot be released twice, and an order that has meanwhile
+       * been paid or already released is left alone.
+       */
+      const claimed = await Order.findOneAndUpdate(
+        { _id: open._id, orderStatus: "pending", stockReleasedAt: null },
+        { $set: { orderStatus: "cancelled", stockReleasedAt: new Date() } },
+        { returnDocument: "after" }
+      );
+
+      if (!claimed) continue;
+
+      await releaseReservedStock(
+        (open.items ?? []).map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        }))
+      );
+    }
+  }
+
+  // 4. Reserve inventory atomically
+  // --------------------------------------------------
+  //
+  // The conditional findOneAndUpdate inside reserveOrderStock is what makes
+  // concurrent orders for the last unit safe: exactly one caller matches the
+  // availability filter. If any line fails, whatever was already reserved in
+  // this call is released before the error propagates.
+
+  const reserved = await reserveOrderStock(
+    orderItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  );
+
+  // --------------------------------------------------
+  // 5. Persist the order
   // --------------------------------------------------
 
-  const order = await Order.create({
-    orderNumber: generateOrderNumber(),
+  let order;
 
-    userId,
+  try {
+    order = await Order.create({
+      orderNumber: generateOrderNumber(),
 
-    items: orderItems,
+      userId,
 
-    pricing: {
-      subtotal,
-      shipping,
-      discount,
-      total,
-      currency: "INR",
-    },
+      items: orderItems,
 
-    customer,
+      pricing: {
+        subtotal: toMajor(subtotalMinor),
+        shipping: toMajor(shippingMinor),
+        discount: toMajor(discountMinor),
+        total: toMajor(totalMinor),
+        currency: "INR",
+        subtotalMinor,
+        shippingMinor,
+        discountMinor,
+        totalMinor,
+      },
 
-    shippingAddress,
+      customer,
 
-    payment: {
-      method: paymentMethod,
-      status: "pending",
-    },
+      shippingAddress,
 
-    orderStatus: "pending",
-  });
+      payment: {
+        method: paymentMethod,
+        status: "pending",
+      },
+
+      orderStatus: "pending",
+
+      stockReservedAt: new Date(),
+    });
+  } catch (error) {
+    /*
+     * The order did not persist, so the reservation must not be held. Without
+     * this the unit would stay reserved until the expiry job ran.
+     */
+    await releaseReservedStock(reserved);
+
+    throw error;
+  }
 
   // --------------------------------------------------
   // 6. Notify admin
@@ -164,7 +289,7 @@ const createOrder = async ({
   if(order.payment.method === "cod"){
     void sendAdminOrderEmail(order)
   }
-  
+
 
   return order;
 };
@@ -208,7 +333,103 @@ const getUserOrders = async ({
     };
 };
 
+/**
+ * Fetches a single order that belongs to `userId`.
+ *
+ * Accepts the Mongo ObjectId or the human-readable order number, so the UI can
+ * link with whichever identifier it holds. Ownership is part of the query, so a
+ * valid identifier belonging to somebody else returns null — the caller answers
+ * 404, never 403 (no existence oracle).
+ */
+const getUserOrderById = async ({ userId, orderId }) => {
+  const isObjectId = mongoose.isValidObjectId(orderId);
+
+  return Order.findOne({
+    ...(isObjectId ? { _id: orderId } : { orderNumber: orderId }),
+    userId,
+  }).lean();
+};
+/**
+ * Cancels a pending order that belongs to `userId` and releases its stock
+ * reservation. Idempotent: an order already cancelled returns it unchanged
+ * rather than erroring. An order that is no longer cancellable (paid,
+ * fulfilled, etc.) is a 409, not a silent no-op. A missing or foreign order
+ * returns null — same no-existence-oracle rule as getUserOrderById.
+ */
+const cancelOrder = async ({ userId, orderId }) => {
+  const isObjectId = mongoose.isValidObjectId(orderId);
+  const identifierFilter = isObjectId ? { _id: orderId } : { orderNumber: orderId };
+
+  const existing = await Order.findOne({
+    ...identifierFilter,
+    userId,
+  }).lean();
+
+  if (!existing) {
+    return null; // controller answers 404
+  }
+
+  if (existing.orderStatus === "cancelled") {
+    return { order: existing, alreadyCancelled: true };
+  }
+
+  if (existing.orderStatus !== "pending" || existing.payment?.status !== "pending") {
+    const error = new Error("This order can no longer be cancelled.");
+    error.statusCode = 409;
+    error.code = "ORDER_NOT_CANCELLABLE";
+    throw error;
+  }
+
+  /*
+   * Claim before releasing, same pattern as the supersede claim in
+   * createOrder: the conditional update is what makes this race-safe against
+   * a concurrent webhook/payment confirming the order at the same instant.
+   */
+  const claimed = await Order.findOneAndUpdate(
+    {
+      ...identifierFilter,
+      userId,
+      orderStatus: "pending",
+      "payment.status": "pending",
+      stockReleasedAt: null,
+    },
+    {
+      $set: {
+        orderStatus: "cancelled",
+        stockReleasedAt: new Date(),
+      },
+    },
+    { returnDocument: "after" }
+  ).lean();
+
+  if (!claimed) {
+    // Lost the race — re-read and answer based on what actually happened,
+    // rather than assuming our own request caused the mismatch.
+    const now = await Order.findOne({ ...identifierFilter, userId }).lean();
+
+    if (now?.orderStatus === "cancelled") {
+      return { order: now, alreadyCancelled: true };
+    }
+
+    const error = new Error("This order can no longer be cancelled.");
+    error.statusCode = 409;
+    error.code = "ORDER_NOT_CANCELLABLE";
+    throw error;
+  }
+
+  await releaseReservedStock(
+    (claimed.items ?? []).map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  );
+
+  return { order: claimed, alreadyCancelled: false };
+};
+
 export {
   createOrder,
-  getUserOrders
+  getUserOrders,
+  getUserOrderById,
+  cancelOrder,
 };

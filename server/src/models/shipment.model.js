@@ -151,7 +151,11 @@ const shipmentSchema = new mongoose.Schema(
 shipmentSchema.index({ status: 1, updatedAt: -1 });
 shipmentSchema.index({ "trackingEvents.timestamp": -1 });
 
-shipmentSchema.pre("validate", function (next) {
+/*
+ * Mongoose 9 runs pre hooks as promises — the callback `next` argument is no
+ * longer provided, so hooks must not declare or call it.
+ */
+shipmentSchema.pre("validate", function () {
   if (
     this.deliveredAt &&
     this.pickupDate &&
@@ -173,8 +177,6 @@ shipmentSchema.pre("validate", function (next) {
       "Estimated delivery date cannot be earlier than pickup date."
     );
   }
-
-  next();
 });
 
 const shipmentModel =

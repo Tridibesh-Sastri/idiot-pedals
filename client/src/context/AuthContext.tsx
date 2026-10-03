@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
-import { authService, LoginDTO, RegisterDTO } from '../services/authService';
+import { authService, LoginDTO, RegisterDTO, RegisterResult } from '../services/authService';
+import { ApiError, SESSION_EXPIRED_EVENT } from '../lib/api';
 
 /**
  * Interface representing all state variables and dispatch methods
@@ -11,137 +13,172 @@ interface AuthContextType {
   user: User | null;
   /** Boolean indicating whether a valid user session is active */
   isAuthenticated: boolean;
-  /** Loading flag set during async auth actions and initial session boot */
+  /** Loading flag during auth actions and the initial session boot */
   loading: boolean;
+  /** True only while the initial GET /auth/me bootstrap is running */
+  initializing: boolean;
+  /** Set when the last auth action failed with a human-readable message */
+  error: string | null;
   /** Sign in using email and password */
   login: (dto: LoginDTO) => Promise<User>;
-  /** Register a new account with email, name, phone, and password */
-  register: (dto: RegisterDTO) => Promise<User>;
-  /** Instant Google OAuth authentication simulation */
-  googleLogin: () => Promise<User>;
-  /** Verify email address with 6-digit confirmation code */
-  verifyEmail: (code: string) => Promise<boolean>;
-  /** Verify mobile phone with 4-digit SMS OTP */
-  verifyPhone: (otp: string) => Promise<boolean>;
-  /** Terminate session, remove tokens, and clear user state */
+  /** Start registration — account is created only after email verification */
+  register: (dto: RegisterDTO) => Promise<RegisterResult>;
+  /** Begin the Google OAuth redirect flow */
+  redirectToGoogle: () => void;
+  /** Terminate session on the server and purge all client state */
   logout: () => Promise<void>;
-  /** Re-sync active user data from storage or API */
-  refreshUser: () => Promise<void>;
+  /** Re-sync active user data from the server. Returns the user, or null on failure. */
+  refreshUser: () => Promise<User | null>;
+  /** Clear any stored auth error */
+  clearError: () => void;
 }
 
-// Create the Context with undefined as initial value to enforce provider usage
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
- * AuthProvider Component
+ * AuthProvider
  *
- * Wraps the application to provide user session state, local persistence,
- * and authentication operations (login, register, email/phone verification).
+ * Owns the session: bootstraps from GET /api/auth/me, exposes login/register/
+ * logout, and reacts to the API client's silent-refresh failures by clearing
+ * state and routing to the login screen with a clear reason.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State: holds the active user profile or null
   const [user, setUser] = useState<User | null>(null);
-  // State: tracks initial session restoration from localStorage
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const navigatingRef = useRef(false);
+  /** True once a user has actually been signed in during this page session. */
+  const hadUserRef = useRef(false);
 
-  /**
-   * Initializes auth state on mount by retrieving stored user data
-   */
-  const initAuth = useCallback(async () => {
-    try {
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
-    } catch {
+  /* ---------------------------------------------------------------------- */
+  /* Session bootstrap                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initAuth = async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        if (!cancelled) {
+          setUser(currentUser);
+          if (currentUser) hadUserRef.current = true;
+        }
+      } catch {
+        // Server unreachable: fall back to the last cached profile so the shell
+        // still renders instead of appearing logged out.
+        if (!cancelled) {
+          const cached = authService.getCachedUser();
+          setUser(cached);
+          if (cached) hadUserRef.current = true;
+        }
+      } finally {
+        if (!cancelled) setInitializing(false);
+      }
+    };
+
+    initAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Session expiry (raised by the API client after a failed refresh)        */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    const handleExpired = () => {
+      const wasSignedIn = hadUserRef.current;
+      hadUserRef.current = false;
       setUser(null);
+
+      // A stale token discovered during the initial page load should quietly
+      // resolve to "anonymous" rather than bounce a visitor to /login.
+      if (!wasSignedIn) return;
+
+      setError('Your session expired. Please sign in again.');
+      if (navigatingRef.current) return;
+      navigatingRef.current = true;
+      navigate('/login?reason=session_expired', { replace: true });
+      window.setTimeout(() => {
+        navigatingRef.current = false;
+      }, 500);
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleExpired);
+  }, [navigate]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Actions                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const login = useCallback(async (dto: LoginDTO) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const loggedIn = await authService.login(dto);
+      hadUserRef.current = true;
+      setUser(loggedIn);
+      return loggedIn;
+    } catch (err) {
+      const message =
+        err instanceof ApiError || err instanceof Error ? err.message : 'Invalid login credentials.';
+      setError(message);
+      throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Run initialization once on mount
-  useEffect(() => {
-    initAuth();
-  }, [initAuth]);
-
-  /**
-   * Logs in a user with email and password
-   */
-  const login = async (dto: LoginDTO) => {
+  const register = useCallback(async (dto: RegisterDTO) => {
     setLoading(true);
+    setError(null);
     try {
-      const loggedIn = await authService.login(dto);
-      setUser(loggedIn);
-      return loggedIn;
+      // Registration does NOT create a session — the account is created when
+      // the user clicks the emailed verification link.
+      return await authService.register(dto);
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error ? err.message : 'Registration failed.';
+      setError(message);
+      throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * Registers a new user account
-   */
-  const register = async (dto: RegisterDTO) => {
+  const redirectToGoogle = useCallback(() => {
+    setError(null);
+    authService.redirectToGoogle();
+  }, []);
+
+  const logout = useCallback(async () => {
     setLoading(true);
     try {
-      const registered = await authService.register(dto);
-      setUser(registered);
-      return registered;
+      await authService.logout();
     } finally {
+      hadUserRef.current = false;
+      setUser(null);
       setLoading(false);
     }
-  };
+  }, []);
 
-  /**
-   * Simulates Google OAuth One-Tap sign-in
-   */
-  const googleLogin = async () => {
-    setLoading(true);
+  const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
-      const loggedIn = await authService.googleLogin();
-      setUser(loggedIn);
-      return loggedIn;
-    } finally {
-      setLoading(false);
+      const fresh = await authService.getCurrentUser();
+      if (fresh) hadUserRef.current = true;
+      setUser(fresh);
+      return fresh;
+    } catch {
+      // keep the existing profile if the refresh call fails
+      return null;
     }
-  };
+  }, []);
 
-  /**
-   * Verifies email using verification code and updates local state flag
-   */
-  const verifyEmail = async (code: string) => {
-    const success = await authService.verifyEmail(code);
-    if (success && user) {
-      setUser({ ...user, isEmailVerified: true });
-    }
-    return success;
-  };
-
-  /**
-   * Verifies mobile phone number via SMS OTP code
-   */
-  const verifyPhone = async (otp: string) => {
-    const success = await authService.verifyPhone(otp);
-    if (success && user) {
-      setUser({ ...user, isPhoneVerified: true });
-    }
-    return success;
-  };
-
-  /**
-   * Signs out user and clears local session cache
-   */
-  const logout = async () => {
-    await authService.logout();
-    setUser(null);
-  };
-
-  /**
-   * Re-fetches the current user profile
-   */
-  const refreshUser = async () => {
-    const fresh = await authService.getCurrentUser();
-    setUser(fresh);
-  };
+  const clearError = useCallback(() => setError(null), []);
 
   return (
     <AuthContext.Provider
@@ -149,13 +186,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         loading,
+        initializing,
+        error,
         login,
         register,
-        googleLogin,
-        verifyEmail,
-        verifyPhone,
+        redirectToGoogle,
         logout,
         refreshUser,
+        clearError,
       }}
     >
       {children}

@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Volume2 as _Volume2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useNeonFuzzBox } from '../hooks/useNeonFuzzBox';
 
 void _Volume2;
 
@@ -13,15 +13,16 @@ interface HeroFullscreenScrubProps {
 }
 
 export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscreenScrubProps) {
-  const { addItem, setIsCartOpen } = useCart();
+  // Catalogue-driven price. No cart line is invented here.
+  const { priceLabel, compareAtLabel, savingsLabel } = useNeonFuzzBox();
   const navigate = useNavigate();
 
-  const handleQuickAdd = () => {
-    // Direct checkout flow: add to cart silently, skip Workbench Cart drawer
-    addItem();
-    setIsCartOpen(false);
-    navigate('/checkout');
-  };
+  /**
+   * Sends the visitor to the shop listing to browse. It deliberately does not
+   * touch the cart and does not jump to a specific product: this is a
+   * "browse the shop" entry point, not a purchase action.
+   */
+  const handleQuickAdd = () => navigate('/products');
 
   return (
     <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100dvh' }}>
@@ -59,13 +60,33 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
             </div>
 
             <div className="space-y-2 pt-1">
-              <div className="flex items-baseline gap-3">
-                <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹2,399</span>
-                <span className="text-lg text-[#94A3B8] line-through font-mono-tech font-medium">₹3,499</span>
-                <span className="text-xs font-bold text-white bg-[#FF5E1E] px-3 py-1 rounded-full font-mono-tech shadow-md shadow-[#FF5E1E]/30">
-                  Save ₹1,100 Direct
-                </span>
-              </div>
+              {/*
+                Original layout restored. The numbers are the only change: the
+                strikethrough and the saving come from the product's real
+                compareAtPrice, and both are hidden when there is no real
+                discount (or the product did not load).
+              */}
+              {priceLabel && (
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹{priceLabel}</span>
+                  {compareAtLabel && (
+                    <span className="text-lg text-[#94A3B8] line-through font-mono-tech font-medium">₹{compareAtLabel}</span>
+                  )}
+                  {savingsLabel && (
+                    <span className="text-xs font-bold text-white bg-[#FF5E1E] px-3 py-1 rounded-full font-mono-tech shadow-md shadow-[#FF5E1E]/30">
+                      Save ₹{savingsLabel} Direct
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Restored from b51f0a8 with identical markup and classes. It shows
+                  only with the price row and carries no price of its own. */}
+              {priceLabel && (
+                <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
+                  <span>Ships in 24h</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 pt-2 pointer-events-auto">
@@ -135,26 +156,40 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
 
         {/* BOTTOM: Pricing & CTA Controls */}
         <div className="shrink-0 pointer-events-auto space-y-2.5">
-          {/* Price strip */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-2">
-              <span
-                className="font-black font-mono-tech tracking-tight text-[#FF5E1E] leading-none"
-                style={{ fontSize: 'clamp(2rem, 9vw, 2.5rem)', textShadow: '0 0 25px rgba(255,94,30,0.5)' }}
-              >
-                ₹2,399
-              </span>
-              <span
-                className="text-sm font-mono-tech font-medium line-through text-white/60"
-                style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}
-              >
-                ₹3,499
-              </span>
+          {/* Price strip — original layout, fed by the catalogue */}
+          {priceLabel && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="font-black font-mono-tech tracking-tight text-[#FF5E1E] leading-none"
+                  style={{ fontSize: 'clamp(2rem, 9vw, 2.5rem)', textShadow: '0 0 25px rgba(255,94,30,0.5)' }}
+                >
+                  ₹{priceLabel}
+                </span>
+                {compareAtLabel && (
+                  <span
+                    className="text-sm font-mono-tech font-medium line-through text-white/60"
+                    style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}
+                  >
+                    ₹{compareAtLabel}
+                  </span>
+                )}
+              </div>
+              {savingsLabel && (
+                <span className="text-[11px] font-mono-tech font-extrabold text-white bg-[#FF5E1E] px-3 py-1 rounded-full shadow-lg shadow-[#FF5E1E]/40">
+                  Save ₹{savingsLabel}
+                </span>
+              )}
             </div>
-            <span className="text-[11px] font-mono-tech font-extrabold text-white bg-[#FF5E1E] px-3 py-1 rounded-full shadow-lg shadow-[#FF5E1E]/40">
-              Save ₹1,100
-            </span>
-          </div>
+          )}
+
+          {/* Same restored element, for the mobile price row above. */}
+          {priceLabel && (
+            <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
+              <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
+              <span>Ships in 24h</span>
+            </div>
+          )}
 
           {/* Action buttons */}
           <div className="grid grid-cols-1 gap-2.5">

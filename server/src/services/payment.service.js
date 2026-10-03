@@ -5,6 +5,17 @@ import {
   fetchPayment,
 } from "../integrations/razorpay/razorpay.service.js";
 
+import { toMinor } from "../utils/money.js";
+import { logger } from "../utils/logger.js";
+import {
+  ORDER_STATUS,
+  applyTransition,
+} from "../domain/orderStateMachine.js";
+
+/** Authoritative paise total, falling back for documents predating `totalMinor`. */
+const orderTotalMinor = (order) =>
+  order.pricing.totalMinor ?? toMinor(order.pricing.total);
+
 
 const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
   // 1. Find the internal order belonging to this user
@@ -45,18 +56,23 @@ const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
     throw error;
   }
 
-  // 4. Don't create another Razorpay order if one already exists
+  // 4. Idempotency: an order gets exactly one Razorpay order.
+  //
+  // A double-clicked "Pay" button must not create two Razorpay orders. We
+  // return the stored one when it exists, and when two requests race we let the
+  // database decide the winner (conditional update on razorpayOrderId: null)
+  // and return the winner's id to both callers.
   if (order.payment.razorpayOrderId) {
     return {
       order,
       razorpayOrderId: order.payment.razorpayOrderId,
-      amount: Math.round(order.pricing.total * 100),
+      amount: orderTotalMinor(order),
       currency: order.pricing.currency,
     };
   }
 
-  // 5. Get the authoritative amount from MongoDB
-  const amount = Math.round(order.pricing.total * 100);
+  // 5. Get the authoritative amount from our own database (integer paise)
+  const amount = orderTotalMinor(order);
 
   // 6. Create Razorpay order
   const razorpayOrder = await createRazorpayOrder({
@@ -69,13 +85,39 @@ const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
     },
   });
 
-  // 7. Save Razorpay's order ID
-  order.payment.razorpayOrderId = razorpayOrder.id;
+  // 7. Persist Razorpay's order ID only if another request has not already won
+  const claimed = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      "payment.razorpayOrderId": null,
+    },
+    {
+      $set: { "payment.razorpayOrderId": razorpayOrder.id },
+    },
+    { new: true },
+  );
 
-  await order.save();
+  if (!claimed) {
+    const winner = await Order.findById(order._id);
+
+    logger.info(
+      {
+        orderNumber: order.orderNumber,
+        razorpayOrderId: winner?.payment.razorpayOrderId,
+      },
+      "Concurrent create-payment call reused the existing Razorpay order",
+    );
+
+    return {
+      order: winner,
+      razorpayOrderId: winner.payment.razorpayOrderId,
+      amount: orderTotalMinor(order),
+      currency: order.pricing.currency,
+    };
+  }
 
   return {
-    order,
+    order: claimed,
     razorpayOrderId: razorpayOrder.id,
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
@@ -125,6 +167,72 @@ const verifyRazorpayPayment = async ({
     throw error;
   }
 
+  /*
+   * Signature first: it is a local HMAC check (no provider round-trip), so a
+   * forged or malformed callback is rejected before we spend a network call.
+   * The signature is computed over the order id from OUR database, which is what
+   * binds it to this specific order.
+   */
+  const isValid = verifyPaymentSignature({
+    razorpayOrderId: trustedRazorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+  });
+
+  if (!isValid) {
+    const error = new Error("Invalid Razorpay payment signature.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+   * Replay handling, also without a network call.
+   *
+   *  - Same payment id replayed on an already-paid order: idempotent success.
+   *  - A DIFFERENT payment id against an already-paid order: reject, otherwise
+   *    one order could be settled by an unrelated payment.
+   */
+  if (order.payment.status === "paid") {
+    if (
+      order.payment.razorpayPaymentId &&
+      order.payment.razorpayPaymentId !== razorpayPaymentId
+    ) {
+      const error = new Error(
+        "This order has already been paid with a different payment.",
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
+    /*
+     * Marking the returned document lets the caller tell a real confirmation
+     * apart from a client retry, so a retry does not re-send the admin email.
+     */
+    order.alreadyPaid = true;
+
+    return order;
+  }
+
+  // One Razorpay payment may only ever settle one internal order.
+  const paymentAlreadyUsed = await Order.findOne({
+    "payment.razorpayPaymentId": razorpayPaymentId,
+    _id: { $ne: order._id },
+  })
+    .select("_id")
+    .lean();
+
+  if (paymentAlreadyUsed) {
+    const error = new Error(
+      "This Razorpay payment has already been applied to another order.",
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  /*
+   * Only now talk to the provider: we must confirm server-side that the payment
+   * really is captured and for the right amount before touching our own state.
+   */
   const razorpayPayment = await fetchPayment(razorpayPaymentId);
 
   if (razorpayPayment.order_id !== trustedRazorpayOrderId) {
@@ -133,8 +241,8 @@ const verifyRazorpayPayment = async ({
     throw error;
   }
 
-  //validate amount
-  const expectedAmount = Math.round(order.pricing.total * 100);
+  //validate amount (integer paise, authoritative)
+  const expectedAmount = orderTotalMinor(order);
 
   if (razorpayPayment.amount !== expectedAmount) {
     const error = new Error(
@@ -160,27 +268,26 @@ const verifyRazorpayPayment = async ({
     throw error;
   }
 
-  const isValid = verifyPaymentSignature({
-    razorpayOrderId: trustedRazorpayOrderId,
-    razorpayPaymentId,
-    razorpaySignature,
-  });
-  
-  if (!isValid) {
-    const error = new Error("Invalid Razorpay payment signature.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (order.payment.status === "paid") {
-    return order;
-  }
-
   order.payment.razorpayPaymentId = razorpayPaymentId;
   order.payment.status = "paid";
-  order.orderStatus = "confirmed";
 
-await order.save();
+  /*
+   * Confirmed, NOT fulfilled. The provider webhook is the source of truth and
+   * is the only thing allowed to finalize the order; a client-triggered verify
+   * must not be able to do it alone.
+   */
+  applyTransition(order, ORDER_STATUS.CONFIRMED);
+
+  await order.save();
+
+  logger.info(
+    {
+      orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.payment.status,
+    },
+    "Payment verified",
+  );
 
   // Notify admin AFTER payment state is persisted.
 

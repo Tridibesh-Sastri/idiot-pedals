@@ -5,9 +5,11 @@ import app from './app/app.js'
 import connectDb from './config/db.connect.js'
 import config from './config/config.js'
 import { initCleanupJob } from './jobs/cleanupTokens.js'
+import { initStockReleaseJob } from './jobs/releaseExpiredStock.js'
 
 let server
 let cleanupJob
+let stockReleaseJob
 let isShuttingDown = false
 
 const SHUTDOWN_TIMEOUT_MS = 10_000
@@ -77,16 +79,16 @@ const startServer = async () => {
 
             try {
                 cleanupJob = initCleanupJob()
+                stockReleaseJob = initStockReleaseJob()
             } catch (error) {
                 console.error(
-                    'Failed to initialize cleanup job:',
+                    'Failed to initialize background jobs:',
                     error
                 )
 
                 /*
-                 * Cleanup is background maintenance.
-                 * The API can continue running, but the
-                 * failure must remain visible.
+                 * Background maintenance must not stop the API from
+                 * serving, but the failure must remain visible.
                  */
             }
         })
@@ -187,6 +189,14 @@ const shutdown = async (signal, fatal = false) => {
         ) {
             cleanupJob.stop()
             cleanupJob = undefined
+        }
+
+        if (
+            stockReleaseJob &&
+            typeof stockReleaseJob.stop === 'function'
+        ) {
+            stockReleaseJob.stop()
+            stockReleaseJob = undefined
         }
 
         /*

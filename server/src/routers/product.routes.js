@@ -30,9 +30,21 @@ router.post('/',
 )
 
 
+/*
+ * Catalogue reads are public and change rarely, so they get a short
+ * cache lifetime. Express already emits a weak ETag for JSON responses, so a
+ * client that revalidates with If-None-Match gets a 304 with no body — the
+ * max-age only avoids the round trip entirely for a short window.
+ */
+const shortPublicCache = (req, res, next) => {
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
+    next()
+}
+
 // GET all products
 router.get(
     '/',
+    shortPublicCache,
     productQueryValidator,
     getProductsController,
 )
@@ -40,6 +52,7 @@ router.get(
 // Get single product
 router.get(
   '/:id',
+  shortPublicCache,
   validateProductId,
   getProductController,
 )
