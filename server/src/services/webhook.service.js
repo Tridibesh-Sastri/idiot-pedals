@@ -15,7 +15,7 @@ import {
   consumeReservedStock,
   releaseReservedStock,
 } from "./stock.service.js";
-import { sendAdminOrderEmail } from "./order.email.service.js";
+import { sendAdminOrderEmail, sendAdminRefundAlertEmail } from "./order.email.service.js";
 
 /** Authoritative paise total, falling back for documents predating `totalMinor`. */
 const orderTotalMinor = (order) =>
@@ -163,6 +163,11 @@ const processPaymentCaptured = async ({
    * only a signature failure is a 4xx.
    */
   if (isTerminal(order.orderStatus)) {
+    // First transition into needsRefund only: redeliveries either hit the
+    // event claim or the paid+flagged early return above, and this guard
+    // covers the rest so the admin gets exactly one alert per order.
+    const alreadyFlagged = order.needsRefund === true;
+
     if (!order.payment.razorpayPaymentId) {
       order.payment.razorpayPaymentId = razorpayPaymentId;
     }
@@ -172,6 +177,15 @@ const processPaymentCaptured = async ({
     order.refundReason = "captured_after_cancellation";
 
     await order.save();
+
+    if (!alreadyFlagged) {
+      void sendAdminRefundAlertEmail(order, {
+        razorpayPaymentId: order.payment.razorpayPaymentId,
+        amountMinor: amount,
+        currency,
+        refundReason: order.refundReason,
+      });
+    }
 
     logger.error(
       {

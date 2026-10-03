@@ -9,7 +9,7 @@ import { fakeRazorpay } from "./helpers/testEnv.js";
  *   - the network guard refuses any non-loopback request outright.
  */
 
-import { after, before, beforeEach, describe, test } from 'node:test'
+import { after, before, beforeEach, describe, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import http from 'node:http'
@@ -30,6 +30,11 @@ import {
   resolveTransportKind,
   sentMessageCount,
 } from '../src/services/mailer.service.js'
+/*
+ * Default-export access to the same gate, used ONLY to simulate a mail
+ * provider outage with mock.method in the refund-alert failure test.
+ */
+import mailer from '../src/services/mailer.service.js'
 import { resendTransport, smtpTransport } from '../src/integrations/mail/transports.js'
 import { getResendClient } from '../src/integrations/resend/resend.client.js'
 import {
@@ -403,6 +408,108 @@ describe('email isolation', () => {
 
     const order = await orderModel.findById(orderId).lean()
     assert.equal(order.orderStatus, 'fulfilled')
+  })
+
+  test('late webhook on a cancelled order flags needsRefund and sends exactly one refund alert', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_refund_${Date.now()}`
+
+    const cancelled = await apiFetch(`/api/order/${orderId}/cancel`, {
+      method: 'POST',
+      body: {},
+    })
+    assert.equal(cancelled.status, 200, cancelled.text)
+
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const delivered = await postRawWebhook(rawBody, { signature: signWebhookBody(rawBody) })
+    assert.equal(delivered.status, 200, JSON.stringify(delivered.json))
+
+    // Fire-and-forget send; give it a tick to land.
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.equal(stored.needsRefund, true)
+    assert.equal(stored.refundReason, 'captured_after_cancellation')
+    assert.equal(stored.stockConsumedAt, null)
+
+    const alerts = getSentMessagesOfKind('admin-refund-alert')
+    assert.equal(alerts.length, 1)
+
+    const [alert] = alerts
+    assert.equal(alert.channel, 'resend')
+    assert.match(alert.subject, new RegExp(stored.orderNumber))
+    assert.match(alert.text, new RegExp(razorpayPaymentId))
+    assert.match(alert.text, /captured_after_cancellation/)
+    assert.match(alert.text, /refund manually from the Razorpay dashboard/)
+    assert.match(alert.text, /1,000/)
+    assert.equal(alert.idempotencyKey, `admin-refund-${orderId}`)
+  })
+
+  test('same late-capture webhook delivered twice still sends exactly one refund alert', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_refund2_${Date.now()}`
+
+    const cancelled = await apiFetch(`/api/order/${orderId}/cancel`, {
+      method: 'POST',
+      body: {},
+    })
+    assert.equal(cancelled.status, 200, cancelled.text)
+
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const signature = signWebhookBody(rawBody)
+    const eventId = `evt_refund_dup_${Date.now()}`
+
+    const first = await postRawWebhook(rawBody, { signature, eventId })
+    assert.equal(first.status, 200, JSON.stringify(first.json))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(getSentMessagesOfKind('admin-refund-alert').length, 1)
+
+    const second = await postRawWebhook(rawBody, { signature, eventId })
+    assert.equal(second.status, 200, JSON.stringify(second.json))
+    assert.equal(second.json.duplicate, true)
+    await new Promise((resolve) => setImmediate(resolve))
+
+    assert.equal(getSentMessagesOfKind('admin-refund-alert').length, 1)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.equal(stored.needsRefund, true)
+  })
+
+  test('mailer outage during refund alert still leaves webhook 200 and flagged', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_refund3_${Date.now()}`
+
+    const cancelled = await apiFetch(`/api/order/${orderId}/cancel`, {
+      method: 'POST',
+      body: {},
+    })
+    assert.equal(cancelled.status, 200, cancelled.text)
+
+    mock.method(mailer, 'sendMail', async () => {
+      throw new Error('simulated provider outage')
+    })
+
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const delivered = await postRawWebhook(rawBody, { signature: signWebhookBody(rawBody) })
+    assert.equal(delivered.status, 200, JSON.stringify(delivered.json))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    // No alert recorded, but fulfillment bookkeeping is intact.
+    assert.equal(getSentMessagesOfKind('admin-refund-alert').length, 0)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.equal(stored.payment.status, 'paid')
+    assert.equal(stored.needsRefund, true)
+    assert.equal(stored.refundReason, 'captured_after_cancellation')
   })
 
   test('the outbox records no recipient-less messages and no real provider ids', () => {
