@@ -191,6 +191,7 @@ router.post(
 
 router.post(
     '/refresh',
+    refreshRateLimiter,
     validateRefreshCookie,
     refreshController
 )
