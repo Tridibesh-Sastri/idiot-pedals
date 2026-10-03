@@ -79,6 +79,14 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                   )}
                 </div>
               )}
+              {/* Restored from b51f0a8 with identical markup and classes. It shows
+                  only with the price row and carries no price of its own. */}
+              {priceLabel && (
+                <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
+                  <span>Workbench Batch 04 · Ships in 24h</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 pt-2 pointer-events-auto">
@@ -172,6 +180,14 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                   Save ₹{savingsLabel}
                 </span>
               )}
+            </div>
+          )}
+
+          {/* Same restored element, for the mobile price row above. */}
+          {priceLabel && (
+            <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
+              <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
+              <span>Workbench Batch 04 · Ships in 24h</span>
             </div>
           )}
 
