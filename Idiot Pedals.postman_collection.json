@@ -197,7 +197,6 @@
             },
             "description": "Token in the JSON body (never the URL): the POST consumes it. Distinct outcomes: 200 EMAIL_VERIFIED, 400 EMAIL_TOKEN_INVALID, 410 EMAIL_TOKEN_EXPIRED, 409 ACCOUNT_ALREADY_VERIFIED."
           },
-          },
           "event": [
             {
               "listen": "test",
