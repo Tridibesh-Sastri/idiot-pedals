@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Volume2 as _Volume2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useNeonFuzzBox } from '../hooks/useNeonFuzzBox';
 
 void _Volume2;
 
@@ -13,15 +13,16 @@ interface HeroFullscreenScrubProps {
 }
 
 export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscreenScrubProps) {
-  const { addItem, setIsCartOpen } = useCart();
+  // Catalogue-driven price and destination. No cart line is invented here.
+  const { priceLabel, href } = useNeonFuzzBox();
   const navigate = useNavigate();
 
-  const handleQuickAdd = () => {
-    // Direct checkout flow: add to cart silently, skip Workbench Cart drawer
-    addItem();
-    setIsCartOpen(false);
-    navigate('/checkout');
-  };
+  /**
+   * Sends the visitor to the real product (or to the catalogue when it could not
+   * be loaded). It deliberately does not touch the cart: the product id needed
+   * for a genuine cart line comes from the API, not from this marketing page.
+   */
+  const handleQuickAdd = () => navigate(href);
 
   return (
     <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100dvh' }}>
@@ -59,13 +60,18 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
             </div>
 
             <div className="space-y-2 pt-1">
-              <div className="flex items-baseline gap-3">
-                <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹2,399</span>
-                <span className="text-lg text-[#94A3B8] line-through font-mono-tech font-medium">₹3,499</span>
-                <span className="text-xs font-bold text-white bg-[#FF5E1E] px-3 py-1 rounded-full font-mono-tech shadow-md shadow-[#FF5E1E]/30">
-                  Save ₹1,100 Direct
-                </span>
-              </div>
+              {/*
+                Price only, straight from the catalogue.
+                The previous strikethrough price and the "Save ..." badge were invented:
+                the product model has no compare-at price field, so there is no real
+                discount to display. */}
+              {priceLabel && (
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">
+                    ₹{priceLabel}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3 pt-2 pointer-events-auto">
@@ -135,26 +141,19 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
 
         {/* BOTTOM: Pricing & CTA Controls */}
         <div className="shrink-0 pointer-events-auto space-y-2.5">
-          {/* Price strip */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-2">
-              <span
-                className="font-black font-mono-tech tracking-tight text-[#FF5E1E] leading-none"
-                style={{ fontSize: 'clamp(2rem, 9vw, 2.5rem)', textShadow: '0 0 25px rgba(255,94,30,0.5)' }}
-              >
-                ₹2,399
-              </span>
-              <span
-                className="text-sm font-mono-tech font-medium line-through text-white/60"
-                style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}
-              >
-                ₹3,499
-              </span>
+          {/* Price strip — catalogue price only, no invented compare-at price */}
+          {priceLabel && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="font-black font-mono-tech tracking-tight text-[#FF5E1E] leading-none"
+                  style={{ fontSize: 'clamp(2rem, 9vw, 2.5rem)', textShadow: '0 0 25px rgba(255,94,30,0.5)' }}
+                >
+                  ₹{priceLabel}
+                </span>
+              </div>
             </div>
-            <span className="text-[11px] font-mono-tech font-extrabold text-white bg-[#FF5E1E] px-3 py-1 rounded-full shadow-lg shadow-[#FF5E1E]/40">
-              Save ₹1,100
-            </span>
-          </div>
+          )}
 
           {/* Action buttons */}
           <div className="grid grid-cols-1 gap-2.5">

@@ -18,6 +18,26 @@ const readEnv = (key: string): string | undefined => {
  */
 export const API_BASE_URL = (readEnv('VITE_API_BASE_URL') ?? '/api').replace(/\/+$/, '');
 
+/*
+ * Dev-only guard rail.
+ *
+ * With neither setting present the app falls back to the same-origin `/api`
+ * prefix, and nothing forwards it: the Vite dev server answers every unknown
+ * path with index.html, so requests "succeed" with HTML and the UI can only show
+ * a generic load error. That is confusing enough to be worth one loud warning.
+ * Production builds are unaffected (this only fires under `import.meta.env.DEV`).
+ */
+const DEV_ENV = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
+
+if (DEV_ENV?.DEV && !readEnv('VITE_API_BASE_URL') && !readEnv('VITE_API_PROXY_TARGET')) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[Idiot Pedals] No API target is configured, so /api requests will hit the Vite dev server ' +
+      'and return HTML instead of JSON. Fix it with one setting: copy client/.env.example to ' +
+      'client/.env.local, set VITE_API_PROXY_TARGET=http://localhost:5000, then restart the dev server.'
+  );
+}
+
 /**
  * Razorpay *publishable* key id. This is intentionally public (it is required
  * by Razorpay Checkout in the browser). The secret key must never reach the

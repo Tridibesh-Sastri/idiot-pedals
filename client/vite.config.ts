@@ -13,7 +13,12 @@ export default defineConfig(({ mode }) => {
    * proxied so the browser sees a same-origin API and httpOnly cookies work
    * without CORS/SameSite friction.
    */
-  const proxyTarget = env.VITE_API_PROXY_TARGET?.trim();
+  /*
+   * Both sources are honoured: `loadEnv` only reads .env files, so a value
+   * supplied in the process environment (CI, a shell one-liner, `docker run -e`)
+   * was previously ignored and the proxy silently stayed off.
+   */
+  const proxyTarget = (process.env.VITE_API_PROXY_TARGET ?? env.VITE_API_PROXY_TARGET)?.trim();
 
   return {
     plugins: [react(), tailwindcss()],

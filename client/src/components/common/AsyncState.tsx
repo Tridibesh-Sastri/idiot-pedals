@@ -84,6 +84,8 @@ const titleFor = (error: unknown): string => {
       case 'server':
       case 'unavailable':
         return 'Server Error';
+      case 'invalid_response':
+        return 'Unexpected API Response';
       default:
         return 'Something Went Wrong';
     }

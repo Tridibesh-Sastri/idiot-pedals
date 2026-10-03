@@ -63,6 +63,7 @@ export type ApiErrorKind =
   | 'server'
   | 'unavailable'
   | 'cancelled'
+  | 'invalid_response'
   | 'unknown';
 
 export interface ApiFieldError {
@@ -97,7 +98,8 @@ export class ApiError extends Error {
       this.kind === 'timeout' ||
       this.kind === 'server' ||
       this.kind === 'unavailable' ||
-      this.kind === 'rate_limited'
+      this.kind === 'rate_limited' ||
+      this.kind === 'invalid_response'
     );
   }
 }
@@ -220,6 +222,8 @@ const fallbackMessageFor = (kind: ApiErrorKind, status: number): string => {
   switch (kind) {
     case 'validation':
       return 'Some of the details you entered are not valid.';
+    case 'invalid_response':
+      return 'The API returned an unexpected non-JSON response.';
     case 'unauthorized':
       return 'Authentication required.';
     case 'forbidden':
@@ -381,8 +385,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (json) return json as T;
 
-  // 2xx with a non-JSON body — surface as text rather than throwing.
-  return { message: text } as unknown as T;
+  /*
+   * 2xx with a non-JSON body.
+   *
+   * This is the signature of a misrouted request: the dev server (no proxy
+   * configured) or a static host answers `/api/...` with index.html. Silently
+   * returning `{ message: html }` made the UI show a vague load error, so it is
+   * reported as a distinct, actionable kind instead.
+   */
+  throw new ApiError(
+    'invalid_response',
+    'The API returned a non-JSON response (usually HTML). Check that VITE_API_BASE_URL points at ' +
+      'the API, or set VITE_API_PROXY_TARGET for the dev server.',
+    response.status
+  );
 }
 
 /* -------------------------------------------------------------------------- */
