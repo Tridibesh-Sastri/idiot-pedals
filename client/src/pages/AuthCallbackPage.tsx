@@ -1,8 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { LoadingState } from '../components/common/AsyncState';
+
+/** Shown to the user when the session could not be established. */
+const FAILURE_ERROR_CODE = 'google_failed';
 
 /**
  * Landing page for the Google OAuth redirect.
@@ -16,40 +19,80 @@ import { LoadingState } from '../components/common/AsyncState';
  * transparently exchanges the refresh cookie for one (single-flight silent
  * refresh inside the API client), then retries. So one call both establishes the
  * session and loads the profile.
+ *
+ * StrictMode safety: the effect must NOT guard itself with a "already ran" ref.
+ * Under React 18 StrictMode the first run is unmounted immediately (its cleanup
+ * fires) and the second run has to do the work — a ref that makes it exit early
+ * leaves the page loading forever, which is exactly what used to happen here.
+ * Instead the effect is idempotent and its cleanup only stops this particular run
+ * from touching state after it is gone.
  */
 export const AuthCallbackPage: React.FC = () => {
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [failed, setFailed] = useState(false);
-  const hasRun = useRef(false);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
-    // React 18 StrictMode runs effects twice in development; the session
-    // exchange must not be attempted twice concurrently.
-    if (hasRun.current) return;
-    hasRun.current = true;
+    const controller = new AbortController();
 
-    let cancelled = false;
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    void (async () => {
-      const user = await refreshUser();
+    /**
+     * Establishes the session, retrying once.
+     *
+     * A first /me 401 right after a cross-site redirect is not final: the cookie
+     * the backend just set may not be usable for a moment (and on the very first
+     * pass the API client may still be doing its silent refresh). Retrying keeps
+     * that transient case from looking like a failed sign-in. `refreshUser()` is
+     * idempotent, so calling it twice is safe.
+     */
+    const establishSession = async () => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (controller.signal.aborted) return null;
 
-      if (cancelled) return;
+        const user = await refreshUser();
+        if (user) return user;
 
-      if (user) {
-        navigate('/account', { replace: true });
-        return;
+        if (attempt === 0) await wait(400);
       }
 
+      return null;
+    };
+
+    const settleWithFailure = () => {
+      if (controller.signal.aborted) return;
+
       setFailed(true);
+      // Hand the user back to sign-in with a reason the login page understands.
+      navigate(`/login?error=${FAILURE_ERROR_CODE}`, { replace: true });
+    };
+
+    void (async () => {
+      try {
+        const user = await establishSession();
+
+        if (controller.signal.aborted) return;
+
+        if (user) {
+          navigate('/account', { replace: true });
+          return;
+        }
+
+        settleWithFailure();
+      } catch {
+        settleWithFailure();
+      } finally {
+        // Loading always ends, whichever way this went.
+        if (!controller.signal.aborted) setSettled(true);
+      }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [navigate, refreshUser]);
 
-  if (!failed) {
+  // Keep showing the spinner only until the effect settles (success navigates away).
+  if (!settled) {
     return (
       <LoadingState
         title="Signing you in"
@@ -82,3 +125,5 @@ export const AuthCallbackPage: React.FC = () => {
     </div>
   );
 }
+
+export default AuthCallbackPage;
