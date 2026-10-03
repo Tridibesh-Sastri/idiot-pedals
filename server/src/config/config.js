@@ -471,6 +471,14 @@ if (typeof razorpayKeyId === 'string' && razorpayKeyId) {
   }
 }
 
+// EMAIL_NOTIFICATIONS_ENABLED must not be disabled in production.
+if (isProduction && resolved.EMAIL_NOTIFICATIONS_ENABLED === false) {
+  errors.push(
+    'EMAIL_NOTIFICATIONS_ENABLED: cannot be disabled in production'
+  )
+}
+
+
 // Webhook HMAC secret must not be the Razorpay key secret: the two
 // authenticate different channels (provider API vs webhook deliveries), so
 // reusing one value would let a compromise of either channel forge the other.

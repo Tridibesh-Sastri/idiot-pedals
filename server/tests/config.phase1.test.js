@@ -34,6 +34,7 @@ const buildEnvFile = ({
   razorpayKeyId = 'rzp_test_abcdefghijklmnopqrstuvwx',
   razorpayKeySecret = 'f'.repeat(24),
   razorpayWebhookSecret = 'g'.repeat(24),
+  emailNotificationsEnabled = null,
 } = {}) => {
   const lines = [
     'PORT=5000',
@@ -63,6 +64,7 @@ const buildEnvFile = ({
   ]
 
   if (nodeEnv !== null) lines.unshift(`NODE_ENV=${nodeEnv}`)
+  if (emailNotificationsEnabled !== null) lines.push(`EMAIL_NOTIFICATIONS_ENABLED=${emailNotificationsEnabled}`)
 
   return `${lines.join('\n')}\n`
 }
@@ -219,3 +221,30 @@ test('refusal output never contains a secret value', async () => {
     assert.equal(result.output.includes(secret), false)
   }
 })
+
+test('EMAIL_NOTIFICATIONS_ENABLED=false in production is refused', async () => {
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      nodeEnv: 'production',
+      frontendUrl: 'https://app.mailhost.test',
+      mongoUri: 'mongodb+srv://cluster0.mongodb.net/idiot-pedal',
+      razorpayKeyId: 'rzp_live_abcdefghijklmnopqrstuvwx',
+      emailNotificationsEnabled: 'false',
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /EMAIL_NOTIFICATIONS_ENABLED: cannot be disabled in production/)
+})
+
+test('EMAIL_NOTIFICATIONS_ENABLED=false in development is allowed', async () => {
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      nodeEnv: 'development',
+      emailNotificationsEnabled: 'false',
+    }),
+  })
+
+  assert.equal(result.ok, true, result.output)
+})
+
