@@ -12,9 +12,7 @@ import { SmoothScroll } from './components/SmoothScroll';
 // Common Global Layout Components
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
-// NOTE (hidden 2026-09-25): Bag/Cart drawer kept in code but never mounted on the website.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { CartDrawer as _CartDrawer } from './components/common/CartDrawer';
+import { CartDrawer } from './components/common/CartDrawer';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 
@@ -90,9 +88,7 @@ export default function App() {
                 </main>
 
                 {/* Global Overlays: Floating Toast Notifications */}
-                {/* HIDDEN FROM WEBSITE (kept in code): <_CartDrawer /> is never mounted,
-                    so the Bag/cart drawer does not load at all. Buy flow goes direct to /checkout. */}
-                {/* <_CartDrawer /> */}
+                <CartDrawer />
                 <ToastContainer />
 
                 {/* Global Brand Footer */}

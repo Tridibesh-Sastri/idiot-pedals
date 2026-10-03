@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { User as UserIcon, Menu, X, ArrowRight } from 'lucide-react';
-// NOTE (hidden 2026-09-25): Bag/cart UI removed from website; cart logic kept in code.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ShoppingBag as _ShoppingBag } from 'lucide-react';
+import { User as UserIcon, Menu, X, ArrowRight, ShoppingBag } from 'lucide-react';
 import { IdiotPedalsLogo } from './IdiotPedalsLogo';
 import { useAuth } from '../../context/AuthContext';
-
-void _ShoppingBag;
+import { useCart } from '../../context/CartContext';
 
 interface NavbarProps {
   forceVisible?: boolean;
@@ -18,6 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const { user, isAuthenticated } = useAuth();
+  const { totalQuantity, setIsCartOpen } = useCart();
   const location = useLocation();
 
   // Close mobile menu on route change (pathname or hash, e.g. /#controls)
@@ -114,12 +111,23 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
               </span>
             </Link>
 
-            {/* HIDDEN FROM WEBSITE (kept in code): Bag / Cart button removed —
-                <button onClick={() => setIsCartOpen(true)} ...>
-                  <_ShoppingBag size={14} ... />
-                  <span>Bag [totalQuantity]</span>
-                </button>
-            */}
+            {/* Bag / Cart */}
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="relative flex items-center gap-2 text-xs font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] px-2.5 py-1.5 rounded-full hover:bg-white/5 transition-colors"
+              aria-label="Open cart"
+            >
+              <span className="relative">
+                <ShoppingBag size={14} />
+                {totalQuantity > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-4 h-4 px-1 rounded-full bg-[#FF5E1E] text-white text-[10px] font-bold flex items-center justify-center">
+                    {totalQuantity}
+                  </span>
+                )}
+              </span>
+              <span className="text-[11px] hidden lg:inline">Bag</span>
+            </button>
 
             {/* Primary Buy Action (routes to the server-driven catalogue) */}
             <Link
