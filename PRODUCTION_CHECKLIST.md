@@ -260,3 +260,31 @@ not a silent swap:
    (`client/src/services/apiConfig.ts:32-39`, `import.meta.env.DEV`-gated),
    and production bundles strip console calls
    (`client/vite.config.ts:30-33`).
+
+
+## K. Email verification: known residual risks and manual validation
+
+### Known residual risks
+
+1. **Pre-hijack (password set before verification)**:
+   Re-registering a victim's email address while a pending registration is live can overwrite the pending password before the victim clicks the verification link. The proper fix is setting passwords only after email verification is completed; this remains an accepted residual risk for the current registration flow.
+2. **Account enumeration oracle (409 on registration)**:
+   `POST /api/auth/register` returns `409 Conflict` ("An account already exists with this email address.") when an account exists. This is an accepted UX tradeoff so users know to sign in or reset passwords rather than wonder why no verification email arrives.
+3. **Resend token rotation and budget exhaustion**:
+   Anyone can trigger `POST /api/auth/resend-verification` for another person's pending email and cause their verification token to rotate (bounded by the 60-second per-email cooldown and 5-send cap). An attacker can also exhaust the victim's per-email resend budget (5 requests per 15 minutes).
+4. **Volumetric DDoS and NAT-shared rate limits**:
+   Volumetric DDoS protection requires Cloudflare/WAF and Turnstile CAPTCHA in front of public auth endpoints. The 5 registrations / 15 minutes / IP limiter is shared among all clients behind a shared NAT or corporate proxy.
+5. **In-memory rate limiters**:
+   Rate limiters are in-memory (using `express-rate-limit` MemoryStore) and scoped to a single process instance. Deploying across multiple nodes/containers requires a shared store (e.g. Redis).
+6. **POST-with-button contract and synchronized deployment**:
+   Verification requires `POST /api/auth/verify-email` with `{ token }` in the JSON body so mail scanners, link prefetchers, and antivirus crawlers cannot burn single-use tokens. Because the legacy `GET /api/auth/verify-email` route has been removed (now returns 404), the frontend SPA and the backend MUST be deployed together.
+
+### Manual post-deploy verification test
+
+Follow these steps in production or staging to verify the complete verification lifecycle:
+1. **Register**: Go to `/register` and submit a new account with a real email address you control.
+2. **First mail**: Open the emailed link (`https://shop.example.com/verify-email?token=...`). Notice that landing on the page consumes nothing and does not verify yet.
+3. **Resend & token rotation**: Before clicking verify, request a resend (either on the register screen or verify page). Observe the 60s countdown timer.
+4. **Newest link only**: Check your inbox for the second email. Click the *first* (older) link and press "Verify my email" — confirm you see the honest "Invalid Link" message explaining that only the newest link works.
+5. **Successful verification**: Open the *second* (newest) link, press "Verify my email", and confirm it transitions to "Email Verified" (200).
+6. **Sign in**: Click "Sign In Now" and confirm you can log in with the credentials set during registration.
