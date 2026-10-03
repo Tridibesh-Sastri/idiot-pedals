@@ -20,7 +20,7 @@ import app from "../src/app/app.js";
 import config from "../src/config/config.js";
 import userModel from "../src/models/user.model.js";
 import pendingRegistrationModel from "../src/models/pendingRegistration.js";
-import mailer, { clearSentMessages } from "../src/services/mailer.service.js";
+import mailer, { clearSentMessages, getSentMessages } from "../src/services/mailer.service.js";
 
 void fakeRazorpay;
 
@@ -183,4 +183,38 @@ describe("Registration edge cases", () => {
     });
     assert.equal(pending, null);
   });
+
+  test("with EMAIL_NOTIFICATIONS_ENABLED=false in a non-production environment, register returns 200 and sends no mail", async () => {
+    // Pin CURRENT behavior: in non-production environments (e.g. development),
+    // when EMAIL_NOTIFICATIONS_ENABLED is false, registration returns 200 and
+    // creates a pending record, but skips mail delivery entirely. This produces
+    // an un-verifiable account unless manually verified or resent in dev, which
+    // is why config.js strictly forbids EMAIL_NOTIFICATIONS_ENABLED=false in production.
+    const origNotifications = config.EMAIL_NOTIFICATIONS_ENABLED;
+    const origEnv = config.NODE_ENV;
+    config.EMAIL_NOTIFICATIONS_ENABLED = false;
+    config.NODE_ENV = "development";
+
+    try {
+      const body = makeRegisterBody();
+      const res = await apiFetch("/api/auth/register", {
+        method: "POST",
+        body,
+      });
+
+      assert.equal(res.status, 200, res.text);
+      assert.equal(res.json?.success, true);
+      assert.equal(getSentMessages().length, 0);
+
+      // Pending record was created even though no verification mail was sent
+      const pending = await pendingRegistrationModel.findOne({
+        email: body.email.toLowerCase(),
+      });
+      assert.ok(pending);
+    } finally {
+      config.EMAIL_NOTIFICATIONS_ENABLED = origNotifications;
+      config.NODE_ENV = origEnv;
+    }
+  });
 });
+
