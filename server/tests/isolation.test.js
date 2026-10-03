@@ -309,6 +309,66 @@ describe('email isolation', () => {
     assert.equal(getSentMessagesOfKind('admin-order').length, 1)
   })
 
+  test('webhook-only fulfillment (no verify call) sends exactly one admin message', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_whonly_${Date.now()}`
+
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const delivered = await postRawWebhook(rawBody, { signature: signWebhookBody(rawBody) })
+    assert.equal(delivered.status, 200, JSON.stringify(delivered.json))
+
+    // The send is fire-and-forget in the service; give it a tick to land.
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const adminMessages = getSentMessagesOfKind('admin-order')
+    assert.equal(adminMessages.length, 1)
+    assert.equal(adminMessages[0].idempotencyKey, `admin-order-${orderId}`)
+
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.orderStatus, 'fulfilled')
+  })
+
+  test('verify-then-webhook sends exactly one admin message total, not two', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_vfywh_${Date.now()}`
+
+    fakeRazorpay.stagePayment(razorpayPaymentId, {
+      id: razorpayPaymentId,
+      order_id: razorpayOrderId,
+      amount: totalMinor,
+      currency: 'INR',
+      status: 'captured',
+    })
+
+    const verified = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId,
+        razorpayOrderId,
+        razorpaySignature: signPayment(razorpayOrderId, razorpayPaymentId),
+      },
+    })
+    assert.equal(verified.status, 200, verified.text)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(getSentMessagesOfKind('admin-order').length, 1)
+
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const delivered = await postRawWebhook(rawBody, { signature: signWebhookBody(rawBody) })
+    assert.equal(delivered.status, 200, JSON.stringify(delivered.json))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    // The webhook fulfilled an already-notified order: still exactly one.
+    assert.equal(getSentMessagesOfKind('admin-order').length, 1)
+
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.orderStatus, 'fulfilled')
+  })
+
   test('the outbox records no recipient-less messages and no real provider ids', () => {
     for (const message of getSentMessages()) {
       assert.equal(message.subject.length > 0, true)

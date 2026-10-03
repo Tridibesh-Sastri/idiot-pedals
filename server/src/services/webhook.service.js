@@ -15,6 +15,7 @@ import {
   consumeReservedStock,
   releaseReservedStock,
 } from "./stock.service.js";
+import { sendAdminOrderEmail } from "./order.email.service.js";
 
 /** Authoritative paise total, falling back for documents predating `totalMinor`. */
 const orderTotalMinor = (order) =>
@@ -209,6 +210,17 @@ const processPaymentCaptured = async ({
   }
 
   await order.save();
+
+  /*
+   * Admin notification for webhook-only fulfillment. When verify ran first the
+   * order is already paid on entry (wasAlreadyPaid) and verify already sent
+   * this email, so only notify when the webhook is the first confirmer.
+   * Fire-and-forget like every other admin-email call site: sendAdminOrderEmail
+   * swallows its own errors, so fulfillment can never depend on mail.
+   */
+  if (!wasAlreadyPaid) {
+    void sendAdminOrderEmail(order);
+  }
 
   logger.info(
     {
