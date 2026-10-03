@@ -15,14 +15,20 @@ import { fakeRazorpay } from "./helpers/testEnv.js";
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import http from 'node:http'
 import mongoose from 'mongoose'
+import net from 'node:net'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { promisify } from 'node:util'
 
 import app from '../src/app/app.js'
 import config from '../src/config/config.js'
 import pendingRegistrationModel from '../src/models/pendingRegistration.js'
 import { verificationSendDecision } from '../src/controllers/auth.controller.js'
+import { sendVerificationEmail } from '../src/services/email.service.js'
 import {
   clearSentMessages,
   getSentMessagesOfKind,
@@ -266,6 +272,80 @@ describe('resend verification', () => {
 
     // Expired (or TTL-swept) either way: no new mail, same generic body.
     assert.equal(getSentMessagesOfKind('email-verification').length, 0)
+  })
+})
+
+/* ========================================================================== */
+/* 3. Verification mail hardening: escaping + SMTP timeouts                      */
+/* ========================================================================== */
+
+describe('verification mail hardening', () => {
+  test('registrant name is HTML-escaped in the mail body', async () => {
+    clearSentMessages()
+
+    await sendVerificationEmail({
+      name: '<img src=x onerror=alert(1)>',
+      email: 'escape@mailhost.test',
+      token: 'e'.repeat(64),
+    })
+
+    const mails = getSentMessagesOfKind('email-verification')
+    assert.equal(mails.length, 1)
+    assert.ok(mails[0].html.includes('&lt;img src=x onerror=alert(1)&gt;'))
+    assert.equal(mails[0].html.includes('<img src=x'), false)
+  })
+
+  test('a hung SMTP provider fails fast instead of holding the send open', async () => {
+    // Blackhole: accepts TCP and never answers, so only a configured
+    // greeting/connection timeout can end the attempt.
+    const blackhole = net.createServer((socket) => {
+      socket.on('error', () => {})
+    })
+    await new Promise((resolve) => blackhole.listen(0, '127.0.0.1', resolve))
+    const { port } = blackhole.address()
+
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const serviceUrl = pathToFileURL(path.resolve(here, '../src/services/email.service.js')).href
+
+    const script = `
+      const { sendVerificationEmail } = await import(${JSON.stringify(serviceUrl)});
+      const started = Date.now();
+      try {
+        await sendVerificationEmail({ name: 'T', email: 't@mailhost.test', token: 'f'.repeat(64) });
+        console.log(JSON.stringify({ sent: true, elapsedMs: Date.now() - started }));
+      } catch (error) {
+        console.log(JSON.stringify({ sent: false, code: error?.code ?? null, elapsedMs: Date.now() - started }));
+      }
+    `
+
+    try {
+      const started = Date.now()
+      const { stdout } = await promisify(execFile)(
+        process.execPath,
+        ['--input-type=module', '-e', script],
+        {
+          cwd: path.resolve(here, '..'),
+          timeout: 60_000,
+          env: {
+            ...process.env,
+            NODE_ENV: 'development',
+            EMAIL_NOTIFICATIONS_ENABLED: 'true',
+            SMTP_HOST: '127.0.0.1',
+            SMTP_PORT: String(port),
+            SMTP_SECURE: 'false',
+          },
+        }
+      )
+      const totalMs = Date.now() - started
+      const outcome = JSON.parse(stdout.trim().split('\n').pop())
+
+      // Rejected (not hung, not delivered), bounded by the 10s SMTP timeouts.
+      assert.equal(outcome.sent, false)
+      assert.ok(outcome.elapsedMs >= 8000, `returned too fast for a timeout: ${outcome.elapsedMs}ms`)
+      assert.ok(totalMs < 45_000, `took too long — timeouts may be missing: ${totalMs}ms`)
+    } finally {
+      blackhole.close()
+    }
   })
 })
 

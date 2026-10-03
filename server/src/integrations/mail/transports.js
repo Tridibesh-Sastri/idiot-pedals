@@ -25,6 +25,15 @@ const refuseInTest = (transportName) => {
 
 let smtpClient = null
 
+/*
+ * SMTP timeouts (constants, not env): a hung provider must fail fast instead
+ * of holding the awaiting register request open. Nodemailer has no timeouts
+ * by default, so all three phases are bounded explicitly.
+ */
+const SMTP_CONNECTION_TIMEOUT_MS = 10_000
+const SMTP_GREETING_TIMEOUT_MS = 10_000
+const SMTP_SOCKET_TIMEOUT_MS = 10_000
+
 const getSmtpTransport = () => {
     refuseInTest('SMTP')
 
@@ -37,6 +46,9 @@ const getSmtpTransport = () => {
                 user: config.SMTP_USER,
                 pass: config.SMTP_PASSWORD,
             },
+            connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+            greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+            socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
         })
     }
 

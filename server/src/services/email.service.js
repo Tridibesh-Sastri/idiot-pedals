@@ -1,5 +1,6 @@
 import config from "../config/config.js";
 import { sendMail } from "./mailer.service.js";
+import { escapeHtml } from "./order.email.service.js";
 
 /**
  * Verification email for a newly registered account.
@@ -41,7 +42,7 @@ IDIOT Pedals
 
         <h2>Verify your IDIOT Pedals account</h2>
 
-        <p>Hi ${name},</p>
+        <p>Hi ${escapeHtml(name)},</p>
 
         <p>
           Thanks for registering with IDIOT Pedals.

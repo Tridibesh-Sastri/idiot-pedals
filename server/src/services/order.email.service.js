@@ -592,6 +592,7 @@ Action required: refund manually from the Razorpay dashboard (Payments -> this p
 }
 
 export {
+    escapeHtml,
     sendAdminOrderEmail,
     sendAdminRefundAlertEmail,
 }
