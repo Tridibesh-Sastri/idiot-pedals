@@ -803,6 +803,178 @@ describe('webhook handling', () => {
 })
 
 /* ========================================================================== */
+/* 5. Order cancellation                                                         */
+/* ========================================================================== */
+
+describe('order cancellation', () => {
+  const createPendingOrder = async ({ price = 1000, stock = 5, quantity = 2, authToken = undefined } = {}) => {
+    const product = await createProduct({ price, stock })
+
+    const created = await apiFetch('/api/order', {
+      method: 'POST',
+      authToken,
+      body: orderPayload(product._id, quantity),
+    })
+    assert.equal(created.status, 201, created.text)
+
+    return { product, orderId: created.json.order._id }
+  }
+
+  const cancelById = (orderId, authToken = undefined) =>
+    apiFetch(`/api/order/${orderId}/cancel`, { method: 'POST', authToken, body: {} })
+
+  test('owner cancels their own pending order → 200 and cancelled', async () => {
+    const { orderId } = await createPendingOrder()
+
+    const res = await cancelById(orderId)
+    assert.equal(res.status, 200, res.text)
+    assert.equal(res.json.data.order.orderStatus, 'cancelled')
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.ok(stored.stockReleasedAt)
+  })
+
+  test('cancelling twice → 200, 200 (idempotent, no second release)', async () => {
+    const { product, orderId } = await createPendingOrder({ quantity: 2 })
+
+    const first = await cancelById(orderId)
+    assert.equal(first.status, 200, first.text)
+    assert.match(first.json.message, /order cancelled\./i)
+
+    assert.equal((await reloadProduct(product._id)).reservedStock, 0)
+
+    const second = await cancelById(orderId)
+    assert.equal(second.status, 200, second.text)
+    assert.match(second.json.message, /already cancelled/i)
+
+    // No second release happened: still exactly zero, never negative.
+    const after = await reloadProduct(product._id)
+    assert.equal(after.reservedStock, 0)
+    assert.ok(after.reservedStock >= 0)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+  })
+
+  test("user B cannot cancel user A's order → 404, order untouched", async () => {
+    const ownerToken = await freshAuth()
+    const { orderId } = await createPendingOrder({ authToken: ownerToken })
+
+    // Default (rotated) token belongs to a different user.
+    const res = await cancelById(orderId)
+    assert.equal(res.status, 404, res.text)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'pending')
+    assert.equal(stored.stockReleasedAt, null)
+  })
+
+  test('paid and fulfilled orders cannot be cancelled → 409, unchanged', async () => {
+    const paid = await createPendingOrder()
+    await orderModel.updateOne(
+      { _id: paid.orderId },
+      {
+        $set: {
+          orderStatus: 'confirmed',
+          'payment.status': 'paid',
+          'payment.razorpayPaymentId': `pay_cancel409_${Date.now()}`,
+        },
+      }
+    )
+
+    const paidRes = await cancelById(paid.orderId)
+    assert.equal(paidRes.status, 409, paidRes.text)
+
+    const stillPaid = await orderModel.findById(paid.orderId).lean()
+    assert.equal(stillPaid.orderStatus, 'confirmed')
+    assert.equal(stillPaid.payment.status, 'paid')
+
+    const done = await createPendingOrder()
+    await orderModel.updateOne(
+      { _id: done.orderId },
+      {
+        $set: {
+          orderStatus: 'fulfilled',
+          'payment.status': 'paid',
+          stockConsumedAt: new Date(),
+        },
+      }
+    )
+
+    const doneRes = await cancelById(done.orderId)
+    assert.equal(doneRes.status, 409, doneRes.text)
+
+    const stillDone = await orderModel.findById(done.orderId).lean()
+    assert.equal(stillDone.orderStatus, 'fulfilled')
+    assert.equal(stillDone.payment.status, 'paid')
+  })
+
+  test('concurrent cancels release stock exactly once, both answer 200', async () => {
+    const { product, orderId } = await createPendingOrder({ stock: 5, quantity: 2 })
+
+    const [a, b] = await Promise.all([cancelById(orderId), cancelById(orderId)])
+
+    assert.equal(a.status, 200, a.text)
+    assert.equal(b.status, 200, b.text)
+
+    // Exactly one call performed the cancel; the other saw it already done.
+    assert.deepEqual(
+      [a.json.message, b.json.message].sort(),
+      ['Order cancelled.', 'Order was already cancelled.']
+    )
+
+    const after = await reloadProduct(product._id)
+    assert.equal(after.reservedStock, 0)
+    assert.ok(after.reservedStock >= 0)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.ok(stored.stockReleasedAt)
+  })
+
+  test('late webhook on a cancelled order flags needsRefund instead of fulfilling', async () => {
+    const { orderId } = await createPendingOrder({ stock: 5, quantity: 2 })
+
+    const razorpayOrderId = `order_latecancel_${Date.now()}`
+    await orderModel.updateOne(
+      { _id: orderId },
+      { $set: { 'payment.razorpayOrderId': razorpayOrderId } }
+    )
+
+    const cancelled = await cancelById(orderId)
+    assert.equal(cancelled.status, 200, cancelled.text)
+
+    const result = await processRazorpayWebhook({
+      eventId: `evt_latecancel_${Date.now()}`,
+      event: 'payment.captured',
+      payload: {
+        event: 'payment.captured',
+        payload: {
+          payment: {
+            entity: {
+              id: `pay_latecancel_${Date.now()}`,
+              order_id: razorpayOrderId,
+              amount: 200000,
+              currency: 'INR',
+              status: 'captured',
+            },
+          },
+        },
+      },
+    })
+    assert.ok(result)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.orderStatus, 'cancelled')
+    assert.equal(stored.payment.status, 'paid')
+    assert.equal(stored.needsRefund, true)
+    assert.equal(stored.refundReason, 'captured_after_cancellation')
+    assert.equal(stored.stockConsumedAt, null)
+  })
+})
+
+/* ========================================================================== */
 /* 6. Log redaction                                                            */
 /* ========================================================================== */
 
