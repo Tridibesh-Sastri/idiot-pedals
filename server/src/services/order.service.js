@@ -138,6 +138,82 @@ const createOrder = async ({
   const totalMinor = subtotalMinor + shippingMinor - discountMinor;
 
   // --------------------------------------------------
+  // --------------------------------------------------
+  // 3b. Reuse or supersede an open pending order
+  // --------------------------------------------------
+  //
+  // A checkout submitted twice (a double tap, or a retry after a cancelled or
+  // abandoned payment) must not create a second pending order and a second stock
+  // reservation. COD is excluded: its `pending` means awaiting confirmation,
+  // not awaiting payment, and a customer may legitimately place several.
+  if (paymentMethod !== "cod") {
+    const openOrders = await Order.find({
+      userId,
+      orderStatus: "pending",
+      "payment.status": "pending",
+      stockReservedAt: { $ne: null },
+      stockReleasedAt: null,
+    })
+      .select("_id orderNumber items shippingAddress stockReservedAt")
+      .lean();
+
+    const sameItems = (existing, wanted) =>
+      existing.length === wanted.length &&
+      wanted.every((line) =>
+        existing.some(
+          (other) =>
+            other.productId?.toString() === line.productId?.toString() &&
+            other.quantity === line.quantity
+        )
+      );
+
+    const sameAddress = (existing, wanted) =>
+      (existing?.addressLine1 ?? "") === (wanted?.addressLine1 ?? "") &&
+      (existing?.addressLine2 ?? "") === (wanted?.addressLine2 ?? "") &&
+      (existing?.city ?? "") === (wanted?.city ?? "") &&
+      (existing?.state ?? "") === (wanted?.state ?? "") &&
+      (existing?.postalCode ?? "") === (wanted?.postalCode ?? "") &&
+      (existing?.country ?? "") === (wanted?.country ?? "");
+
+    const wantedItems = orderItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
+
+    for (const open of openOrders) {
+      if (
+        sameItems(open.items ?? [], wantedItems) &&
+        sameAddress(open.shippingAddress, shippingAddress)
+      ) {
+        // Identical checkout: hand back the order that already holds the stock.
+        return { ...open, reused: true };
+      }
+    }
+
+    for (const open of openOrders) {
+      /*
+       * Claim before releasing. The conditional update is what makes this
+       * race-safe: of two concurrent checkouts only one matches, so a
+       * reservation cannot be released twice, and an order that has meanwhile
+       * been paid or already released is left alone.
+       */
+      const claimed = await Order.findOneAndUpdate(
+        { _id: open._id, orderStatus: "pending", stockReleasedAt: null },
+        { $set: { orderStatus: "cancelled", stockReleasedAt: new Date() } },
+        { returnDocument: "after" }
+      );
+
+      if (!claimed) continue;
+
+      await releaseReservedStock(
+        (open.items ?? []).map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        }))
+      );
+    }
+  }
+
   // 4. Reserve inventory atomically
   // --------------------------------------------------
   //

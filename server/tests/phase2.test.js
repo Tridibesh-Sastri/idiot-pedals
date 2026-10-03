@@ -247,12 +247,15 @@ describe('stock reservation', () => {
       )
     )
 
-    const created = results.filter((r) => r.status === 201)
+    // A concurrent identical submit now REUSES the open order (200) instead of
+    // creating a second one, so success means 201 or 200. The assertions below
+    // (one order document, reservedStock 1, stock 1) are what prove no oversell.
+    const succeeded = results.filter((r) => r.status === 201 || r.status === 200)
     const conflicts = results.filter((r) => r.status === 409)
-    const other = results.filter((r) => r.status !== 201 && r.status !== 409)
+    const other = results.filter((r) => ![200, 201, 409].includes(r.status))
 
-    assert.equal(created.length, 1, `expected exactly 1 success, got ${created.length}`)
-    assert.equal(conflicts.length, CONCURRENCY - 1)
+    assert.equal(succeeded.length >= 1, true, `expected at least one success, got ${succeeded.length}`)
+    assert.equal(succeeded.length + conflicts.length, CONCURRENCY)
     assert.equal(other.length, 0, `unexpected statuses: ${other.map((r) => r.status).join(',')}`)
 
     // Every failure must be an insufficient-stock conflict, not a crash.
