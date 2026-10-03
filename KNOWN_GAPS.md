@@ -110,3 +110,126 @@ against a freshly started server so the in-memory limiter did not carry over.
   string), so consumers must not rely on it being a number.
 - `/verify-phone` still has no backend support (no OTP endpoints exist); the page
   degrades gracefully.
+
+---
+
+# Pre-deployment security audit
+
+Scope: authorization on every mounted route, token trust, cross-user access,
+NoSQL injection, mass assignment, rate limits, error hygiene, cookies, CORS and
+helmet, webhook signatures, secrets in the repo and dependency audit.
+
+**No exploitable vulnerability was found in the audited surface.** `tests/security.test.js`
+(28 tests) is the proof; every claim below is either asserted there or listed as
+an accepted limitation. Nothing in this section is assumed.
+
+## Findings, with severity
+
+### LOW — `/healthz` and `/readyz` bypass helmet and CORS
+They are mounted in `app.js` before `helmet(...)` and `cors(...)`, so their
+responses carry no security headers and never an `Access-Control-Allow-Origin`
+header. Not exploitable: they return only `{status, uptimeSeconds}` and
+`{status, mongo}` — no user data, no auth, and the absent CORS header makes them
+*less* reachable from a browser than the API, not more. The residual cost is that
+`X-Powered-By` is not stripped on those two paths (framework disclosure only).
+Not changed: moving the routes would alter `app.js` middleware ordering for no
+security gain.
+
+### LOW — `GET /api/auth/verify-email` mutates state
+It is a `GET` that consumes a single-use token and can create the account, so a
+link prefetcher, scanner or mail-client preview could burn a token before the
+user clicks. Mitigations already in place: the token is 64 hex chars of entropy,
+single-use, time-limited, and a burnt token is recoverable by registering again.
+Not changed: converting it to `POST` is a frontend-facing contract change
+(`CHANGELOG_API.md`), and the token is not a credential for anything else.
+
+### LOW — a plaintext password exists in at most one request body
+Login and register take the password in the JSON body, so it appears in any
+request log that records bodies. Application logs redact it by key
+(`password` matches the redaction pattern), but an upstream reverse proxy or APM
+that logs bodies would see it. Acceptable for TLS-terminated production; do not
+enable full-body logging in front of this API.
+
+### INFO — test fixtures that look like secrets
+`server/tests/config.phase1.test.js:148,176` contains
+`rzp_live_abcdefghijklmnopqrstuvwx`, and `client/src/pages/ContactPage.tsx:177`
+uses `guitarist@gmail.com` as an input placeholder. Both are synthetic.
+The first exists precisely to prove that a live key is refused outside
+production. No real key, token or address appears in any tracked file.
+
+### INFO — health endpoints expose uptime
+`/healthz` returns `uptimeSeconds`, which reveals roughly when the process last
+restarted. Harmless for a shop; keep the endpoint reachable only from your
+monitor and load balancer if you prefer to hide it.
+
+## What was verified (and where the proof lives)
+
+- **Route authorization matrix** — every mounted route reviewed; the three
+  product mutations require `authenticateMiddleware` + `authorizeAdmin`; no route
+  lists all users or all orders. `tests/security.test.js` proves 401 without a
+  token and 403 with a normal user token for POST/PATCH/DELETE `/api/products`.
+- **Role is read from the database, never the token** —
+  `authenticateMiddleware` re-loads the user and requires
+  `user.role === decoded.role`, so demoting an admin or deleting an account
+  invalidates existing tokens immediately (asserted).
+- **No public route grants admin.** Register rejects `role`/`emailVerified` with
+  400; `PATCH /api/users/me` whitelists `name` and `phone` only (400 otherwise).
+  An admin account therefore exists only by writing `role: "admin"` directly to
+  the user document — a deliberate manual/ops step, e.g. in `mongosh` or by
+  running the fixture in `server/scripts/postman-run.mjs`, which is the only
+  place in the codebase that sets an admin role and is not a server route.
+- **Token forgery** — forged `role: admin` under the real secret, a wrong-secret
+  token, an `alg: none` token, an expired token and a valid token for an
+  unverified account are all rejected with 401.
+- **Cross-user access** — another user's order returns 404 by ObjectId *and* by
+  order number; the order list is caller-scoped; user B cannot create or verify a
+  payment for user A's order, and A's order is unchanged afterwards.
+- **NoSQL injection** — operator objects in login, register, verify-email,
+  order lookups, order line items and product filters are rejected (400) or
+  neutralised; none reach the query layer as an operator.
+- **Mass assignment** — client-supplied `pricing`, `totalMinor`, `unitPrice`,
+  `orderStatus`, `payment.status` and `needsRefund` on order create are ignored;
+  the persisted order carries server-computed values and starts `pending`.
+- **Rate limits** — login, register and payment create all return 429 once their
+  per-IP budget is spent.
+- **Error hygiene** — 404/400/401/403 responses contain no `stack` key, stack
+  frame, file path, `E11000`, `MongoError`/`CastError`, `mongodb://` URI or
+  secret.
+- **Cookies** — the refresh cookie is `HttpOnly`, `SameSite=Strict`, `Path=/`,
+  `Secure` in production only, and is cleared on logout with a matching
+  attribute set. The OAuth `oauth_state` cookie is `HttpOnly`, signed,
+  `SameSite=Lax`, 15-minute TTL, and the Google start URL points at
+  `accounts.google.com`.
+- **CORS and helmet** — only `FRONTEND_URL` is echoed; no wildcard; helmet
+  headers (nosniff, no `X-Powered-By`, CSP/framing/COOP/CORP/referrer policy)
+  are present on API responses.
+- **Webhook** — unsigned and wrongly signed deliveries are rejected with 4xx and
+  leave the order untouched; a correctly signed one still drives fulfilment.
+- **Secrets** — no `.env` file has ever been committed (checked across all
+  history); no live Razorpay key, credentialed Mongo URI, JWT literal or private
+  key in tracked files; the client bundle contains none of the server's `.env`
+  values and only `VITE_API_BASE_URL` and `VITE_RAZORPAY_KEY_ID` (the
+  dev-server-only `VITE_API_PROXY_TARGET` is absent from the bundle).
+- **Dependencies** — `npm audit` reports 0 vulnerabilities for the server
+  (production dependencies) and 0 for the client. No high or critical finding
+  needed fixing.
+
+## Security work still outstanding
+
+- **Everything in the "Unverified" section above still applies**: no real Google
+  sign-in, no real Razorpay capture, no real webhook delivery, no real email.
+  Those paths are covered by fakes, which is not the same as proved in
+  production.
+- **Single-instance assumptions.** Rate limiting is per-process; a multi-instance
+  deployment multiplies the effective budget (see the rate-limit section above).
+- **No CSRF token.** The refresh cookie is `SameSite=Strict`, which is the
+  mitigation; a cross-site POST from another origin cannot carry it. This is
+  sufficient for the current design but is not a substitute for a CSRF token if
+  the cookie's `SameSite` policy is ever relaxed.
+- **No 2FA and no login notification.** A stolen password is enough to sign in.
+- **No audit log** of admin actions (product create/update/delete).
+- **No dependency scanning in CI** — `npm audit` was run by hand.
+- **No secret manager.** Secrets live in `server/.env` on the host; rotation is
+  manual.
+- **The tests are only as good as the fake providers.** `tests/security.test.js`
+  proves behaviour through the app, not through Google or Razorpay.
