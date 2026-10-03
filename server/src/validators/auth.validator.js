@@ -2,6 +2,59 @@ import { body, cookie, validationResult } from 'express-validator'
 
 import config from '../config/config.js'
 
+/*
+ * Address item shape, mirroring pendingRegistration addressSchema so a
+ * malformed item is a 400 here instead of a 500 from Mongoose strict mode.
+ * Pure and unit-tested below.
+ */
+const ADDRESS_MAX_ITEMS = 20
+const ADDRESS_STRING_LIMITS = {
+    label: 30,
+    name: 100,
+    phone: 20,
+    addressLine1: 200,
+    addressLine2: 200,
+    city: 100,
+    state: 100,
+    postalCode: 20,
+    country: 100,
+}
+const ADDRESS_ALLOWED_FIELDS = new Set([...Object.keys(ADDRESS_STRING_LIMITS), 'isDefault'])
+const ADDRESS_REQUIRED_FIELDS = ['name', 'phone', 'addressLine1', 'city', 'state', 'postalCode']
+
+export const validateAddressItem = (item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return 'Each address must be an object.'
+    }
+
+    for (const key of Object.keys(item)) {
+        if (!ADDRESS_ALLOWED_FIELDS.has(key)) {
+            return `Unexpected address field: ${key}.`
+        }
+    }
+
+    for (const field of ADDRESS_REQUIRED_FIELDS) {
+        if (typeof item[field] !== 'string' || !item[field].trim()) {
+            return `Address ${field} is required.`
+        }
+    }
+
+    for (const [field, max] of Object.entries(ADDRESS_STRING_LIMITS)) {
+        if (
+            item[field] !== undefined &&
+            (typeof item[field] !== 'string' || item[field].length > max)
+        ) {
+            return `Address ${field} is too long.`
+        }
+    }
+
+    if (item.isDefault !== undefined && typeof item.isDefault !== 'boolean') {
+        return 'Address isDefault must be a boolean.'
+    }
+
+    return null
+}
+
 const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 50
 const PASSWORD_MIN_LENGTH = 8
@@ -136,8 +189,16 @@ export const registerValidator = [
 
     body('addresses')
         .optional()
-        .isArray()
-        .withMessage('Addresses must be an array'),
+        .isArray({ max: ADDRESS_MAX_ITEMS })
+        .withMessage(`Addresses must be an array of at most ${ADDRESS_MAX_ITEMS} items.`)
+        .bail()
+        .custom((items) => {
+            for (const item of items) {
+                const problem = validateAddressItem(item)
+                if (problem) throw new Error(problem)
+            }
+            return true
+        }),
 
     handleValidationErrors,
 ]

@@ -29,6 +29,7 @@ import config from '../src/config/config.js'
 import pendingRegistrationModel from '../src/models/pendingRegistration.js'
 import { verificationSendDecision } from '../src/controllers/auth.controller.js'
 import { sendVerificationEmail } from '../src/services/email.service.js'
+import { validateAddressItem } from '../src/validators/auth.validator.js'
 import {
   clearSentMessages,
   getSentMessagesOfKind,
@@ -272,6 +273,66 @@ describe('resend verification', () => {
 
     // Expired (or TTL-swept) either way: no new mail, same generic body.
     assert.equal(getSentMessagesOfKind('email-verification').length, 0)
+  })
+})
+
+/* ========================================================================== */
+/* 5. Address items are validated (400) before reaching the database              */
+/* ========================================================================== */
+
+describe('validateAddressItem', () => {
+  const validItem = () => ({
+    label: 'Home',
+    name: 'Cooldown Tester',
+    phone: '9876543210',
+    addressLine1: '1 Test Street',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    postalCode: '700001',
+    country: 'India',
+    isDefault: true,
+  })
+
+  test('a well-formed item passes', () => {
+    assert.equal(validateAddressItem(validItem()), null)
+  })
+
+  test('missing required fields are rejected', () => {
+    const item = validItem()
+    delete item.city
+    assert.match(validateAddressItem(item), /city is required/)
+  })
+
+  test('wrong types and unknown fields are rejected', () => {
+    assert.match(validateAddressItem('not-an-object'), /must be an object/)
+    assert.match(validateAddressItem([]), /must be an object/)
+    assert.match(
+      validateAddressItem({ ...validItem(), role: 'admin' }),
+      /Unexpected address field: role/
+    )
+    assert.match(
+      validateAddressItem({ ...validItem(), quantity: 1 }),
+      /Unexpected address field: quantity/
+    )
+    assert.match(
+      validateAddressItem({ ...validItem(), isDefault: 'yes' }),
+      /isDefault must be a boolean/
+    )
+  })
+
+  test('overlong strings are rejected', () => {
+    assert.match(
+      validateAddressItem({ ...validItem(), addressLine1: 'x'.repeat(201) }),
+      /addressLine1 is too long/
+    )
+  })
+
+  test('a malformed address item in register returns 400, not 500', async () => {
+    const body = registerBody()
+    body.addresses = [{ name: 'No City', phone: '9876543210', addressLine1: '1 Test Street' }]
+
+    const res = await apiFetch('/api/auth/register', { method: 'POST', body })
+    assert.equal(res.status, 400, res.text)
   })
 })
 
