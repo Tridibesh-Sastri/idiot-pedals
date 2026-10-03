@@ -200,11 +200,14 @@ export const validateRefreshCookie = [
       // Security Practice: Extract the first error message precisely
       const firstError = errors.array()[0].msg;
 
-      // Always clear out any unauthenticated cookies if an active mismatch occurs
+      // Always clear out any unauthenticated cookies if an active mismatch occurs.
+      // path must mirror the set options (Path=/), otherwise the browser
+      // treats the clear as a different cookie and the stale one survives.
       res.clearCookie('refreshToken', {
         httpOnly: true,
         secure: config.IS_PRODUCTION,
         sameSite: 'strict',
+        path: '/',
       });
 
       return res.status(401).json({

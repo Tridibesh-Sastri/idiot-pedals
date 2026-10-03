@@ -540,6 +540,20 @@ describe('cookies', () => {
     assert.match(stateCookie, /oauth_state=[^;]+\.[^;]+/)
     assert.match(res.location ?? '', /^https:\/\/accounts\.google\.com\//)
   })
+
+  test('the refresh-cookie clear targets the same scope it was set with (Path=/)', async () => {
+    // No usable refresh cookie: the validator rejects and must clear the
+    // cookie it would otherwise have trusted.
+    const res = await request('/api/auth/refresh', { method: 'POST', body: {} })
+    assert.equal(res.status, 401, res.text)
+
+    const cleared = res.setCookie.find((entry) => entry.startsWith('refreshToken='))
+    assert.equal(Boolean(cleared), true, `no refreshToken clear in ${res.setCookie.join(' | ')}`)
+    assert.match(cleared, /Path=\//i)
+    assert.match(cleared, /HttpOnly/i)
+    // Expired immediately, so the browser drops it instead of storing it.
+    assert.match(cleared, /Expires=Thu, 01 Jan 1970/i)
+  })
 })
 
 /* ========================================================================== */
