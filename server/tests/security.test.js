@@ -784,6 +784,32 @@ describe('end-to-end auth flow (fake mailer)', () => {
 /* ========================================================================== */
 
 describe('rate limits', () => {
+  test('order creation is rate limited per user, occasional use unaffected', async () => {
+    const user = await createUser()
+    const token = await accessTokenGenerator({ userId: user._id, role: user.role })
+    const product = await createProduct({ price: 1000, stock: 50 })
+    const body = orderBody(product._id)
+
+    // Normal occasional use: the first checkout succeeds.
+    const first = await request('/api/order', { method: 'POST', token, body })
+    assert.equal(first.status, 201, first.text)
+
+    // Identical checkouts reuse the open order, so hammering past the
+    // per-user budget trips the limiter (429) rather than failing otherwise.
+    let sawLimit = false
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const res = await request('/api/order', { method: 'POST', token, body })
+      if (res.status === 429) {
+        sawLimit = true
+        assert.equal(res.json?.success, false)
+        break
+      }
+      assert.ok([200, 201].includes(res.status), `unexpected ${res.status}: ${res.text}`)
+    }
+
+    assert.equal(sawLimit, true, 'order creation never returned 429')
+  })
+
   const hammer = async (path, body, limit = 20) => {
     let sawLimit = false
     let last = null
