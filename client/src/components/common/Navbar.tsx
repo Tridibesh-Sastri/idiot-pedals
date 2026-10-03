@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
                 <Link
                   key={link.name}
                   to={link.path}
-                  className={`px-3.5 lg:px-4 py-2 rounded-full transition-all duration-200 ${
+                  className={`px-2.5 lg:px-4 py-2 rounded-full transition-all duration-200 ${
                     isActive
                       ? 'bg-[#FF5E1E]/15 text-[#FF5E1E] font-bold ring-1 ring-[#FF5E1E]/40'
                       : 'text-[#F6F4EE]/80 hover:text-[#FF5E1E] hover:bg-white/5'
@@ -89,8 +89,8 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
             })}
           </nav>
 
-          {/* Right Action Controls */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {/* Right Action Controls — gaps kept tight so logo + links + actions fit with the cart icon */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
             {/* Meta Location Tag */}
             <div className="hidden lg:flex items-center gap-2 text-xs font-mono-tech text-[#8E98A8] tracking-widest uppercase border-r border-white/10 pr-3">
@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="relative flex items-center gap-2 text-xs font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] px-2.5 py-1.5 rounded-full hover:bg-white/5 transition-colors"
+              className="relative flex items-center gap-1.5 text-xs font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] px-2 py-1.5 rounded-full hover:bg-white/5 transition-colors"
               aria-label="Open cart"
             >
               <span className="relative">
