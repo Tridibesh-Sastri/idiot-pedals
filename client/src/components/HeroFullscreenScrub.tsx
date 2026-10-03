@@ -14,7 +14,7 @@ interface HeroFullscreenScrubProps {
 
 export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscreenScrubProps) {
   // Catalogue-driven price and destination. No cart line is invented here.
-  const { priceLabel, href } = useNeonFuzzBox();
+  const { priceLabel, compareAtLabel, savingsLabel, href } = useNeonFuzzBox();
   const navigate = useNavigate();
 
   /**
@@ -61,15 +61,22 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
 
             <div className="space-y-2 pt-1">
               {/*
-                Price only, straight from the catalogue.
-                The previous strikethrough price and the "Save ..." badge were invented:
-                the product model has no compare-at price field, so there is no real
-                discount to display. */}
+                Original layout restored. The numbers are the only change: the
+                strikethrough and the saving come from the product's real
+                compareAtPrice, and both are hidden when there is no real
+                discount (or the product did not load).
+              */}
               {priceLabel && (
                 <div className="flex items-baseline gap-3">
-                  <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">
-                    ₹{priceLabel}
-                  </span>
+                  <span className="text-4xl sm:text-5xl font-extrabold text-[#FF5E1E] font-mono-tech tracking-tight">₹{priceLabel}</span>
+                  {compareAtLabel && (
+                    <span className="text-lg text-[#94A3B8] line-through font-mono-tech font-medium">₹{compareAtLabel}</span>
+                  )}
+                  {savingsLabel && (
+                    <span className="text-xs font-bold text-white bg-[#FF5E1E] px-3 py-1 rounded-full font-mono-tech shadow-md shadow-[#FF5E1E]/30">
+                      Save ₹{savingsLabel} Direct
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -141,7 +148,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
 
         {/* BOTTOM: Pricing & CTA Controls */}
         <div className="shrink-0 pointer-events-auto space-y-2.5">
-          {/* Price strip — catalogue price only, no invented compare-at price */}
+          {/* Price strip — original layout, fed by the catalogue */}
           {priceLabel && (
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
@@ -151,7 +158,20 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
                 >
                   ₹{priceLabel}
                 </span>
+                {compareAtLabel && (
+                  <span
+                    className="text-sm font-mono-tech font-medium line-through text-white/60"
+                    style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}
+                  >
+                    ₹{compareAtLabel}
+                  </span>
+                )}
               </div>
+              {savingsLabel && (
+                <span className="text-[11px] font-mono-tech font-extrabold text-white bg-[#FF5E1E] px-3 py-1 rounded-full shadow-lg shadow-[#FF5E1E]/40">
+                  Save ₹{savingsLabel}
+                </span>
+              )}
             </div>
           )}
 

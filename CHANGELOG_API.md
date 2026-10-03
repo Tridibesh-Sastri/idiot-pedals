@@ -237,3 +237,38 @@ is unchanged: still owner-scoped, still **404** for another user's order, still
   validation and error states.
 - Verify-email outcomes are mapped by HTTP status (200/400/410/409) instead of
   pattern-matching human-readable message text.
+
+---
+
+## Additive: optional `compareAtPrice` on products
+
+### 22. New optional field
+
+`Product.compareAtPrice` — an optional display-only "was" price, used by the
+storefront to render a strikethrough beside the live price.
+
+- **Type**: number or `null`. Omitted / `null` means "no compare-at price".
+- **Representation rules** match `price`: non-negative and finite.
+- **Rule**: when set, it must be **strictly greater** than the effective price.
+  "Effective price" is the submitted `price` on create, and on `PATCH` the
+  submitted `price` if the request carries one, otherwise the stored price.
+  This means both of these are rejected with **400**:
+  - `PATCH { compareAtPrice: X }` where `X <= price`
+  - `PATCH { price: X }` where `X >= compareAtPrice`
+- Compared in **integer paise**, never with floats.
+- `PATCH { compareAtPrice: null }` clears it.
+- Set by an admin only: `POST /api/products` and `PATCH /api/products/:id`
+  require the existing `authenticateMiddleware` + `authorizeAdmin` chain, so a
+  missing token still returns 401 and a normal user 403.
+
+### 23. Response shape
+
+- Returned by `GET /api/products`, `GET /api/products/:id`,
+  `POST /api/products` and `PATCH /api/products/:id` when set; omitted or `null`
+  when not.
+- **Never influences money.** Order totals, payment amounts and stock continue to
+  derive from `price` alone. `POST /api/order` ignores any client-supplied
+  compare-at value, and an order for a product with `compareAtPrice` set is
+  totalled from `price` only (asserted in `tests/compareAtPrice.test.js`).
+
+No other endpoint, request body or response shape changed.

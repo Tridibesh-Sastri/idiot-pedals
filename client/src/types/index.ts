@@ -73,6 +73,12 @@ export interface Product {
   sku: string;
   description: string;
   price: number;
+  /**
+   * Optional display-only "was" price, rendered as a strikethrough. It is never
+   * an input to a money calculation: order totals, payment amounts and stock all
+   * derive from `price` alone.
+   */
+  compareAtPrice?: number;
   currency: string;
   stock: number;
   reservedStock: number;
@@ -94,6 +100,8 @@ export interface ServerProduct {
   sku?: string;
   description?: string;
   price?: number;
+  /** Optional display-only "was" price as returned by the API (may be null). */
+  compareAtPrice?: number | null;
   currency?: string;
   stock?: number;
   reservedStock?: number;

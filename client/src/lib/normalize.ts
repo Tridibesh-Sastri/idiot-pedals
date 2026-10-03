@@ -22,6 +22,13 @@ import type {
 } from '../types';
 
 const asString = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback);
+/** Optional numeric field: returns undefined for missing or invalid input. */
+const asOptionalNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const asNumber = (value: unknown, fallback = 0): number => {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -98,6 +105,8 @@ export function normalizeProduct(raw: ServerProduct | null | undefined): Product
     sku: asString(raw.sku),
     description: asString(raw.description),
     price: asNumber(raw.price, 0),
+    // Optional: absent or unusable values become undefined (never 0).
+    compareAtPrice: asOptionalNumber(raw.compareAtPrice),
     currency: asString(raw.currency, 'INR') || 'INR',
     stock,
     reservedStock,

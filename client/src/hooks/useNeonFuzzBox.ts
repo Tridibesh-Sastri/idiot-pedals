@@ -64,6 +64,43 @@ const fetchFeatured = (): Promise<FeaturedState> => {
 export const priceLabelFor = (product: Product | null): string | null =>
   product ? product.price.toLocaleString('en-IN') : null;
 
+/** Money is compared in integer paise so floats can never decide a discount. */
+const toPaise = (amount: number): number => Math.round(amount * 100);
+
+/**
+ * A compare-at price is only worth showing when it is genuinely higher than the
+ * price. Anything else — absent, equal, lower, unusable — yields null, and the UI
+ * then shows no strikethrough and no saving. Nothing is invented.
+ */
+export const hasRealDiscount = (product: Product | null): boolean => {
+  if (!product) return false;
+
+  const { compareAtPrice, price } = product;
+
+  if (typeof compareAtPrice !== 'number' || !Number.isFinite(compareAtPrice)) return false;
+  if (!Number.isFinite(price)) return false;
+
+  return toPaise(compareAtPrice) > toPaise(price);
+};
+
+/** The "was" price, formatted, or null when there is no real discount. */
+export const compareAtLabelFor = (product: Product | null): string | null =>
+  hasRealDiscount(product) ? (product as Product).compareAtPrice!.toLocaleString('en-IN') : null;
+
+/**
+ * The saving in rupees, formatted, computed from integer paise.
+ *
+ * Null unless `compareAtPrice` exists and is greater than `price`, so a zero or
+ * negative difference can never render as "Save ₹0".
+ */
+export const savingsLabelFor = (product: Product | null): string | null => {
+  if (!hasRealDiscount(product)) return null;
+
+  const differenceInPaise = toPaise((product as Product).compareAtPrice!) - toPaise((product as Product).price);
+
+  return (differenceInPaise / 100).toLocaleString('en-IN');
+};
+
 export interface FeaturedProduct {
   product: Product | null;
   loading: boolean;
@@ -73,6 +110,15 @@ export interface FeaturedProduct {
    * deliberately no fallback price: a wrong number is worse than no number.
    */
   priceLabel: string | null;
+  /**
+   * The "was" price for a strikethrough, or **null** when the product has no
+   * compareAtPrice that is genuinely higher than the price (or did not load).
+   */
+  compareAtLabel: string | null;
+  /** The saving, or **null** when there is nothing real to save. */
+  savingsLabel: string | null;
+  /** True only when a real discount exists, so the UI can hide both together. */
+  hasDiscount: boolean;
   /** Where a buy button should go: the real product, or the catalogue. */
   href: string;
 }
@@ -107,6 +153,9 @@ export const useNeonFuzzBox = (): FeaturedProduct => {
     product,
     loading: !snapshot.loaded,
     priceLabel: priceLabelFor(product),
+    compareAtLabel: compareAtLabelFor(product),
+    savingsLabel: savingsLabelFor(product),
+    hasDiscount: hasRealDiscount(product),
     // Indexing by ObjectId: the detail page validates a Mongo id, not a slug.
     href: product ? `/products/${product.id}` : '/products',
   };

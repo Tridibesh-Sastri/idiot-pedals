@@ -1,5 +1,6 @@
 import { param, body, query } from "express-validator";
 import mongoose from "mongoose";
+import { toMinor } from "../utils/money.js";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -12,6 +13,46 @@ const DESCRIPTION_MAX_LENGTH = 10000;
 const URL_MAX_LENGTH = 2048;
 const MAX_IMAGES = 20;
 const MAX_AUDIO_ASSETS = 20;
+
+/**
+ * Optional compare-at ("was") price.
+ *
+ * Representation rules match `price`, plus `null` is accepted to clear it. The
+ * value is display-only and never reaches money arithmetic.
+ */
+const COMPARE_AT_PRICE_RULES = [
+  body("compareAtPrice")
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage("Compare-at price must be a number greater than or equal to 0.")
+    .custom(Number.isFinite)
+    .withMessage("Compare-at price must be a finite number."),
+];
+
+/**
+ * Create-time cross-field rule: the body carries both values, so the effective
+ * price is the submitted one.
+ *
+ * Compared in integer paise — never with floats — because `3499 > 3499.000000001`
+ * must not be the difference between a valid and an invalid discount.
+ *
+ * (On update the stored price may be the one that matters, and only the service
+ * layer can read it, so that half of the rule lives in product.service.js.)
+ */
+const COMPARE_AT_ABOVE_SUBMITTED_PRICE = body("compareAtPrice")
+  .optional({ nullable: true })
+  .custom((value, { req }) => {
+    if (value === null || value === undefined) return true;
+
+    const price = req.body?.price;
+    if (typeof price !== "number" || !Number.isFinite(price)) return true;
+
+    if (toMinor(value) <= toMinor(price)) {
+      throw new Error("Compare-at price must be greater than the price.");
+    }
+
+    return true;
+  });
 
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const SKU_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -122,6 +163,10 @@ export const createProductValidator = [
     .withMessage("Price must be a number greater than or equal to 0.")
     .custom(Number.isFinite)
     .withMessage("Price must be a finite number."),
+
+  // Optional in the body; admin-only route guards who may set it.
+  ...COMPARE_AT_PRICE_RULES,
+  COMPARE_AT_ABOVE_SUBMITTED_PRICE,
 
   body("currency")
     .optional()
@@ -291,6 +336,12 @@ export const updateProductValidator = [
     .withMessage("Price must be a number greater than or equal to 0.")
     .custom(Number.isFinite)
     .withMessage("Price must be a finite number."),
+
+  /*
+   * Null clears it. The "strictly greater than the effective price" half of the
+   * rule is enforced in the service, which can read the stored price.
+   */
+  ...COMPARE_AT_PRICE_RULES,
 
   body("currency")
     .optional()

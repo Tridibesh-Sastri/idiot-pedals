@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { FEATURED_PRODUCT_SLUG, priceLabelFor } from '../src/hooks/useNeonFuzzBox';
+import { FEATURED_PRODUCT_SLUG, compareAtLabelFor, hasRealDiscount, priceLabelFor, savingsLabelFor } from '../src/hooks/useNeonFuzzBox';
 import type { Product } from '../src/types';
 
 /**
@@ -57,4 +57,75 @@ test('failed fetch: still no price, and no number is invented', () => {
 test('a genuinely free product shows zero rather than nothing', () => {
   // 0 came from the API, so it is a real price and must be displayed as such.
   assert.equal(priceLabelFor(productWithPrice(0)), '0');
+});
+
+/* -------------------------------------------------------------------------- */
+/* compareAtPrice: the strikethrough and the saving                            */
+/* -------------------------------------------------------------------------- */
+
+const productWithCompareAt = (price: number, compareAtPrice?: number | null): Product => {
+  const product = productWithPrice(price);
+
+  if (compareAtPrice === undefined) return product;
+
+  return { ...product, compareAtPrice: compareAtPrice as number };
+};
+
+test('loaded: 2399 with a compare-at of 3499 gives "3,499" and "1,100"', () => {
+  const product = productWithCompareAt(2399, 3499);
+
+  assert.equal(priceLabelFor(product), '2,399');
+  assert.equal(compareAtLabelFor(product), '3,499');
+  assert.equal(savingsLabelFor(product), '1,100');
+  assert.equal(hasRealDiscount(product), true);
+});
+
+test('absent compareAtPrice: no strikethrough, no saving', () => {
+  const product = productWithCompareAt(2399);
+
+  assert.equal(compareAtLabelFor(product), null);
+  assert.equal(savingsLabelFor(product), null);
+  assert.equal(hasRealDiscount(product), false);
+});
+
+test('null compareAtPrice: no strikethrough, no saving', () => {
+  const product = productWithCompareAt(2399, null);
+
+  assert.equal(compareAtLabelFor(product), null);
+  assert.equal(savingsLabelFor(product), null);
+  assert.equal(hasRealDiscount(product), false);
+});
+
+test('savings of zero or less are null, so "Save ₹0" can never render', () => {
+  const equal = productWithCompareAt(2399, 2399);
+  assert.equal(hasRealDiscount(equal), false);
+  assert.equal(savingsLabelFor(equal), null);
+  assert.equal(compareAtLabelFor(equal), null);
+
+  const lower = productWithCompareAt(2399, 1999);
+  assert.equal(hasRealDiscount(lower), false);
+  assert.equal(savingsLabelFor(lower), null);
+  assert.equal(compareAtLabelFor(lower), null);
+});
+
+test('a failed fetch or empty catalogue shows neither price nor saving', () => {
+  for (const product of [null]) {
+    assert.equal(priceLabelFor(product), null);
+    assert.equal(compareAtLabelFor(product), null);
+    assert.equal(savingsLabelFor(product), null);
+    assert.equal(hasRealDiscount(product), false);
+  }
+});
+
+test('the discount is computed in integer paise, not floats', () => {
+  // 2399.99 -> 239999 paise, 2499.99 -> 249999 paise: exactly 10.00 saved.
+  const product = productWithCompareAt(2399.99, 2499.99);
+
+  assert.equal(compareAtLabelFor(product), '2,499.99');
+  assert.equal(savingsLabelFor(product), '100');
+
+  // A sub-paise difference is not a discount.
+  const tooClose = productWithCompareAt(2399, 2399.001);
+  assert.equal(hasRealDiscount(tooClose), false);
+  assert.equal(savingsLabelFor(tooClose), null);
 });
