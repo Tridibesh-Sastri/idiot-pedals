@@ -35,6 +35,9 @@ const buildEnvFile = ({
   razorpayKeySecret = 'f'.repeat(24),
   razorpayWebhookSecret = 'g'.repeat(24),
   emailNotificationsEnabled = null,
+  emailFrom = '"IDIOT <no-reply@mailhost.test>"',
+  resendFrom = '"IDIOT <orders@mailhost.test>"',
+  adminOrderEmail = 'admin@mailhost.test',
 } = {}) => {
   const lines = [
     'PORT=5000',
@@ -51,7 +54,7 @@ const buildEnvFile = ({
     'SMTP_SECURE=false',
     'SMTP_USER=mailer',
     `SMTP_PASSWORD=${'d'.repeat(32)}`,
-    'EMAIL_FROM="IDIOT <no-reply@mailhost.test>"',
+    `EMAIL_FROM=${emailFrom}`,
     'GOOGLE_CLIENT_ID=client-id.apps.googleusercontent.com',
     `GOOGLE_CLIENT_SECRET=${'e'.repeat(32)}`,
     'GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback',
@@ -59,8 +62,8 @@ const buildEnvFile = ({
     `RAZORPAY_KEY_SECRET=${razorpayKeySecret}`,
     `RAZORPAY_WEBHOOK_SECRET=${razorpayWebhookSecret}`,
     `RESEND_API_KEY=${'h'.repeat(24)}`,
-    'RESEND_FROM="IDIOT <orders@mailhost.test>"',
-    'ADMIN_ORDER_EMAIL=admin@mailhost.test',
+    `RESEND_FROM=${resendFrom}`,
+    `ADMIN_ORDER_EMAIL=${adminOrderEmail}`,
   ]
 
   if (nodeEnv !== null) lines.unshift(`NODE_ENV=${nodeEnv}`)
@@ -247,4 +250,69 @@ test('EMAIL_NOTIFICATIONS_ENABLED=false in development is allowed', async () => 
 
   assert.equal(result.ok, true, result.output)
 })
+
+test('valid plain email addresses for EMAIL_FROM, RESEND_FROM and ADMIN_ORDER_EMAIL load', async () => {
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      emailFrom: 'plain-sender@mailhost.test',
+      resendFrom: 'plain-resend@mailhost.test',
+      adminOrderEmail: 'plain-admin@mailhost.test',
+    }),
+  })
+
+  assert.equal(result.ok, true, result.output)
+})
+
+test('malformed EMAIL_FROM is refused without echoing the value', async () => {
+  const badValue = 'bad_email_from_token_xyz'
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      emailFrom: badValue,
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /EMAIL_FROM: must be a valid email address or "Name <address>"/)
+  assert.equal(result.output.includes(badValue), false)
+})
+
+test('malformed RESEND_FROM is refused without echoing the value', async () => {
+  const badValue = 'bad_resend_from_token_xyz'
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      resendFrom: badValue,
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /RESEND_FROM: must be a valid email address or "Name <address>"/)
+  assert.equal(result.output.includes(badValue), false)
+})
+
+test('malformed ADMIN_ORDER_EMAIL is refused without echoing the value', async () => {
+  const badValue = 'bad_admin_email_token_xyz'
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      adminOrderEmail: badValue,
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /ADMIN_ORDER_EMAIL: must be a valid email address/)
+  assert.equal(result.output.includes(badValue), false)
+})
+
+test('ADMIN_ORDER_EMAIL with Name <address> form is refused (plain address required)', async () => {
+  const badValue = '"Admin Name" <admin@mailhost.test>'
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      adminOrderEmail: badValue,
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /ADMIN_ORDER_EMAIL: must be a valid email address/)
+  assert.equal(result.output.includes('Admin Name'), false)
+})
+
 

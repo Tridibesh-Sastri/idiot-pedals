@@ -264,6 +264,17 @@ const parseTrustProxy = (value, errors) => {
   return hops
 }
 
+const PLAIN_EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
+const NAME_ADDR_RE = /^[^<>]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>$/
+
+const isValidEmailOrNameAddr = (value) =>
+  typeof value === 'string' &&
+  (PLAIN_EMAIL_RE.test(value.trim()) || NAME_ADDR_RE.test(value.trim()))
+
+const isValidPlainEmail = (value) =>
+  typeof value === 'string' && PLAIN_EMAIL_RE.test(value.trim())
+
+
 /* -------------------------------------------------------------------------- */
 /* Validation                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -508,6 +519,17 @@ for (const name of distinctSecrets) {
   } else {
     seen.set(value, name)
   }
+}
+
+// Email format validation (names only in error messages, never values).
+if (resolved.EMAIL_FROM && !isValidEmailOrNameAddr(resolved.EMAIL_FROM)) {
+  errors.push('EMAIL_FROM: must be a valid email address or "Name <address>"')
+}
+if (resolved.RESEND_FROM && !isValidEmailOrNameAddr(resolved.RESEND_FROM)) {
+  errors.push('RESEND_FROM: must be a valid email address or "Name <address>"')
+}
+if (resolved.ADMIN_ORDER_EMAIL && !isValidPlainEmail(resolved.ADMIN_ORDER_EMAIL)) {
+  errors.push('ADMIN_ORDER_EMAIL: must be a valid email address')
 }
 
 if (errors.length > 0) {
