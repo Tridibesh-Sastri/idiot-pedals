@@ -38,7 +38,7 @@ const StockBadge: React.FC<{ product: Product }> = ({ product }) => {
 };
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
-  const { addItem, replaceItem } = useCart();
+  const { addItem } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -53,8 +53,9 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
   const handleBuyNow = () => {
     if (outOfStock) return;
-    replaceItem(toCartItem(product, 1));
-    navigate('/checkout');
+    // Buy Now on a listing card routes to the product detail page —
+    // only the detail page's own Buy Now puts anything in the cart.
+    navigate(`/products/${product.id}`);
   };
 
   return (
