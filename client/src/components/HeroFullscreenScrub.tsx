@@ -84,7 +84,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
               {priceLabel && (
                 <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
                   <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
-                  <span>Workbench Batch 04 · Ships in 24h</span>
+                  <span>Ships in 24h</span>
                 </div>
               )}
             </div>
@@ -187,7 +187,7 @@ export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscre
           {priceLabel && (
             <div className="text-xs text-[#475569] flex items-center gap-2 font-mono-tech font-medium">
               <span className="w-2 h-2 rounded-full bg-[#FF5E1E]" />
-              <span>Workbench Batch 04 · Ships in 24h</span>
+              <span>Ships in 24h</span>
             </div>
           )}
 
