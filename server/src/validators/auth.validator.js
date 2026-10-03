@@ -6,6 +6,12 @@ const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 50
 const PASSWORD_MIN_LENGTH = 8
 const PASSWORD_MAX_LENGTH = 128
+/*
+ * bcrypt silently truncates past 72 bytes: without this cap, two different
+ * long passwords sharing a 72-byte prefix would be identical. Login keeps no
+ * byte rule so previously registered passwords always still verify.
+ */
+const PASSWORD_MAX_BYTES = 72
 const PHONE_PATTERN = /^[6-9]\d{9}$/
 
 export const handleValidationErrors = (req, res, next) => {
@@ -104,7 +110,16 @@ export const registerValidator = [
         })
         .withMessage(
             `Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`
-        ),
+        )
+        .bail()
+        .custom((value) => {
+            if (Buffer.byteLength(value, 'utf8') > PASSWORD_MAX_BYTES) {
+                throw new Error(
+                    `Password must be at most ${PASSWORD_MAX_BYTES} bytes.`
+                )
+            }
+            return true
+        }),
 
     body('phone')
         .exists()

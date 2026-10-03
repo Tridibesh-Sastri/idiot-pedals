@@ -928,3 +928,39 @@ describe('payment gaps', () => {
     assert.equal(badSig.status >= 400 && badSig.status < 500, true)
   })
 })
+
+/* ========================================================================== */
+/* 5. Password byte rule (bcrypt truncates past 72 bytes)                       */
+/* ========================================================================== */
+
+describe('password byte rule', () => {
+  const registerWithPassword = (email, password) =>
+    apiFetch('/api/auth/register', {
+      method: 'POST',
+      body: {
+        name: 'Byte Tester',
+        email,
+        phone: '9876543210',
+        password,
+      },
+    })
+
+  test('a 73-byte ASCII password is rejected with a clear message', async () => {
+    const res = await registerWithPassword(`bytes73-${Date.now()}@mailhost.test`, 'a'.repeat(73))
+    assert.equal(res.status, 400, res.text)
+    assert.match(res.text, /at most 72 bytes/)
+  })
+
+  test('multi-byte passwords are measured in bytes, not characters', async () => {
+    // 'é' is 2 bytes in UTF-8: 40 chars = 80 bytes → rejected.
+    const over = await registerWithPassword(`bytes80-${Date.now()}@mailhost.test`, 'é'.repeat(40))
+    assert.equal(over.status, 400, over.text)
+    assert.match(over.text, /at most 72 bytes/)
+  })
+
+  test('a password of exactly 72 bytes is accepted', async () => {
+    // 'é' × 36 = 72 bytes exactly → passes validation (register succeeds).
+    const res = await registerWithPassword(`bytes72-${Date.now()}@mailhost.test`, 'é'.repeat(36))
+    assert.equal(res.status, 200, res.text)
+  })
+})

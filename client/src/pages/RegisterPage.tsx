@@ -44,6 +44,8 @@ export const RegisterPage: React.FC = () => {
     if (!PHONE_RE.test(digits)) return 'Enter a valid 10-digit Indian phone number (starting 6–9).';
 
     if (password.length < 8 || password.length > 128) return 'Password must be between 8 and 128 characters.';
+    // bcrypt truncates past 72 bytes: mirror the server rule (Buffer.byteLength there).
+    if (new TextEncoder().encode(password).length > 72) return 'Password must be at most 72 bytes.';
     if (password !== confirmPassword) return 'Passwords do not match.';
 
     if (!sanitizeString(addressLine1)) return 'Address line 1 is required.';
