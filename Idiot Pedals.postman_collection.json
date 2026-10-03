@@ -1163,6 +1163,46 @@
           ]
         },
         {
+          "name": "POST /api/order/:orderId — cancel order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Owner only. Cancels a pending order and releases its stock reservation. Idempotent: an already-cancelled order returns 200. A paid/fulfilled order is rejected; another user's order is 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "NEGATIVE — GET another user's order",
           "request": {
             "method": "GET",
