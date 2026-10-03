@@ -47,7 +47,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
   const handleAdd = () => {
     if (outOfStock) return;
-    replaceItem(toCartItem(product, 1));
+    addItem(toCartItem(product, 1));
     showToast(`${product.name} added to your cart.`);
   };
 
