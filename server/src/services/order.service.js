@@ -289,7 +289,7 @@ const createOrder = async ({
   if(order.payment.method === "cod"){
     void sendAdminOrderEmail(order)
   }
-  
+
 
   return order;
 };
@@ -349,9 +349,87 @@ const getUserOrderById = async ({ userId, orderId }) => {
     userId,
   }).lean();
 };
+/**
+ * Cancels a pending order that belongs to `userId` and releases its stock
+ * reservation. Idempotent: an order already cancelled returns it unchanged
+ * rather than erroring. An order that is no longer cancellable (paid,
+ * fulfilled, etc.) is a 409, not a silent no-op. A missing or foreign order
+ * returns null — same no-existence-oracle rule as getUserOrderById.
+ */
+const cancelOrder = async ({ userId, orderId }) => {
+  const isObjectId = mongoose.isValidObjectId(orderId);
+  const identifierFilter = isObjectId ? { _id: orderId } : { orderNumber: orderId };
+
+  const existing = await Order.findOne({
+    ...identifierFilter,
+    userId,
+  }).lean();
+
+  if (!existing) {
+    return null; // controller answers 404
+  }
+
+  if (existing.orderStatus === "cancelled") {
+    return { order: existing, alreadyCancelled: true };
+  }
+
+  if (existing.orderStatus !== "pending" || existing.payment?.status !== "pending") {
+    const error = new Error("This order can no longer be cancelled.");
+    error.statusCode = 409;
+    error.code = "ORDER_NOT_CANCELLABLE";
+    throw error;
+  }
+
+  /*
+   * Claim before releasing, same pattern as the supersede claim in
+   * createOrder: the conditional update is what makes this race-safe against
+   * a concurrent webhook/payment confirming the order at the same instant.
+   */
+  const claimed = await Order.findOneAndUpdate(
+    {
+      ...identifierFilter,
+      userId,
+      orderStatus: "pending",
+      "payment.status": "pending",
+      stockReleasedAt: null,
+    },
+    {
+      $set: {
+        orderStatus: "cancelled",
+        stockReleasedAt: new Date(),
+      },
+    },
+    { returnDocument: "after" }
+  ).lean();
+
+  if (!claimed) {
+    // Lost the race — re-read and answer based on what actually happened,
+    // rather than assuming our own request caused the mismatch.
+    const now = await Order.findOne({ ...identifierFilter, userId }).lean();
+
+    if (now?.orderStatus === "cancelled") {
+      return { order: now, alreadyCancelled: true };
+    }
+
+    const error = new Error("This order can no longer be cancelled.");
+    error.statusCode = 409;
+    error.code = "ORDER_NOT_CANCELLABLE";
+    throw error;
+  }
+
+  await releaseReservedStock(
+    (claimed.items ?? []).map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  );
+
+  return { order: claimed, alreadyCancelled: false };
+};
 
 export {
   createOrder,
   getUserOrders,
-  getUserOrderById
+  getUserOrderById,
+  cancelOrder,
 };
