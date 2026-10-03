@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { CartItem } from '../types';
-import { STORAGE_KEYS } from '../services/apiConfig';
-import { secureStorage } from '../lib/security';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { CartItem } from "../types";
+import { STORAGE_KEYS } from "../services/apiConfig";
+import { secureStorage } from "../lib/security";
 
 interface CartContextType {
   items: CartItem[];
@@ -34,11 +40,11 @@ const clampQuantity = (value: unknown): number => {
  * lines whose shape is sane so hand-edited storage can't crash the UI.
  */
 const sanitizeStoredItem = (value: unknown): CartItem | null => {
-  if (!value || typeof value !== 'object') return null;
+  if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
 
-  const id = typeof record.id === 'string' ? record.id : '';
-  const name = typeof record.name === 'string' ? record.name : '';
+  const id = typeof record.id === "string" ? record.id : "";
+  const name = typeof record.name === "string" ? record.name : "";
   const price = Number(record.price);
 
   if (!id || !name || !Number.isFinite(price) || price < 0) return null;
@@ -46,17 +52,21 @@ const sanitizeStoredItem = (value: unknown): CartItem | null => {
   return {
     id,
     name,
-    subtitle: typeof record.subtitle === 'string' ? record.subtitle : '',
+    subtitle: typeof record.subtitle === "string" ? record.subtitle : "",
     price,
     quantity: clampQuantity(record.quantity),
-    image: typeof record.image === 'string' ? record.image : '',
-    slug: typeof record.slug === 'string' ? record.slug : undefined,
-    currency: typeof record.currency === 'string' ? record.currency : 'INR',
-    availableStock: Number.isFinite(Number(record.availableStock)) ? Number(record.availableStock) : undefined,
+    image: typeof record.image === "string" ? record.image : "",
+    slug: typeof record.slug === "string" ? record.slug : undefined,
+    currency: typeof record.currency === "string" ? record.currency : "INR",
+    availableStock: Number.isFinite(Number(record.availableStock))
+      ? Number(record.availableStock)
+      : undefined,
   };
 };
 
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [items, setItems] = useState<CartItem[]>(() => {
     const raw = secureStorage.get<unknown>(STORAGE_KEYS.CART, []);
     if (!Array.isArray(raw)) return [];
@@ -73,7 +83,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   const addItem = useCallback((item: CartItem, quantity = 1) => {
-    if (!item || typeof item.id !== 'string' || !item.id) return;
+    if (!item || typeof item.id !== "string" || !item.id) return;
 
     const safeQty = clampQuantity(quantity);
 
@@ -92,7 +102,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 availableStock: item.availableStock,
                 quantity: Math.min(MAX_QUANTITY, entry.quantity + safeQty),
               }
-            : entry
+            : entry,
         );
       }
 
@@ -113,28 +123,53 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       const safeQty = clampQuantity(quantity);
-      setItems((prev) => prev.map((entry) => (entry.id === id ? { ...entry, quantity: safeQty } : entry)));
+      setItems((prev) =>
+        prev.map((entry) =>
+          entry.id === id ? { ...entry, quantity: safeQty } : entry,
+        ),
+      );
     },
-    [removeItem]
+    [removeItem],
   );
 
-  /** Re-sync a single line with freshly fetched product data. */
+  /**
+   * Sets a single line to exactly this item + quantity — inserting it if the
+   * cart doesn't have it yet, overwriting the quantity if it does. Used by
+   * "Buy Now", which must always reflect the chosen quantity, never stack
+   * onto whatever was already in the cart.
+   */
   const replaceItem = useCallback((item: CartItem) => {
-    setItems((prev) =>
-      prev.map((entry) =>
-        entry.id === item.id
-          ? { ...entry, name: item.name, subtitle: item.subtitle, price: item.price, image: item.image, availableStock: item.availableStock }
-          : entry
-      )
-    );
+    if (!item || typeof item.id !== "string" || !item.id) return;
+
+    const safeQty = clampQuantity(item.quantity);
+
+    setItems((prev) => {
+      const exists = prev.some((entry) => entry.id === item.id);
+
+      if (exists) {
+        return prev.map((entry) =>
+          entry.id === item.id
+            ? { ...entry, ...item, quantity: safeQty }
+            : entry,
+        );
+      }
+
+      return [...prev, { ...item, quantity: safeQty }];
+    });
   }, []);
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * clampQuantity(item.quantity), 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.price * clampQuantity(item.quantity),
+    0,
+  );
   const shippingFee = 0;
   const total = subtotal + shippingFee;
-  const totalQuantity = items.reduce((sum, item) => sum + clampQuantity(item.quantity), 0);
+  const totalQuantity = items.reduce(
+    (sum, item) => sum + clampQuantity(item.quantity),
+    0,
+  );
 
   return (
     <CartContext.Provider
@@ -165,7 +200,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 };
