@@ -25,6 +25,7 @@ export interface RegisterResult {
   email: string;
   name: string;
   message: string;
+  retryAfterSeconds?: number;
 }
 
 export type EmailVerificationOutcome = 'verified' | 'already_verified' | 'expired' | 'invalid';
@@ -51,6 +52,7 @@ interface MeEnvelope {
 interface RegisterEnvelope {
   message?: string;
   data?: { name?: string; email?: string };
+  retryAfterSeconds?: number;
 }
 
 /**
@@ -144,6 +146,10 @@ class AuthService {
       message:
         envelope?.message ??
         'Registration started successfully. Please check your email to verify your account.',
+      retryAfterSeconds:
+        typeof envelope?.retryAfterSeconds === 'number'
+          ? envelope.retryAfterSeconds
+          : undefined,
     };
   }
 

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, User, Mail, Phone, Lock, AlertCircle, MapPin, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, User, Mail, Phone, Lock, AlertCircle, MapPin, CheckCircle2, Send } from 'lucide-react';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { authService } from '../services/authService';
 import { describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
+import { useResendCountdown } from '../lib/useResendCountdown';
 import type { UserAddress } from '../types';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
@@ -32,6 +34,10 @@ export const RegisterPage: React.FC = () => {
 
   const [error, setError] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendNotice, setResendNotice] = useState('');
+  const { startCountdown, isCounting, label: countdownLabel } = useResendCountdown();
 
   const validate = (): string | null => {
     const cleanName = sanitizeString(name);
@@ -93,10 +99,33 @@ export const RegisterPage: React.FC = () => {
 
       showToast('Registration started! Check your inbox to verify.');
       setSubmittedEmail(result.email);
+      if (typeof result.retryAfterSeconds === 'number' && result.retryAfterSeconds > 0) {
+        startCountdown(result.retryAfterSeconds);
+      }
     } catch (err: unknown) {
       const msg = describeApiError(err);
       setError(msg);
       showToast(msg, 'error');
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendBusy || isCounting || !submittedEmail) return;
+    setResendBusy(true);
+    setResendNotice('');
+    try {
+      const result = await authService.resendVerificationEmail(submittedEmail);
+      setResendNotice(
+        result.message ||
+          'If a verification email is pending for this address, a new link is on its way. Only the newest email works.'
+      );
+      if (typeof result.retryAfterSeconds === 'number' && result.retryAfterSeconds > 0) {
+        startCountdown(result.retryAfterSeconds);
+      }
+    } catch (err) {
+      setResendNotice(describeApiError(err));
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -130,24 +159,46 @@ export const RegisterPage: React.FC = () => {
             </div>
             <div className="flex items-start gap-2">
               <CheckCircle2 size={13} className="text-[#FF5E1E] mt-0.5 shrink-0" />
+              <span>A new email replaces the previous link so only the newest email works.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle2 size={13} className="text-[#FF5E1E] mt-0.5 shrink-0" />
               <span>Can't find it? Check your spam or promotions folder.</span>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/login')}
-            className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 shadow-xl shadow-[#FF5E1E]/30 transition-all cursor-pointer"
-          >
-            <span>Go To Sign In</span>
-            <ArrowRight size={14} />
-          </button>
+          <div className="space-y-3 pt-1">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendBusy || isCounting}
+              className="w-full py-3.5 bg-[#FFF1E6] hover:bg-[#FFE8D3] border border-[#F0D3B8] text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 transition-colors text-[#2A1A12] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <Send size={14} />
+              <span>{resendBusy ? 'Sending…' : countdownLabel}</span>
+            </button>
+            {resendNotice && (
+              <p className="text-[11px] text-[#8A6A54] font-mono-tech leading-relaxed">{resendNotice}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] hover:from-[#FF8A00] hover:to-[#FF5500] text-white text-xs font-mono-tech font-bold uppercase rounded-full flex items-center justify-center gap-2 shadow-xl shadow-[#FF5E1E]/30 transition-all cursor-pointer"
+            >
+              <span>Go To Sign In</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
 
           <div className="text-center text-xs font-mono-tech text-[#8A6A54]">
             Wrong email?{' '}
             <button
               type="button"
-              onClick={() => setSubmittedEmail(null)}
+              onClick={() => {
+                setSubmittedEmail(null);
+                setResendNotice('');
+              }}
               className="text-[#FF5E1E] font-bold hover:underline cursor-pointer"
             >
               Start over
