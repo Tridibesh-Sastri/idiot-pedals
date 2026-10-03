@@ -2,478 +2,1614 @@
   "info": {
     "_postman_id": "9f2c1a44-7d3e-4c1b-9a10-idiotpedals00",
     "name": "Idiot Pedals",
-    "description": "Idiot Pedals API — every endpoint, matching the code (folders: Health, Auth, Users, Products, Orders, Payments, Webhooks).\n\nWARNING — REAL SIDE EFFECTS\n- Register, a COD order (paymentMethod \"cod\") and Verify Payment all send a REAL email to ADMIN_ORDER_EMAIL unless the server runs with EMAIL_NOTIFICATIONS_ENABLED=false. Start the API with that flag set while you test: `EMAIL_NOTIFICATIONS_ENABLED=false npm run dev`.\n- Use Razorpay TEST keys only (rzp_test_...). Never point this collection at live keys.\n\nSETUP\n- Set {{baseUrl}} in your Postman environment (e.g. http://localhost:5000) and select the environment before running anything.\n- Login saves {{accessToken}} automatically. Endpoints that need an admin (create/update/delete product) require the token of an admin account.\n- Register and Login bodies contain placeholders (PASTE_...). Replace them with a real test account you control; they are intentionally not variables so no credential is stored in this file.\n- The Razorpay verify body needs the values Razorpay Checkout hands back to the browser. {{razorpayOrderId}} is saved by Create payment; {{razorpayPaymentId}} and {{razorpaySignature}} come from the checkout response.\n- The Razorpay webhook request signs its own raw body in a pre-request script using {{razorpayWebhookSecret}} from the environment (server-to-server only — the frontend never calls it).\n\nGoogle OAuth requests return 302. Turn OFF \"Automatically follow redirects\" in Postman settings, otherwise 302 becomes the final page status.",
+    "description": "Idiot Pedals API — every mounted route, matching the code in server/src.\n\nWARNING — REAL SIDE EFFECTS\n- Register, a COD order (paymentMethod \"cod\") and Verify Payment send a REAL email unless the server runs with EMAIL_NOTIFICATIONS_ENABLED=false. Start the API with that flag while testing: EMAIL_NOTIFICATIONS_ENABLED=false npm run dev\n- Use Razorpay TEST keys only (rzp_test_...). Never point this collection at live keys.\n- The \"Setup (run once, manual)\" folder creates the REAL storefront product (slug neon-fuzz-box). Run it by hand, never as part of an automated run. The other folders are automated: they create a product whose slug starts with \"postman-temp-\" and delete it at the end.\n\nSETUP\n- Fill in your Postman environment, including razorpayWebhookSecret, and select it before running anything.\n- Login saves {{accessToken}}; create order saves {{orderId}} and {{orderNumber}}; create product saves {{productId}}; create payment saves {{razorpayOrderId}}.\n- Endpoints marked (admin) need the token of an admin account.\n- Register, Login and the order bodies contain PASTE_... placeholders: replace them with a test account you control. They are intentionally not variables, so no credential is stored in this file.\n- Google OAuth returns 302: turn OFF \"Automatically follow redirects\" in Postman settings to see it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
-    { "key": "accessToken", "value": "", "type": "string" },
-    { "key": "orderId", "value": "", "type": "string" },
-    { "key": "productId", "value": "", "type": "string" },
-    { "key": "razorpayOrderId", "value": "", "type": "string" },
-    { "key": "razorpayPaymentId", "value": "", "type": "string" },
-    { "key": "razorpaySignature", "value": "", "type": "string" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpayOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpayPaymentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpaySignature",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "razorpayWebhookSecret",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
       "name": "Health",
+      "description": "Liveness and readiness. No auth, no data.",
       "item": [
         {
           "name": "GET /healthz — liveness",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/healthz", "host": ["{{baseUrl}}"], "path": ["healthz"] }
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            },
+            "description": "Returns { status: \"ok\", uptimeSeconds }. Never rate limited."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "pm.expect(pm.response.json().status).to.eql('ok');"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(pm.response.json().status).to.eql('ok');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /readyz — readiness (Mongo)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/readyz", "host": ["{{baseUrl}}"], "path": ["readyz"] }
+            "url": {
+              "raw": "{{baseUrl}}/readyz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "readyz"
+              ]
+            },
+            "description": "200 when Mongo is connected, 503 when it is not."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "pm.expect(pm.response.json().mongo).to.eql('connected');"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(pm.response.json().mongo).to.eql('connected');"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Auth",
+      "description": "Registration, session and Google OAuth.",
       "item": [
         {
           "name": "POST /api/auth/register",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Player\",\n  \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n  \"phone\": \"9000000000\",\n  \"password\": \"PASTE_TEST_ACCOUNT_PASSWORD\",\n  \"addresses\": [\n    {\n      \"label\": \"Home\",\n      \"name\": \"Test Player\",\n      \"phone\": \"9000000000\",\n      \"addressLine1\": \"1 Test Street\",\n      \"city\": \"Kolkata\",\n      \"state\": \"West Bengal\",\n      \"postalCode\": \"700001\",\n      \"country\": \"India\",\n      \"isDefault\": true\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
-            "description": "Starts registration and SENDS A REAL EMAIL. The account only exists after the emailed link is opened. phone must be exactly 10 digits."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Player\",\n  \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n  \"phone\": \"9000000000\",\n  \"password\": \"PASTE_TEST_ACCOUNT_PASSWORD\",\n  \"addresses\": [\n    {\n      \"label\": \"Home\",\n      \"name\": \"Test Player\",\n      \"phone\": \"9000000000\",\n      \"addressLine1\": \"1 Test Street\",\n      \"city\": \"Kolkata\",\n      \"state\": \"West Bengal\",\n      \"postalCode\": \"700001\",\n      \"country\": \"India\",\n      \"isDefault\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "SENDS A REAL EMAIL. The account exists only after the emailed link is opened. phone must be exactly 10 digits."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/auth/verify-email",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/auth/verify-email?token=PASTE_VERIFICATION_TOKEN_FROM_EMAIL", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-email"], "query": [{ "key": "token", "value": "PASTE_VERIFICATION_TOKEN_FROM_EMAIL" }] },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email?token=PASTE_VERIFICATION_TOKEN_FROM_EMAIL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-email"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "PASTE_VERIFICATION_TOKEN_FROM_EMAIL"
+                }
+              ]
+            },
             "description": "Distinct outcomes: 200 EMAIL_VERIFIED, 400 EMAIL_TOKEN_INVALID, 410 EMAIL_TOKEN_EXPIRED, 409 ACCOUNT_ALREADY_VERIFIED."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "POST /api/auth/login",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n  \"password\": \"PASTE_TEST_ACCOUNT_PASSWORD\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
-            "description": "Returns data.accessToken and sets the httpOnly refresh cookie. The test script saves {{accessToken}}."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n  \"password\": \"PASTE_TEST_ACCOUNT_PASSWORD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Returns data.accessToken and sets the httpOnly refresh cookie. Saves {{accessToken}}."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "const body = pm.response.json();",
-            "const token = body && body.data && body.data.accessToken;",
-            "pm.expect(typeof token).to.eql('string');",
-            "pm.collectionVariables.set('accessToken', token);",
-            "if (pm.environment.name) { pm.environment.set('accessToken', token); }"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "const body = pm.response.json();",
+                  "const token = body && body.data && body.data.accessToken;",
+                  "pm.expect(typeof token).to.eql('string');",
+                  "pm.collectionVariables.set('accessToken', token);",
+                  "if (pm.environment.name) { pm.environment.set('accessToken', token); }"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/auth/me",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "The session user. 401 without a valid token."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "POST /api/auth/refresh",
           "request": {
             "method": "POST",
             "header": [],
-            "body": { "mode": "raw", "raw": "", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"] },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
             "description": "Uses the httpOnly refresh cookie (no body). Rotates the cookie and returns a new accessToken."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(typeof pm.response.json().accessToken).to.eql('string');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "POST /api/auth/logout",
           "request": {
             "method": "POST",
             "header": [],
-            "body": { "mode": "raw", "raw": "", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the refresh cookie."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/auth/google (browser only)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/auth/google", "host": ["{{baseUrl}}"], "path": ["api", "auth", "google"] },
-            "description": "302 to Google. Open in a browser. Returns 302 (turn off automatic redirect following to see it)."
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "google"
+              ]
+            },
+            "description": "302 to Google. Browser flow; turn off automatic redirect following to see the 302."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(302);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(302);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/auth/google/callback (browser only)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/auth/google/callback", "host": ["{{baseUrl}}"], "path": ["api", "auth", "google", "callback"] },
-            "description": "Google calls this. Always 302: success -> FRONTEND_URL/auth/callback, failure -> FRONTEND_URL/login?error=<code>. Without a valid code/state this returns 302 to the cancelled/state-invalid error page."
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/google/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "google",
+                "callback"
+              ]
+            },
+            "description": "Google calls this. Always 302: success -> FRONTEND_URL/auth/callback, failure -> FRONTEND_URL/login?error=<code>."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(302);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(302);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — GET /api/auth/me without a token",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
-            "description": "No Authorization header, so the token is absent: 401."
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "No Authorization header: 401."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(401);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(401);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Users",
+      "description": "The caller profile.",
       "item": [
         {
           "name": "GET /api/users/me",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/users/me", "host": ["{{baseUrl}}"], "path": ["api", "users", "me"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "pm.expect(pm.response.json().data.user).to.have.property('phone');"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(pm.response.json().data.user).to.have.property('phone');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "PATCH /api/users/me",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Player Updated\",\n  \"phone\": \"9000000000\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/users/me", "host": ["{{baseUrl}}"], "path": ["api", "users", "me"] },
-            "description": "Only name and phone are accepted. Any other field is rejected with 400."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Player Updated\",\n  \"phone\": \"9000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Only name and phone are accepted."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — PATCH /api/users/me with a forbidden field",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"role\": \"admin\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/users/me", "host": ["{{baseUrl}}"], "path": ["api", "users", "me"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            },
             "description": "role is not whitelisted: 400, and the account is unchanged."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(400);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(400);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Products",
+      "description": "Automated product lifecycle. Uses a temporary product (slug postman-temp-...) and deletes it at the end, so an automated run can never leave a product that looks like the real one.",
       "item": [
         {
-          "name": "GET /api/products",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/products?status=active&page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["api", "products"], "query": [
-              { "key": "status", "value": "active" },
-              { "key": "page", "value": "1" },
-              { "key": "limit", "value": "20" }
-            ] },
-            "description": "Public. Sends Cache-Control max-age=30 and an ETag; limit is capped at 100."
-          },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "const products = pm.response.json().data.products;",
-            "if (products.length > 0) { pm.collectionVariables.set('productId', products[0]._id); }"
-          ] } }]
-        },
-        {
-          "name": "GET /api/products/:id",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}"] }
-          },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
-        },
-        {
-          "name": "POST /api/products (admin)",
+          "name": "POST /api/products (admin) — create temporary product",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Neon Fuzz Box\",\n  \"slug\": \"neon-fuzz-box-{{$timestamp}}\",\n  \"sku\": \"IDIOT-NFB-{{$timestamp}}\",\n  \"description\": \"Handcrafted analog fuzz pedal with aggressive vintage-style tones.\",\n  \"price\": 4999,\n  \"currency\": \"INR\",\n  \"stock\": 10,\n  \"reservedStock\": 0,\n  \"status\": \"active\",\n  \"images\": [],\n  \"specifications\": { \"type\": \"Analog Fuzz\", \"bypass\": \"True Bypass\", \"power\": \"9V DC\" }\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/products", "host": ["{{baseUrl}}"], "path": ["api", "products"] },
-            "description": "Requires an ADMIN token: 201 on success."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Temp Pedal\",\n  \"slug\": \"postman-temp-{{$timestamp}}\",\n  \"sku\": \"PM-TEMP-{{$timestamp}}\",\n  \"description\": \"Temporary product created by the automated Postman run and deleted at the end of it.\",\n  \"price\": 2399,\n  \"compareAtPrice\": 3499,\n  \"currency\": \"INR\",\n  \"stock\": 10,\n  \"reservedStock\": 0,\n  \"status\": \"active\",\n  \"images\": [],\n  \"specifications\": {\n    \"type\": \"Analog Fuzz\",\n    \"bypass\": \"True Bypass\",\n    \"power\": \"9V DC\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            },
+            "description": "Admin only. Creates the throwaway product used by the rest of this folder. compareAtPrice is optional and must be strictly greater than price."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(201);",
-            "const body = pm.response.json();",
-            "if (body.data && body.data.product && body.data.product._id) { pm.collectionVariables.set('productId', body.data.product._id); }"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(201);",
+                  "const body = pm.response.json();",
+                  "const product = body.data.product;",
+                  "pm.expect(product.slug.startsWith('postman-temp-')).to.eql(true);",
+                  "pm.expect(product.compareAtPrice).to.eql(3499);",
+                  "pm.collectionVariables.set('productId', product._id);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "PATCH /api/products/:id (admin)",
-          "request": {
-            "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"stock\": 25,\n  \"status\": \"active\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}"] },
-            "description": "Requires an ADMIN token."
-          },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
-        },
-        {
-          "name": "DELETE /api/products/:id (admin)",
-          "request": {
-            "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}", "host": ["{{baseUrl}}"], "path": ["api", "products", "{{productId}}"] },
-            "description": "Requires an ADMIN token. Destructive: deletes the product referenced by {{productId}}."
-          },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
-        },
-        {
-          "name": "GET /api/products (re-seed {{productId}} after DELETE)",
+          "name": "GET /api/products — list",
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{baseUrl}}/api/products?status=active&page=1&limit=5", "host": ["{{baseUrl}}"], "path": ["api", "products"], "query": [
-              { "key": "status", "value": "active" },
-              { "key": "page", "value": "1" },
-              { "key": "limit", "value": "5" }
-            ] },
-            "description": "Housekeeping so the collection can be run top to bottom: the DELETE above removed the product {{productId}} pointed at, and the Orders folder needs a product that still exists. This points {{productId}} at a live catalogue product again."
+            "url": {
+              "raw": "{{baseUrl}}/api/products?status=active&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Public. Cache-Control max-age=30 plus an ETag; limit is capped at 100."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "const products = pm.response.json().data.products;",
-            "if (products.length > 0) { pm.collectionVariables.set('productId', products[0]._id); }"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "const products = pm.response.json().data.products;",
+                  "pm.expect(Array.isArray(products)).to.eql(true);",
+                  "if (!pm.collectionVariables.get('productId') && products.length > 0) { pm.collectionVariables.set('productId', products[0]._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/products/:id — detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Public. compareAtPrice comes back when set."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/products/:id (admin) — raise compareAtPrice",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compareAtPrice\": 3999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "compareAtPrice may be raised, but never to a value at or below price."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(pm.response.json().data.product.compareAtPrice).to.eql(3999);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/products/:id (admin) — clear compareAtPrice with null",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"compareAtPrice\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Null clears the field entirely."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "const value = pm.response.json().data.product.compareAtPrice;",
+                  "pm.expect(value === null || value === undefined).to.eql(true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "NEGATIVE — POST /api/products as a non-admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Temp Pedal\",\n  \"slug\": \"postman-temp-forbidden\",\n  \"sku\": \"PM-TEMP-FORBIDDEN\",\n  \"description\": \"Temporary product created by the automated Postman run and deleted at the end of it.\",\n  \"price\": 2399,\n  \"compareAtPrice\": 3499,\n  \"currency\": \"INR\",\n  \"stock\": 10,\n  \"reservedStock\": 0,\n  \"status\": \"active\",\n  \"images\": [],\n  \"specifications\": {\n    \"type\": \"Analog Fuzz\",\n    \"bypass\": \"True Bypass\",\n    \"power\": \"9V DC\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            },
+            "description": "A normal user token (not an admin) is refused with 403. Paste a non-admin {{accessToken}} to see it."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(403);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "NEGATIVE — POST /api/products with no token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Temp Pedal\",\n  \"slug\": \"postman-temp-anon\",\n  \"sku\": \"PM-TEMP-ANON\",\n  \"description\": \"Temporary product created by the automated Postman run and deleted at the end of it.\",\n  \"price\": 2399,\n  \"compareAtPrice\": 3499,\n  \"currency\": \"INR\",\n  \"stock\": 10,\n  \"reservedStock\": 0,\n  \"status\": \"active\",\n  \"images\": [],\n  \"specifications\": {\n    \"type\": \"Analog Fuzz\",\n    \"bypass\": \"True Bypass\",\n    \"power\": \"9V DC\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            },
+            "description": "No token at all: 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(401);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/products/:id (admin) — remove temporary product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Cleans up the temporary product created above, so an automated run leaves nothing behind."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Setup (run once, manual)",
+      "description": "NOT part of the automated run. Run this single request by hand, once, to create the real storefront product. It uses the fixed slug neon-fuzz-box with no timestamp, so it is idempotent only until it succeeds — a second run returns 409, which is expected.",
+      "item": [
+        {
+          "name": "POST /api/products (admin) — create the REAL product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Neon Fuzz Box\",\n  \"slug\": \"neon-fuzz-box\",\n  \"sku\": \"IDIOT-NFB-001\",\n  \"description\": \"Handcrafted analog fuzz pedal with aggressive vintage-style saturation. Heavy-duty die-cast aluminium enclosure, through-hole components, alpha pots and a true-bypass 3PDT footswitch. Handmade in Burdwan, India.\",\n  \"price\": 2399,\n  \"compareAtPrice\": 3499,\n  \"currency\": \"INR\",\n  \"stock\": 10,\n  \"reservedStock\": 0,\n  \"status\": \"active\",\n  \"images\": [],\n  \"specifications\": {\n    \"type\": \"Analog Fuzz\",\n    \"bypass\": \"True Bypass (3PDT)\",\n    \"power\": \"9V DC centre-negative\",\n    \"currentDraw\": \"8 mA\",\n    \"enclosure\": \"Die-cast aluminium\",\n    \"controls\": \"Volume, Fuzz, Bias\",\n    \"madeIn\": \"India\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ]
+            },
+            "description": "Creates the real Neon Fuzz Box: slug neon-fuzz-box, price 2399, compareAtPrice 3499, stock 10. Run manually and only once."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(201);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Orders",
+      "description": "Order creation and retrieval. Line items carry productId + quantity only.",
       "item": [
         {
           "name": "POST /api/order — create order",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"paymentMethod\": \"razorpay\",\n  \"customer\": {\n    \"name\": \"Test Player\",\n    \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n    \"phone\": \"9000000000\"\n  },\n  \"shippingAddress\": {\n    \"name\": \"Test Player\",\n    \"phone\": \"9000000000\",\n    \"addressLine1\": \"1 Test Street\",\n    \"addressLine2\": \"Near the park\",\n    \"city\": \"Kolkata\",\n    \"state\": \"West Bengal\",\n    \"postalCode\": \"700001\",\n    \"country\": \"India\"\n  }\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/order", "host": ["{{baseUrl}}"], "path": ["api", "order"] },
-            "description": "Items carry productId + quantity ONLY — the server computes every price from its own catalogue. paymentMethod \"cod\" SENDS A REAL EMAIL on success; \"razorpay\" does not. Saves {{orderId}}."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"paymentMethod\": \"razorpay\",\n  \"customer\": {\n    \"name\": \"Postman Tester\",\n    \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n    \"phone\": \"9000000000\"\n  },\n  \"shippingAddress\": {\n    \"name\": \"Postman Tester\",\n    \"phone\": \"9000000000\",\n    \"addressLine1\": \"1 Test Street\",\n    \"addressLine2\": \"Near the park\",\n    \"city\": \"Kolkata\",\n    \"state\": \"West Bengal\",\n    \"postalCode\": \"700001\",\n    \"country\": \"India\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order"
+              ]
+            },
+            "description": "The server prices the order from its own catalogue. paymentMethod \"cod\" SENDS A REAL EMAIL; \"razorpay\" does not. Saves {{orderId}} and {{orderNumber}}."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(201);",
-            "const body = pm.response.json();",
-            "pm.collectionVariables.set('orderId', body.order._id);",
-            "// The server must never be told a price: no price/amount anywhere in the body,",
-            "// and each line item must be exactly { productId, quantity }.",
-            "const sent = JSON.parse(pm.request.body.raw);",
-            "pm.expect(JSON.stringify(sent)).to.not.match(/price|amount|total/i);",
-            "pm.expect(Object.keys(sent.items[0]).sort()).to.eql(['productId', 'quantity']);",
-            "// Totals are server-computed, in integer paise.",
-            "pm.expect(body.order.pricing.totalMinor).to.be.a('number');"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(201);",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('orderId', body.order._id);",
+                  "pm.collectionVariables.set('orderNumber', body.order.orderNumber);",
+                  "// The client must never send a price: no price/amount anywhere, and each",
+                  "// line item must be exactly { productId, quantity }.",
+                  "const sent = JSON.parse(pm.request.body.raw);",
+                  "pm.expect(JSON.stringify(sent)).to.not.match(/price|amount|total/i);",
+                  "pm.expect(Object.keys(sent.items[0]).sort()).to.eql(['productId', 'quantity']);",
+                  "pm.expect(body.order.pricing.totalMinor).to.be.a('number');",
+                  "pm.expect(body.order.pricing.totalMinor).to.eql(239900);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "GET /api/order — list my orders",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/order?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["api", "order"], "query": [
-              { "key": "page", "value": "1" },
-              { "key": "limit", "value": "10" }
-            ] },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
             "description": "Caller-scoped. limit is capped at 50."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "GET /api/order/:orderId — order detail",
+          "name": "GET /api/order/:orderId — detail by id",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/order/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api", "order", "{{orderId}}"] },
-            "description": "Owner-only. Accepts the internal ObjectId or the human-readable order number (IP-...)."
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Owner only. Accepts the internal ObjectId or the order number."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/order/:orderId — detail by order number",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/{{orderNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order",
+                "{{orderNumber}}"
+              ]
+            },
+            "description": "Same endpoint, addressed by the human-readable IP-... order number."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — GET another user's order",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "url": { "raw": "{{baseUrl}}/api/order/000000000000000000000000", "host": ["{{baseUrl}}"], "path": ["api", "order", "000000000000000000000000"] },
-            "description": "A valid ObjectId belonging to nobody (and to nobody else either). Another user's order must return 404, never 403 — a 403 would confirm the order exists."
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/order/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order",
+                "000000000000000000000000"
+              ]
+            },
+            "description": "A valid ObjectId belonging to nobody. Another user's order must be 404, never 403 — a 403 would confirm it exists."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(404);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(404);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — create order with a bad quantity",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1.5\n    }\n  ],\n  \"paymentMethod\": \"razorpay\",\n  \"customer\": { \"name\": \"Test Player\", \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\", \"phone\": \"9000000000\" },\n  \"shippingAddress\": { \"name\": \"Test Player\", \"phone\": \"9000000000\", \"addressLine1\": \"1 Test Street\", \"city\": \"Kolkata\", \"state\": \"West Bengal\", \"postalCode\": \"700001\", \"country\": \"India\" }\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/order", "host": ["{{baseUrl}}"], "path": ["api", "order"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1.5\n    }\n  ],\n  \"paymentMethod\": \"razorpay\",\n  \"customer\": {\n    \"name\": \"Postman Tester\",\n    \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n    \"phone\": \"9000000000\"\n  },\n  \"shippingAddress\": {\n    \"name\": \"Postman Tester\",\n    \"phone\": \"9000000000\",\n    \"addressLine1\": \"1 Test Street\",\n    \"addressLine2\": \"Near the park\",\n    \"city\": \"Kolkata\",\n    \"state\": \"West Bengal\",\n    \"postalCode\": \"700001\",\n    \"country\": \"India\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order"
+              ]
+            },
             "description": "quantity must be an integer between 1 and 100."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(400);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(400);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "NEGATIVE — create order with no token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"paymentMethod\": \"razorpay\",\n  \"customer\": {\n    \"name\": \"Postman Tester\",\n    \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\",\n    \"phone\": \"9000000000\"\n  },\n  \"shippingAddress\": {\n    \"name\": \"Postman Tester\",\n    \"phone\": \"9000000000\",\n    \"addressLine1\": \"1 Test Street\",\n    \"addressLine2\": \"Near the park\",\n    \"city\": \"Kolkata\",\n    \"state\": \"West Bengal\",\n    \"postalCode\": \"700001\",\n    \"country\": \"India\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "order"
+              ]
+            },
+            "description": "No token: 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(401);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Payments",
+      "description": "Razorpay order creation and verification. Test keys only.",
       "item": [
         {
           "name": "POST /api/payments/razorpay/create",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/payments/razorpay/create", "host": ["{{baseUrl}}"], "path": ["api", "payments", "razorpay", "create"] },
-            "description": "Calls Razorpay with the server-computed paise total and returns its order id (saved as {{razorpayOrderId}}). Idempotent per order: calling it twice returns the SAME Razorpay order, so a double-clicked Pay button cannot create two. Requires Razorpay TEST keys."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "razorpay",
+                "create"
+              ]
+            },
+            "description": "Creates the Razorpay order for the server-computed paise total and saves {{razorpayOrderId}}. Idempotent per order: a second call returns the same Razorpay order."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "const body = pm.response.json();",
-            "pm.collectionVariables.set('razorpayOrderId', body.payment.razorpayOrderId);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.collectionVariables.set('razorpayOrderId', pm.response.json().payment.razorpayOrderId);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "POST /api/payments/razorpay/verify",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/payments/razorpay/verify", "host": ["{{baseUrl}}"], "path": ["api", "payments", "razorpay", "verify"] },
-            "description": "SENDS A REAL EMAIL on a genuine confirmation (not on a replay). Confirms but does NOT fulfil: only the webhook finalizes an order. Field names are camelCase. Replay-safe and idempotent."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "razorpay",
+                "verify"
+              ]
+            },
+            "description": "SENDS A REAL EMAIL on a genuine confirmation. Confirms but never fulfils: the webhook finalizes. Replay-safe and idempotent."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(200);",
-            "pm.expect(pm.response.json().orderStatus).to.not.eql('fulfilled');"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);",
+                  "pm.expect(pm.response.json().orderStatus).to.not.eql('fulfilled');"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — verify with a bad signature",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{accessToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"pay_bad_signature\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"invalid-signature-value\"\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/payments/razorpay/verify", "host": ["{{baseUrl}}"], "path": ["api", "payments", "razorpay", "verify"] },
-            "description": "A forged signature is rejected before any provider call: 400."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"pay_bad_signature\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"invalid-signature-value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "razorpay",
+                "verify"
+              ]
+            },
+            "description": "A forged signature is rejected before any provider call."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(400);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(400);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "NEGATIVE — create payment for someone else's order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"000000000000000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "razorpay",
+                "create"
+              ]
+            },
+            "description": "An order that is not the caller's: 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(404);"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Webhooks",
+      "description": "Razorpay calls these server-to-server. The frontend never does.",
       "item": [
         {
           "name": "POST /api/webhooks/razorpay — signed",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": { "type": "text/javascript", "exec": [
-                "const secret = pm.environment.get('razorpayWebhookSecret');",
-                "if (!secret) { throw new Error('razorpayWebhookSecret is missing from the active Postman environment.'); }",
-                "const rawBody = pm.request.body ? pm.request.body.raw : '';",
-                "// CryptoJS is built into Postman's sandbox.",
-                "const signature = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
-                "pm.request.headers.upsert({ key: 'x-razorpay-signature', value: signature });"
-              ] }
-            },
-            { "listen": "test", "script": { "type": "text/javascript", "exec": [
-              "pm.response.to.have.status(200);"
-            ] } }
-          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "x-razorpay-event-id", "value": "evt_local_test_0001" },
-              { "key": "x-razorpay-signature", "value": "REPLACED_BY_PREREQUEST_SCRIPT" }
+              {
+                "key": "x-razorpay-event-id",
+                "value": "evt_manual_0001"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"{{razorpayPaymentId}}\",\n        \"order_id\": \"{{razorpayOrderId}}\",\n        \"amount\": 499900,\n        \"currency\": \"INR\",\n        \"status\": \"captured\"\n      }\n    }\n  }\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/webhooks/razorpay", "host": ["{{baseUrl}}"], "path": ["api", "webhooks", "razorpay"] },
-            "description": "Server-to-server only — the frontend never calls this. The signature must cover the EXACT raw bytes, which is why the pre-request script signs pm.request.body.raw. This is the only path that finalizes an order (fulfilled) and consumes the stock reservation. amount must equal the order's paise total or the event is rejected."
-          }
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"{{razorpayPaymentId}}\",\n        \"order_id\": \"{{razorpayOrderId}}\",\n        \"amount\": 239900,\n        \"currency\": \"INR\",\n        \"status\": \"captured\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "razorpay"
+              ]
+            },
+            "description": "The only path that finalizes an order (fulfilled) and consumes the stock reservation. The signature must cover the exact raw bytes, which is why the pre-request script signs pm.request.body.raw."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const secret = pm.environment.get('razorpayWebhookSecret') || pm.collectionVariables.get('razorpayWebhookSecret');",
+                  "if (!secret) { throw new Error('razorpayWebhookSecret is missing from the active Postman environment.'); }",
+                  "const rawBody = pm.request.body ? pm.request.body.raw : '';",
+                  "// CryptoJS ships with the Postman sandbox.",
+                  "const signature = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'x-razorpay-signature', value: signature });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "NEGATIVE — webhook with a bad signature",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "x-razorpay-event-id", "value": "evt_local_test_bad_sig" },
-              { "key": "x-razorpay-signature", "value": "invalid-signature-value" }
+              {
+                "key": "x-razorpay-event-id",
+                "value": "evt_manual_bad_sig"
+              },
+              {
+                "key": "x-razorpay-signature",
+                "value": "invalid-signature-value"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
-            "body": { "mode": "raw", "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": { \"payment\": { \"entity\": { \"id\": \"pay_rejected\", \"order_id\": \"{{razorpayOrderId}}\", \"amount\": 499900, \"currency\": \"INR\", \"status\": \"captured\" } } }\n}", "options": { "raw": { "language": "json" } } },
-            "url": { "raw": "{{baseUrl}}/api/webhooks/razorpay", "host": ["{{baseUrl}}"], "path": ["api", "webhooks", "razorpay"] },
-            "description": "Only a bad signature is a 4xx; duplicate and already-processed events return 200."
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"pay_rejected\",\n        \"order_id\": \"{{razorpayOrderId}}\",\n        \"amount\": 239900,\n        \"currency\": \"INR\",\n        \"status\": \"captured\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "razorpay"
+              ]
+            },
+            "description": "Only a bad signature is a 4xx; duplicate and already-processed events still return 200."
           },
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.response.to.have.status(400);"
-          ] } }]
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(400);"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
