@@ -13,16 +13,16 @@ interface HeroFullscreenScrubProps {
 }
 
 export function HeroFullscreenScrub({ onTransitionStateChange: _ }: HeroFullscreenScrubProps) {
-  // Catalogue-driven price and destination. No cart line is invented here.
-  const { priceLabel, compareAtLabel, savingsLabel, href } = useNeonFuzzBox();
+  // Catalogue-driven price. No cart line is invented here.
+  const { priceLabel, compareAtLabel, savingsLabel } = useNeonFuzzBox();
   const navigate = useNavigate();
 
   /**
-   * Sends the visitor to the real product (or to the catalogue when it could not
-   * be loaded). It deliberately does not touch the cart: the product id needed
-   * for a genuine cart line comes from the API, not from this marketing page.
+   * Sends the visitor to the shop listing to browse. It deliberately does not
+   * touch the cart and does not jump to a specific product: this is a
+   * "browse the shop" entry point, not a purchase action.
    */
-  const handleQuickAdd = () => navigate(href);
+  const handleQuickAdd = () => navigate('/products');
 
   return (
     <section id="hero" className="relative w-full overflow-hidden" style={{ height: '100dvh' }}>
