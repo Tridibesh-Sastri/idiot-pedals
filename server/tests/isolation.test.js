@@ -530,7 +530,7 @@ describe('email isolation', () => {
     })
     assert.equal(cancelled.status, 200, cancelled.text)
 
-    mock.method(mailer, 'sendMail', async () => {
+    const sendMailMock = mock.method(mailer, 'sendMail', async () => {
       throw new Error('simulated provider outage')
     })
 
@@ -547,6 +547,7 @@ describe('email isolation', () => {
     assert.equal(stored.payment.status, 'paid')
     assert.equal(stored.needsRefund, true)
     assert.equal(stored.refundReason, 'captured_after_cancellation')
+    sendMailMock.mock.restore()
   })
 
   test('the outbox records no recipient-less messages and no real provider ids', () => {
