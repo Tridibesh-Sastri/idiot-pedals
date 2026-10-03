@@ -686,6 +686,39 @@ describe('webhook signature', () => {
     assert.equal(stored.payment.status, 'pending')
     assert.equal(stored.orderStatus, 'pending')
   })
+
+  test('a signature made with the key secret instead of the webhook secret is rejected', async () => {
+    // Precondition: the two secrets really differ, or this test is vacuous
+    // (and the startup guard would refuse to boot with them equal anyway).
+    assert.notEqual(config.RAZORPAY_WEBHOOK_SECRET, config.RAZORPAY_KEY_SECRET)
+
+    const token = await tokenFor()
+    const created = await request('/api/order', { method: 'POST', token, body: orderBody((await createProduct())._id) })
+    const orderId = created.json.order._id
+
+    const razorpayOrderId = `order_keysec_${Date.now()}`
+    await orderModel.updateOne({ _id: orderId }, { $set: { 'payment.razorpayOrderId': razorpayOrderId } })
+
+    const rawBody = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: `pay_keysec_${Date.now()}`, order_id: razorpayOrderId, amount: 100000, currency: 'INR', status: 'captured' } } },
+    })
+
+    // Valid HMAC, wrong secret: the provider key secret instead of the
+    // webhook secret.
+    const wrongSecretSig = crypto.createHmac('sha256', config.RAZORPAY_KEY_SECRET).update(rawBody).digest('hex')
+
+    const res = await request('/api/webhooks/razorpay', {
+      method: 'POST',
+      rawBody,
+      headers: { 'x-razorpay-event-id': `evt_keysec_${Date.now()}`, 'x-razorpay-signature': wrongSecretSig },
+    })
+    assert.equal(res.status >= 400 && res.status < 500, true, `expected 4xx, got ${res.status}: ${res.text}`)
+
+    const stored = await orderModel.findById(orderId).lean()
+    assert.equal(stored.payment.status, 'pending')
+    assert.equal(stored.orderStatus, 'pending')
+  })
 })
 
 /* ========================================================================== */

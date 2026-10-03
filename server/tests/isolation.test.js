@@ -410,6 +410,43 @@ describe('email isolation', () => {
     assert.equal(order.orderStatus, 'fulfilled')
   })
 
+  test('webhook-then-verify sends exactly one admin message total, not two', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor, product } = await createOrderWithRazorpayId({ stock: 4 })
+    const razorpayPaymentId = `pay_whfv_${Date.now()}`
+
+    // Webhook arrives first: fulfills and notifies via the webhook-only path.
+    const rawBody = capturedPayload({ razorpayOrderId, razorpayPaymentId, amount: totalMinor })
+    const delivered = await postRawWebhook(rawBody, { signature: signWebhookBody(rawBody) })
+    assert.equal(delivered.status, 200, JSON.stringify(delivered.json))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(getSentMessagesOfKind('admin-order').length, 1)
+
+    // Late client verify for the same payment: success, no second email.
+    const late = await apiFetch('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId,
+        razorpayPaymentId,
+        razorpayOrderId,
+        razorpaySignature: signPayment(razorpayOrderId, razorpayPaymentId),
+      },
+    })
+    assert.equal(late.status, 200, late.text)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(getSentMessagesOfKind('admin-order').length, 1)
+
+    const order = await orderModel.findById(orderId).lean()
+    assert.equal(order.orderStatus, 'fulfilled')
+    assert.equal(order.payment.status, 'paid')
+
+    // Stock consumed exactly once across both arrivals.
+    const after = await reloadProduct(product._id)
+    assert.equal(after.stock, 3)
+    assert.equal(after.reservedStock, 0)
+  })
+
   test('late webhook on a cancelled order flags needsRefund and sends exactly one refund alert', async () => {
     clearSentMessages()
 

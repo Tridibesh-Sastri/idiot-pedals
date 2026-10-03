@@ -169,6 +169,20 @@ test('test Razorpay key with NODE_ENV=production is refused', async () => {
   assert.match(result.output, /test keys cannot be used with NODE_ENV=production/)
 })
 
+test('missing required MONGO_URI is refused with a clear message', async () => {
+  // Empty value (not a dropped line): the harness strips inherited variables
+  // only for names the synthetic file declares, so the line must stay to
+  // keep the real MONGO_URI out of the child environment.
+  const envFile = buildEnvFile()
+    .split('\n')
+    .map((line) => (line.startsWith('MONGO_URI=') ? 'MONGO_URI=' : line))
+    .join('\n')
+  const result = await loadConfig({ envFile })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /MONGO_URI: missing or empty/)
+})
+
 test('reused Razorpay webhook secret (same as key secret) is refused', async () => {
   const shared = 's'.repeat(32)
   const result = await loadConfig({
