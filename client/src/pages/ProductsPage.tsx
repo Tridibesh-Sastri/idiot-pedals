@@ -38,7 +38,7 @@ const StockBadge: React.FC<{ product: Product }> = ({ product }) => {
 };
 
 const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
-  const { addItem } = useCart();
+  const { addItem, replaceItem } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -47,13 +47,13 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
   const handleAdd = () => {
     if (outOfStock) return;
-    addItem(toCartItem(product, 1), 1);
+    replaceItem(toCartItem(product, 1));
     showToast(`${product.name} added to your cart.`);
   };
 
   const handleBuyNow = () => {
     if (outOfStock) return;
-    addItem(toCartItem(product, 1), 1);
+    replaceItem(toCartItem(product, 1));
     navigate('/checkout');
   };
 

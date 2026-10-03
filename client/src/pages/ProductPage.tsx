@@ -78,7 +78,7 @@ const PedalPlaceholder: React.FC = () => (
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addItem } = useCart();
+  const { addItem, replaceItem } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -134,7 +134,8 @@ export const ProductDetailPage: React.FC = () => {
 
   const handleBuyNow = () => {
     if (!product || outOfStock) return;
-    addItem(toCartItem(product, quantity), quantity);
+    // Buy Now sets the line to the chosen quantity instead of adding to it.
+    replaceItem(toCartItem(product, quantity));
     navigate('/checkout');
   };
 

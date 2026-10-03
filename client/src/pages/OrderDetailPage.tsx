@@ -11,8 +11,7 @@ const STATUS_HEADLINE: Record<Order['status'], string> = {
   confirmed: 'Order Confirmed & Bench Logged',
   processing: 'Bench Assembly In Progress',
   shipped: 'Shipped From The Workbench',
-  in_transit: 'In Transit To You',
-  out_for_delivery: 'Out For Delivery',
+  fulfilled: 'Ready At The Bench',
   delivered: 'Delivered',
   cancelled: 'Order Cancelled',
   returned: 'Order Returned',
@@ -192,9 +191,9 @@ export const OrderDetailPage: React.FC = () => {
             <div className="sm:text-right space-y-1 font-mono-tech">
               <div className="text-xs text-[#8A6A54] uppercase">Estimated Arrival</div>
               <div className="text-sm font-bold text-emerald-600">
-                {order.estimatedDelivery || '3-4 Business Days'}
+                {'Awaiting dispatch'}
               </div>
-              <div className="text-[11px] text-[#8A6A54]">Courier: {order.courierName || 'Assigned at dispatch'}</div>
+              <div className="text-[11px] text-[#8A6A54]">Courier: {order.courierName || 'Not assigned yet'}</div>
             </div>
           </div>
 

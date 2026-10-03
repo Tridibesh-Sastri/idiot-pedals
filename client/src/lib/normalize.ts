@@ -154,8 +154,7 @@ const ORDER_STEPS: { key: OrderStatus; title: string; description: string }[] = 
   { key: 'confirmed', title: 'Order Confirmed', description: 'Payment confirmation recorded.' },
   { key: 'processing', title: 'Bench Assembly', description: 'Your pedal is being assembled and bench tested.' },
   { key: 'shipped', title: 'Shipped', description: 'Handed over to the courier.' },
-  { key: 'in_transit', title: 'In Transit', description: 'In transit through the logistics network.' },
-  { key: 'out_for_delivery', title: 'Out for Delivery', description: 'Courier agent assigned for delivery.' },
+  { key: 'fulfilled', title: 'Ready', description: 'Payment captured and the pedal is queued for the bench.' },
   { key: 'delivered', title: 'Delivered', description: 'Delivered to the recipient.' },
 ];
 
@@ -190,7 +189,7 @@ export function buildOrderTimeline(status: OrderStatus, createdAt: string): Orde
 
   return ORDER_STEPS.map((step, index) => ({
     title: step.title,
-    timestamp: index === 0 && createdAt ? new Date(createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : index <= currentIndex ? 'Completed' : 'Upcoming',
+      timestamp: index === 0 && createdAt ? new Date(createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '',
     completed: index <= currentIndex,
     current: index === currentIndex,
     description: step.description,
