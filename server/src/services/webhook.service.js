@@ -286,6 +286,14 @@ const processPaymentFailed = async ({
 };
 
 /**
+ * How long a claim may sit in `processing` before another delivery may take it
+ * over. This covers the crash case: if the process died after claiming but
+ * before finishing, the event would otherwise be stuck forever and the payment
+ * would never be applied.
+ */
+const STALE_CLAIM_MS = 5 * 60 * 1000
+
+/**
  * Atomically claims an event for processing.
  *
  * Claiming is what makes concurrent deliveries safe: exactly one caller can
@@ -293,12 +301,22 @@ const processPaymentFailed = async ({
  * acknowledged without doing the work.
  *
  *   - a `failed` event can be re-claimed, so provider retries still work
+ *   - a claim stuck in `processing` past STALE_CLAIM_MS can be re-claimed, so a
+ *     crash mid-processing does not lose the event
  *   - otherwise we try to CREATE the event; a duplicate-key error means another
  *     delivery got there first, so we do not claim it
  */
 const claimWebhookEvent = async ({ eventId, event }) => {
+  const staleBefore = new Date(Date.now() - STALE_CLAIM_MS)
+
   const retryable = await WebhookEvent.findOneAndUpdate(
-    { eventId, status: "failed" },
+    {
+      eventId,
+      $or: [
+        { status: "failed" },
+        { status: "processing", updatedAt: { $lte: staleBefore } },
+      ],
+    },
     { $set: { status: "processing", errorMessage: undefined } },
     { returnDocument: "after" }
   );
