@@ -8,8 +8,8 @@ import { ArrowRight, Cpu } from 'lucide-react';
 
 export function ExplodedView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  // Catalogue-driven price and destination.
-  const { priceLabel, href } = useNeonFuzzBox();
+  // Catalogue-driven price.
+  const { priceLabel } = useNeonFuzzBox();
   const navigate = useNavigate();
 
   const { scrollYProgress } = useScroll({
@@ -23,11 +23,13 @@ export function ExplodedView() {
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [1, 1.15, 1.15, 1]);
 
   /**
-   * Goes to the real product (or the catalogue if it could not be loaded).
+   * Goes to the shop listing to browse. It deliberately does not touch the
+   * cart and does not jump to a specific product: this is a "browse the shop"
+   * entry point, not a purchase action.
    * Previously this called `addItem()` with no arguments and toasted "added to
    * cart" — it lied and produced no cart line.
    */
-  const handleQuickAdd = () => navigate(href);
+  const handleQuickAdd = () => navigate('/products');
 
   return (
     <section ref={containerRef} className="relative h-[360vh] w-full bg-[#080B0F] border-t border-white/10">
