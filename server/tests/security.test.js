@@ -14,9 +14,12 @@ import { fakeRazorpay } from "./helpers/testEnv.js";
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
 import http from 'node:http'
 import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import app from '../src/app/app.js'
 import config from '../src/config/config.js'
@@ -519,6 +522,51 @@ describe('error responses', () => {
         assert.equal(pattern.test(response.text), false, `leaked ${pattern} in: ${response.text}`)
       }
     }
+  })
+
+  test('server logs go through the redacting logger, never raw console.error', () => {
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const controllersDir = path.join(here, '..', 'src', 'controllers')
+
+    // A second console.error argument that is a bare error object (not a
+    // message string like `error?.message`) bypasses redaction: stacks and
+    // provider payloads would reach the logs. Message-only sites are fine.
+    const rawObjectPatterns = [
+      /console\.error\(\s*(['"])[\s\S]*?\1\s*,\s*error\s*\)/,
+      /console\.error\(\s*(['"])[\s\S]*?\1\s*,\s*emailError\s*\)/,
+      /console\.error\(\s*(['"])[\s\S]*?\1\s*,\s*err\s*\)/,
+    ]
+
+    for (const name of ['auth.controller.js', 'logoutController.js']) {
+      const source = fs.readFileSync(path.join(controllersDir, name), 'utf8')
+
+      for (const pattern of rawObjectPatterns) {
+        assert.equal(
+          pattern.test(source),
+          false,
+          `${name} still logs a raw error object outside the redacting logger`
+        )
+      }
+      assert.equal(
+        source.includes("from '../utils/logger.js'"),
+        true,
+        `${name} does not import the redacting logger`
+      )
+      assert.equal(
+        source.includes('logger.error'),
+        true,
+        `${name} never calls the redacting logger`
+      )
+    }
+
+    // The mailer-error site must log a stable code only: mailer errors can
+    // carry recipient addresses and SMTP responses.
+    const authSource = fs.readFileSync(path.join(controllersDir, 'auth.controller.js'), 'utf8')
+    assert.equal(
+      authSource.includes('emailError?.code'),
+      true,
+      'verification-email failure does not log a stable code instead of the raw mailer error'
+    )
   })
 })
 

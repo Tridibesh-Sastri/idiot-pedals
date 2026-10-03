@@ -21,6 +21,7 @@ import {
 import { sendVerificationEmail } from '../services/email.service.js'
 import { getGoogleUser } from '../integrations/google/google.service.js'
 import { PUBLIC_USER_FIELDS, serializeUser as publicUser } from '../utils/serializeUser.js'
+import { logger } from '../utils/logger.js'
 
 
 const INTERNAL_ERROR_MESSAGE = 'Internal Server Error.'
@@ -130,9 +131,11 @@ export const registerController = async (req, res) => {
                 token: verificationToken,
             })
         } catch (emailError) {
-            console.error(
-                'Verification email failed:',
-                emailError
+            // Log only a stable code: mailer errors can carry recipient
+            // addresses and SMTP responses, which must never reach the logs.
+            logger.error(
+                { code: emailError?.code ?? 'EMAIL_SEND_FAILED' },
+                'Verification email failed:'
             )
 
             await pendingRegistrationModel.deleteOne({
@@ -157,7 +160,7 @@ export const registerController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error('Register controller error:', error)
+        logger.error({ err: error }, 'Register controller error:')
 
         if (error?.code === 11000) {
             return res.status(409).json({
@@ -391,7 +394,7 @@ export const loginController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error('Login controller error:', error)
+        logger.error({ err: error }, 'Login controller error:')
         return sendInternalError(res)
     }
 }
@@ -586,10 +589,7 @@ export const refreshController = async (req, res) => {
             accessToken: newAccessToken,
         })
     } catch (error) {
-        console.error(
-            'Refresh controller error:',
-            error
-        )
+        logger.error({ err: error }, 'Refresh controller error:')
 
         clearRefreshCookie(res)
         return sendInternalError(res)
@@ -623,10 +623,7 @@ export const getMeController = async (req, res) => {
             },
         })
     } catch (error) {
-        console.error(
-            'Get me controller error:',
-            error
-        )
+        logger.error({ err: error }, 'Get me controller error:')
 
         return sendInternalError(res)
     }
