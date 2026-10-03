@@ -32,6 +32,8 @@ const buildEnvFile = ({
   frontendUrl = 'http://localhost:3000',
   mongoUri = 'mongodb://localhost:27017/idiot-pedal-envtest',
   razorpayKeyId = 'rzp_test_abcdefghijklmnopqrstuvwx',
+  razorpayKeySecret = 'f'.repeat(24),
+  razorpayWebhookSecret = 'g'.repeat(24),
 } = {}) => {
   const lines = [
     'PORT=5000',
@@ -53,8 +55,8 @@ const buildEnvFile = ({
     `GOOGLE_CLIENT_SECRET=${'e'.repeat(32)}`,
     'GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback',
     `RAZORPAY_KEY_ID=${razorpayKeyId}`,
-    `RAZORPAY_KEY_SECRET=${'f'.repeat(24)}`,
-    `RAZORPAY_WEBHOOK_SECRET=${'g'.repeat(24)}`,
+    `RAZORPAY_KEY_SECRET=${razorpayKeySecret}`,
+    `RAZORPAY_WEBHOOK_SECRET=${razorpayWebhookSecret}`,
     `RESEND_API_KEY=${'h'.repeat(24)}`,
     'RESEND_FROM="IDIOT <orders@mailhost.test>"',
     'ADMIN_ORDER_EMAIL=admin@mailhost.test',
@@ -165,6 +167,19 @@ test('test Razorpay key with NODE_ENV=production is refused', async () => {
 
   assert.equal(result.ok, false)
   assert.match(result.output, /test keys cannot be used with NODE_ENV=production/)
+})
+
+test('reused Razorpay webhook secret (same as key secret) is refused', async () => {
+  const shared = 's'.repeat(32)
+  const result = await loadConfig({
+    envFile: buildEnvFile({
+      razorpayKeySecret: shared,
+      razorpayWebhookSecret: shared,
+    }),
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /RAZORPAY_WEBHOOK_SECRET: must differ from RAZORPAY_KEY_SECRET/)
 })
 
 test('production + live key + https origin + remote Mongo loads', async () => {

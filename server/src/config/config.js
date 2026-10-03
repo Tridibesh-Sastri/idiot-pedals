@@ -471,6 +471,20 @@ if (typeof razorpayKeyId === 'string' && razorpayKeyId) {
   }
 }
 
+// Webhook HMAC secret must not be the Razorpay key secret: the two
+// authenticate different channels (provider API vs webhook deliveries), so
+// reusing one value would let a compromise of either channel forge the other.
+if (
+  typeof resolved.RAZORPAY_WEBHOOK_SECRET === 'string' &&
+  typeof resolved.RAZORPAY_KEY_SECRET === 'string' &&
+  resolved.RAZORPAY_WEBHOOK_SECRET &&
+  resolved.RAZORPAY_WEBHOOK_SECRET === resolved.RAZORPAY_KEY_SECRET
+) {
+  errors.push(
+    'RAZORPAY_WEBHOOK_SECRET: must differ from RAZORPAY_KEY_SECRET'
+  )
+}
+
 // Separate secrets must not be reused.
 const distinctSecrets = [
   'ACCESS_TOKEN_SECRET',
