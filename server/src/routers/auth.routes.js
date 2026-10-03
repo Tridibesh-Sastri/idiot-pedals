@@ -12,6 +12,7 @@ import {
     refreshController,
     getMeController,
     verifyEmailController,
+    resendVerificationController,
     googleCallbackController,
 } from '../controllers/auth.controller.js'
 
@@ -27,8 +28,11 @@ import {
     registerValidator,
     loginValidator,
     validateRefreshCookie,
+    resendVerificationValidator,
     validateVerifyEmail
 } from '../validators/auth.validator.js'
+import { createRateLimiter } from '../middlewares/rateLimiter.js'
+import { ipKeyGenerator } from 'express-rate-limit'
 
 const router = express.Router()
 
@@ -127,6 +131,26 @@ const googleRateLimiter = rateLimit({
 })
 
 /*
+ * Resend verification mail: per-IP backstop plus a tighter per-email bound
+ * (same normalized form the controller looks up, so case/whitespace tricks
+ * share one budget; IP fallback for a missing body). The per-email limiter
+ * runs first so a targeted hammer gets the actionable message. Both use the
+ * shared createRateLimiter factory (same pattern as order/payment limiters).
+ */
+const resendVerificationEmailLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    message: 'Too many verification requests for this email address. Please try again later.',
+    keyGenerator: (req) => `resend:${String(req.body?.email ?? '').trim().toLowerCase() || ipKeyGenerator(req.ip)}`,
+})
+
+const resendVerificationIpLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    message: 'Too many verification requests. Please try again later.',
+})
+
+/*
  * Logout is intentionally not heavily restricted.
  * Logout should remain reliable and idempotent.
  */
@@ -216,6 +240,18 @@ router.get(
     verificationRateLimiter,
     validateVerifyEmail,
     verifyEmailController
+)
+
+/*
+ * Resend the verification mail. Public (the caller may be logged out).
+ * Always answers the same generic 200 — see the controller.
+ */
+router.post(
+    '/resend-verification',
+    resendVerificationEmailLimiter,
+    resendVerificationIpLimiter,
+    resendVerificationValidator,
+    resendVerificationController
 )
 
 /*

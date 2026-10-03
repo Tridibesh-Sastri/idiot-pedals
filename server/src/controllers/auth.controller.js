@@ -400,6 +400,107 @@ export const verifyEmailController = async (req, res) => {
 }
 
 /* ============================================================
+   RESEND VERIFICATION EMAIL
+   ============================================================
+ *
+ * Public retry path for a lost verification mail. Answers the SAME generic
+ * 200 body on every path — missing record, expired record, capped record,
+ * in-cooldown record and freshly-sent record are indistinguishable from the
+ * outside, so nothing here reveals whether an address is pending.
+ * retryAfterSeconds is a constant for the same reason (never computed from
+ * per-address state).
+ */
+
+const RESEND_RETRY_AFTER_SECONDS = 60
+
+const resendGenericResponse = (res) =>
+    res.status(200).json({
+        success: true,
+        message:
+            'If a verification email is pending for this address, a new link is on its way. Only the newest email works.',
+        retryAfterSeconds: RESEND_RETRY_AFTER_SECONDS,
+    })
+
+export const resendVerificationController = async (req, res) => {
+    try {
+        const email = normalizeEmail(req.body.email)
+
+        const existing = await pendingRegistrationModel
+            .findOne({ email })
+            .lean()
+
+        const now = Date.now()
+        const isLive =
+            !!existing &&
+            existing.registrationExpiresAt instanceof Date &&
+            existing.registrationExpiresAt.getTime() > now
+
+        if (isLive) {
+            const decision = verificationSendDecision(
+                {
+                    isLive: true,
+                    sendCount: existing.verificationSendCount ?? 0,
+                    lastSentAtMs: existing.lastVerificationSentAt instanceof Date
+                        ? existing.lastVerificationSentAt.getTime()
+                        : undefined,
+                },
+                now
+            )
+
+            if (decision.action === 'send') {
+                const verificationToken = crypto
+                    .randomBytes(32)
+                    .toString('hex')
+
+                const verificationTokenHash = crypto
+                    .createHash('sha256')
+                    .update(verificationToken)
+                    .digest('hex')
+
+                await pendingRegistrationModel.updateOne(
+                    { email },
+                    {
+                        $set: {
+                            verificationTokenHash,
+                            verificationTokenExpiresAt: new Date(
+                                now + config.EMAIL_VERIFICATION_TOKEN_TTL_MS
+                            ),
+                            lastVerificationSentAt: new Date(now),
+                            verificationSendCount:
+                                (existing.verificationSendCount ?? 0) + 1,
+                        },
+                    }
+                )
+
+                try {
+                    await sendVerificationEmail({
+                        name: existing.name,
+                        email,
+                        token: verificationToken,
+                    })
+                } catch (mailError) {
+                    /*
+                     * A distinct status here would reveal that a pending
+                     * record exists, so mail failure stays inside the generic
+                     * body. The user simply retries after the countdown; a
+                     * transient failure self-heals on the next attempt.
+                     */
+                    logger.error(
+                        { code: mailError?.code ?? 'EMAIL_SEND_FAILED' },
+                        'Resend verification email failed:'
+                    )
+                }
+            }
+        }
+
+        return resendGenericResponse(res)
+    } catch (error) {
+        logger.error({ err: error }, 'Resend verification controller error:')
+        return sendInternalError(res)
+    }
+}
+
+/* ============================================================
    EMAIL/PASSWORD LOGIN
    ============================================================ */
 

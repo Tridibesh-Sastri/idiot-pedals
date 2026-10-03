@@ -15,6 +15,7 @@ import { fakeRazorpay } from "./helpers/testEnv.js";
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import http from 'node:http'
 import mongoose from 'mongoose'
 
@@ -176,6 +177,95 @@ describe('register cooldown', () => {
 
     const fresh = await apiFetch(`/api/auth/verify-email?token=${newToken}`)
     assert.equal(fresh.status, 200, fresh.text)
+  })
+})
+
+/* ========================================================================== */
+/* 2. Resend verification endpoint                                               */
+/* ========================================================================== */
+
+describe('resend verification', () => {
+  const resend = (email) =>
+    apiFetch('/api/auth/resend-verification', { method: 'POST', body: { email } })
+
+  /*
+   * Seed a pending record directly: the resend path only reads it, so HTTP
+   * registration here would only burn the shared register budget without
+   * testing anything extra. Tokens are fixed strings (hashed like the real
+   * flow hashes them), so the old/new-link assertions stay exact.
+   */
+  const seedPending = async ({ email, token, minutesAgoSent = 0, count = 1, expired = false } = {}) => {
+    const now = Date.now()
+    await pendingRegistrationModel.create({
+      name: 'Resend Tester',
+      email: email.toLowerCase(),
+      passwordHash: 'test-hash',
+      phone: '9876543210',
+      addresses: [],
+      verificationTokenHash: crypto.createHash('sha256').update(token).digest('hex'),
+      verificationTokenExpiresAt: new Date(now + (expired ? -2000 : 900_000)),
+      registrationExpiresAt: new Date(now + (expired ? -1000 : 1_800_000)),
+      lastVerificationSentAt: new Date(now - minutesAgoSent * 60_000),
+      verificationSendCount: count,
+    })
+    return token
+  }
+
+  const seedEmail = () => `resend-${Date.now()}-${emailCounter}-${Math.random().toString(36).slice(2, 8)}@mailhost.test`
+
+  test('existing and non-existing emails get byte-identical generic bodies', async () => {
+    const email = seedEmail()
+    await seedPending({ email, token: 'a'.repeat(64), minutesAgoSent: 0 })
+
+    const existing = await resend(email)
+    assert.equal(existing.status, 200, existing.text)
+
+    const missing = await resend(`nobody-${Date.now()}@mailhost.test`)
+    assert.equal(missing.status, 200, missing.text)
+
+    assert.deepEqual(missing.json, existing.json)
+  })
+
+  test('resend inside the cooldown sends no new mail', async () => {
+    clearSentMessages()
+    const email = seedEmail()
+    await seedPending({ email, token: 'b'.repeat(64), minutesAgoSent: 0 })
+
+    const resent = await resend(email)
+    assert.equal(resent.status, 200, resent.text)
+    assert.equal(resent.json.retryAfterSeconds, 60)
+
+    assert.equal(getSentMessagesOfKind('email-verification').length, 0)
+  })
+
+  test('resend outside the cooldown rotates and the old link dies', async () => {
+    clearSentMessages()
+    const email = seedEmail()
+    const oldToken = 'c'.repeat(64)
+    await seedPending({ email, token: oldToken, minutesAgoSent: 2 })
+
+    const resent = await resend(email)
+    assert.equal(resent.status, 200, resent.text)
+
+    const mails = getSentMessagesOfKind('email-verification')
+    assert.equal(mails.length, 1)
+    const newToken = extractToken(mails[0].text)
+    assert.notEqual(newToken, oldToken)
+
+    assert.equal((await apiFetch(`/api/auth/verify-email?token=${oldToken}`)).status, 400)
+    assert.equal((await apiFetch(`/api/auth/verify-email?token=${newToken}`)).status, 200)
+  })
+
+  test('resend for an expired record sends nothing but stays generic', async () => {
+    clearSentMessages()
+    const email = seedEmail()
+    await seedPending({ email, token: 'd'.repeat(64), expired: true })
+
+    const resent = await resend(email)
+    assert.equal(resent.status, 200, resent.text)
+
+    // Expired (or TTL-swept) either way: no new mail, same generic body.
+    assert.equal(getSentMessagesOfKind('email-verification').length, 0)
   })
 })
 

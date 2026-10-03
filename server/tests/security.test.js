@@ -935,6 +935,25 @@ describe('rate limits', () => {
     assert.equal(sawLimit, true, 'register never returned 429')
   })
 
+  test('resend-verification is rate limited per email address', async () => {
+    const email = `rl-hammer-${Date.now()}@mailhost.test`
+    let last = null
+
+    // Per-email budget is 5 per 15 minutes: the first five pass, the sixth
+    // is refused with the per-email message (not the generic IP one). The
+    // per-email limiter runs first, so its message wins deterministically.
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      last = await request('/api/auth/resend-verification', {
+        method: 'POST',
+        body: { email },
+      })
+      if (attempt < 5) assert.equal(last.status, 200, last.text)
+    }
+
+    assert.equal(last.status, 429, `expected 429, got ${last?.status}: ${last?.text}`)
+    assert.match(last.json?.message ?? '', /for this email address/i)
+  })
+
   test('payment create is rate limited', async () => {
     const token = await tokenFor()
     let sawLimit = false

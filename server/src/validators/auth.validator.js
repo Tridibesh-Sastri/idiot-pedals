@@ -228,6 +228,29 @@ export const validateRefreshCookie = [
  * `googleCallbackController`, which redirects instead of returning a body.
  */
 
+/*
+ * POST /api/auth/resend-verification takes an email only. Rules mirror the
+ * register email rules exactly (same shape in, same 400s out).
+ */
+export const resendVerificationValidator = [
+    body('email')
+        .exists()
+        .withMessage('Email is required')
+        .bail()
+        .isString()
+        .withMessage('Email must be a string')
+        .bail()
+        .trim()
+        .toLowerCase()
+        .isEmail()
+        .withMessage('Enter a valid email')
+        .bail()
+        .isLength({ max: 254 })
+        .withMessage('Email is too long'),
+
+    handleValidationErrors,
+]
+
 export const validateVerifyEmail = (req, res, next) => {
     const { token } = req.query;
 

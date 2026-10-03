@@ -202,6 +202,50 @@
           ]
         },
         {
+          "name": "POST /api/auth/resend-verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"PASTE_TEST_ACCOUNT_EMAIL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Always answers the same generic 200 body whether or not a pending registration exists (no existence oracle). Throttled per IP and per email address."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.response.to.have.status(200);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "POST /api/auth/login",
           "request": {
             "method": "POST",
