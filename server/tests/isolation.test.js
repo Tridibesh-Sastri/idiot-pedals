@@ -550,6 +550,76 @@ describe('email isolation', () => {
     sendMailMock.mock.restore()
   })
 
+  test('mailer outage during admin order email still leaves order/payment succeeded and logs redacted failure', async () => {
+    clearSentMessages()
+
+    const { orderId, razorpayOrderId, totalMinor } = await createOrderWithRazorpayId()
+    const razorpayPaymentId = `pay_adminfail_${Date.now()}`
+
+    fakeRazorpay.stagePayment(razorpayPaymentId, {
+      id: razorpayPaymentId,
+      order_id: razorpayOrderId,
+      amount: totalMinor,
+      currency: 'INR',
+      status: 'captured',
+    })
+
+    const sendMailMock = mock.method(mailer, 'sendMail', async () => {
+      throw new Error('simulated provider outage')
+    })
+
+    const loggedErrors = []
+    const consoleErrorMock = mock.method(console, 'error', (...args) => {
+      loggedErrors.push(args)
+    })
+
+    let unhandledRejectionOccurred = false
+    const onUnhandledRejection = () => {
+      unhandledRejectionOccurred = true
+    }
+    process.on('unhandledRejection', onUnhandledRejection)
+
+    try {
+      const verified = await apiFetch('/api/payments/razorpay/verify', {
+        method: 'POST',
+        body: {
+          orderId,
+          razorpayPaymentId,
+          razorpayOrderId,
+          razorpaySignature: signPayment(razorpayOrderId, razorpayPaymentId),
+        },
+      })
+      assert.equal(verified.status, 200, verified.text)
+      await new Promise((resolve) => setImmediate(resolve))
+
+      // No admin-order email was recorded in outbox due to provider failure
+      assert.equal(getSentMessagesOfKind('admin-order').length, 0)
+
+      // Order still saves and succeeds
+      const order = await orderModel.findById(orderId).lean()
+      assert.equal(order.orderStatus, 'confirmed')
+      assert.equal(order.payment.status, 'paid')
+
+      // No unhandled rejection
+      assert.equal(unhandledRejectionOccurred, false)
+
+      // Exactly one redacted log line emitted for the failed admin order email
+      const adminEmailErrors = loggedErrors.filter((args) =>
+        args.some((arg) => typeof arg === 'string' && arg.includes('Failed to send admin order email'))
+      )
+      assert.equal(adminEmailErrors.length, 1)
+
+      const [errMeta, msg] = adminEmailErrors[0]
+      assert.equal(msg, 'Failed to send admin order email')
+      assert.equal(errMeta.orderNumber, order.orderNumber)
+      assert.equal(errMeta.err.message, 'simulated provider outage')
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandledRejection)
+      consoleErrorMock.mock.restore()
+      sendMailMock.mock.restore()
+    }
+  })
+
   test('the outbox records no recipient-less messages and no real provider ids', () => {
     for (const message of getSentMessages()) {
       assert.equal(message.subject.length > 0, true)

@@ -1,7 +1,7 @@
 import config from '../config/config.js'
 import { sendMail } from './mailer.service.js'
 /*
- * Default-export access to the same gate, used ONLY by
+ * Default-export access to the same gate, used by sendAdminOrderEmail and
  * sendAdminRefundAlertEmail below so tests can simulate a provider outage
  * with mock.method. Production behavior is identical to sendMail.
  */
@@ -480,7 +480,7 @@ const sendAdminOrderEmail = async (order) => {
          * EMAIL_NOTIFICATIONS_ENABLED and, in tests, records the message in the
          * in-memory outbox instead of calling Resend.
          */
-        const result = await sendMail({
+        const result = await mailer.sendMail({
             channel: 'resend',
             kind: 'admin-order',
             from: config.RESEND_FROM,
