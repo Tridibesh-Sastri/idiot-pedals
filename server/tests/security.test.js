@@ -28,6 +28,7 @@ import productModel from '../src/models/product.model.js'
 import orderModel from '../src/models/order.model.js'
 import webhookEventModel from '../src/models/webhookEvent.model.js'
 import { accessTokenGenerator } from '../src/utils/tokenManager.js'
+import { buildRefreshCookieOptions } from '../src/services/auth.service.js'
 import { clearSentMessages, getSentMessagesOfKind } from '../src/services/mailer.service.js'
 
 const TEST_DB = 'idiot-pedals-test'
@@ -590,6 +591,33 @@ describe('cookies', () => {
     // Signed cookies carry a second segment.
     assert.match(stateCookie, /oauth_state=[^;]+\.[^;]+/)
     assert.match(res.location ?? '', /^https:\/\/accounts\.google\.com\//)
+  })
+
+  test('the session cookie builder emits strict-by-default, none-when-configured flags', () => {
+    // Default (test env): strict, non-secure outside production, Path=/.
+    assert.deepEqual(buildRefreshCookieOptions(), {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      path: '/',
+    })
+
+    // Split-domain posture: SameSite=None forces Secure (browsers reject
+    // None without it), even outside production.
+    assert.deepEqual(buildRefreshCookieOptions('none'), {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+    })
+
+    // Unknown values fall back to the safest posture, never to a lax one.
+    assert.deepEqual(buildRefreshCookieOptions('lax'), {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'strict',
+      path: '/',
+    })
   })
 
   test('the refresh-cookie clear targets the same scope it was set with (Path=/)', async () => {

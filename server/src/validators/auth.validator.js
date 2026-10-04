@@ -1,6 +1,6 @@
 import { body, cookie, validationResult } from 'express-validator'
 
-import config from '../config/config.js'
+import { buildRefreshCookieOptions } from '../services/auth.service.js'
 
 /*
  * Address item shape, mirroring pendingRegistration addressSchema so a
@@ -277,14 +277,9 @@ export const validateRefreshCookie = [
       const firstError = errors.array()[0].msg;
 
       // Always clear out any unauthenticated cookies if an active mismatch occurs.
-      // path must mirror the set options (Path=/), otherwise the browser
-      // treats the clear as a different cookie and the stale one survives.
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: config.IS_PRODUCTION,
-        sameSite: 'strict',
-        path: '/',
-      });
+      // Flags come from the shared builder so set/clear can never drift apart
+      // (a mismatched path or sameSite silently fails to delete the cookie).
+      res.clearCookie('refreshToken', buildRefreshCookieOptions());
 
       return res.status(401).json({
         success: false,
