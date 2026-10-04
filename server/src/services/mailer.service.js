@@ -90,6 +90,7 @@ export const resolveTransportKind = () => {
  * @param {string} [message.html]
  * @param {string} [message.idempotencyKey]
  * @param {string} [message.from]
+ * @param {string} [message.replyTo]   optional Reply-To, passed through verbatim
  */
 export const sendMail = async ({
     channel = 'resend',
@@ -100,8 +101,9 @@ export const sendMail = async ({
     html,
     idempotencyKey,
     from,
+    replyTo,
 }) => {
-    const message = { channel, kind, to, subject, text, html, idempotencyKey, from }
+    const message = { channel, kind, to, subject, text, html, idempotencyKey, from, replyTo }
 
     // 1. Tests: the fake is mandatory and unconditional.
     if (config.NODE_ENV === 'test') {

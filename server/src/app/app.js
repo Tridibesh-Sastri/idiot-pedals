@@ -11,6 +11,7 @@ import orderRouter from '../routers/order.routes.js'
 import productRouter from '../routers/product.routes.js'
 import paymentRouter from '../routers/payment.routes.js'
 import webhookRouter from "../routers/webhook.routes.js";
+import contactRouter from "../routers/contact.routes.js";
 import config from '../config/config.js'
 import { createRateLimiter } from '../middlewares/rateLimiter.js'
 import { logger } from '../utils/logger.js'
@@ -174,6 +175,19 @@ app.use(
 app.use(
     "/api/webhooks",
     webhookRouter
+)
+
+/*
+ * -------------------------------------------------------
+ * CONTACT FORM
+ * -------------------------------------------------------
+ *
+ * Mounted BEFORE express.json(), like webhooks: this route enforces its
+ * own 10kb body cap via the router below.
+ */
+app.use(
+    "/api/contact",
+    contactRouter
 )
 
 /*

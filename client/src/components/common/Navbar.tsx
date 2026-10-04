@@ -22,6 +22,26 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
     setIsMobileMenuOpen(false);
   }, [location.pathname, location.hash]);
 
+  // Lock body scroll and listen for Escape when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setIsMobileMenuOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isMobileMenuOpen]);
+
   // Navbar is always visible — no scroll animation hiding it
   const isVisible = true;
 
@@ -152,59 +172,69 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
 
       {/* Mobile Drawer Navigation Menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#0B0E14]/98 backdrop-blur-3xl pt-28 px-6 md:hidden flex flex-col justify-between pb-10 animate-in fade-in duration-200">
-          <div className="flex flex-col gap-5">
-            <div className="border-b border-white/10 pb-4 mb-2">
-              <IdiotPedalsLogo variant="dark" size="md" />
-              <p className="text-xs text-[#8E98A8] font-mono-tech tracking-widest uppercase mt-2">
-                Handcrafted Analog Guitar Gear —— Burdwan
-              </p>
+        <div
+          className="fixed inset-0 z-40 bg-[#0B0E14] md:hidden h-[100dvh] overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+        >
+          <div className="min-h-full flex flex-col justify-between pt-24 sm:pt-28 px-6 pb-8 max-w-md mx-auto w-full">
+            <div className="flex flex-col gap-4">
+              <div className="border-b border-white/10 pb-3 mb-1">
+                <IdiotPedalsLogo variant="dark" size="md" />
+                <p className="text-[11px] text-[#8E98A8] font-mono-tech tracking-widest uppercase mt-1.5">
+                  Handcrafted Analog Guitar Gear —— Burdwan
+                </p>
+              </div>
+
+              {/* Primary account action — prominent so logged-out users find sign-in immediately */}
+              <Link
+                to={isAuthenticated ? '/account' : '/login'}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-3 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-lg shadow-[#FF5E1E]/25 transition-transform active:scale-[0.98]"
+              >
+                <UserIcon size={14} />
+                <span>{isAuthenticated ? (user?.name?.split(' ')[0] || 'My Account') : 'Sign In'}</span>
+              </Link>
+
+              {navLinks.map((link) => {
+                const active = isLinkActive(link.path);
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`text-xl font-editorial tracking-wide flex items-center justify-between py-2 border-b border-white/5 transition-colors ${
+                      active ? 'text-[#FF5E1E]' : 'text-[#F6F4EE] hover:text-[#FF5E1E]'
+                    }`}
+                  >
+                    <span>{link.name}</span>
+                    <ArrowRight size={15} className={active ? 'text-[#FF5E1E]' : 'text-[#8E98A8]'} />
+                  </Link>
+                );
+              })}
+
+              <Link
+                to={isAuthenticated ? '/orders' : '/login'}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-xs font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] flex items-center justify-between py-2"
+              >
+                <span>My Orders & Tracking</span>
+                <ArrowRight size={14} />
+              </Link>
             </div>
 
-            {/* Primary account action — prominent so logged-out users find sign-in immediately */}
-            <Link
-              to={isAuthenticated ? '/account' : '/login'}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-3.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
-            >
-              <UserIcon size={14} />
-              <span>{isAuthenticated ? (user?.name?.split(' ')[0] || 'My Account') : 'Sign In'}</span>
-            </Link>
-
-            {navLinks.map((link) => (
+            <div className="pt-6 pb-2 space-y-3 mt-auto">
               <Link
-                key={link.name}
-                to={link.path}
+                to="/products"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="text-2xl font-editorial tracking-wide text-[#F6F4EE] hover:text-[#FF5E1E] flex items-center justify-between py-2 border-b border-white/5"
+                className="w-full py-3.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30 transition-transform active:scale-[0.98]"
               >
-                <span>{link.name}</span>
-                <ArrowRight size={16} className="text-[#FF5E1E]" />
+                <span>Shop Pedals</span>
+                <ArrowRight size={14} />
               </Link>
-            ))}
-
-            <Link
-              to={isAuthenticated ? '/orders' : '/login'}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="text-sm font-mono-tech tracking-wider uppercase text-[#8E98A8] hover:text-[#F6F4EE] flex items-center justify-between py-2"
-            >
-              <span>My Orders & Tracking</span>
-              <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          <div className="space-y-4">
-            <Link
-              to="/products"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="w-full py-4 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
-            >
-              <span>Shop Pedals</span>
-              <ArrowRight size={14} />
-            </Link>
-            <p className="text-center text-[11px] font-mono-tech text-[#8E98A8]">
-              Free Insured Shipping Across India • 1-Year Bench Warranty
-            </p>
+              <p className="text-center text-[10px] font-mono-tech text-[#8E98A8]">
+                Free Insured Shipping Across India • 1-Year Bench Warranty
+              </p>
+            </div>
           </div>
         </div>
       )}

@@ -70,6 +70,7 @@ export const resendTransport = {
             subject: message.subject,
             html: message.html,
             text: message.text,
+            ...(message.replyTo ? { reply_to: message.replyTo } : {}),
         }
 
         const options = message.idempotencyKey
@@ -106,6 +107,7 @@ export const smtpTransport = {
             subject: message.subject,
             text: message.text,
             html: message.html,
+            ...(message.replyTo ? { replyTo: message.replyTo } : {}),
         })
 
         return { id: info?.messageId ?? null, kind: 'smtp' }

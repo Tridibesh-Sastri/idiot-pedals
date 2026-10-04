@@ -140,6 +140,11 @@ const SPEC = {
   STOCK_RESERVATION_TTL_MS: { type: 'int', default: 15 * 60 * 1000, min: 60 * 1000 },
   STOCK_RELEASE_INTERVAL_CRON: { type: 'string', default: '* * * * *' },
 
+  /* Contact form abuse limits (per-instance, like all limiters here) -------- */
+  CONTACT_RATE_IP_MAX: { type: 'int', default: 5, min: 1 },
+  CONTACT_RATE_EMAIL_MAX: { type: 'int', default: 3, min: 1 },
+  CONTACT_RATE_DAILY_MAX: { type: 'int', default: 50, min: 1 },
+
   /* Observability ---------------------------------------------------------- */
   LOG_LEVEL: { type: 'enum', values: ['trace', 'debug', 'info', 'warn', 'error', 'fatal'], default: 'info' },
 
@@ -586,6 +591,11 @@ const config = {
   /* Inventory reservation */
   STOCK_RESERVATION_TTL_MS: resolved.STOCK_RESERVATION_TTL_MS,
   STOCK_RELEASE_INTERVAL_CRON: resolved.STOCK_RELEASE_INTERVAL_CRON,
+
+  /* Contact form abuse limits */
+  CONTACT_RATE_IP_MAX: resolved.CONTACT_RATE_IP_MAX,
+  CONTACT_RATE_EMAIL_MAX: resolved.CONTACT_RATE_EMAIL_MAX,
+  CONTACT_RATE_DAILY_MAX: resolved.CONTACT_RATE_DAILY_MAX,
 
   /* Observability */
   LOG_LEVEL: resolved.LOG_LEVEL,
