@@ -161,6 +161,16 @@ export const Navbar: React.FC<NavbarProps> = ({ forceVisible = false, isScrubCom
               </p>
             </div>
 
+            {/* Primary account action — prominent so logged-out users find sign-in immediately */}
+            <Link
+              to={isAuthenticated ? '/account' : '/login'}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="w-full py-3.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white font-mono-tech font-bold tracking-[0.2em] uppercase text-center rounded-full flex items-center justify-center gap-2 text-xs shadow-xl shadow-[#FF5E1E]/30"
+            >
+              <UserIcon size={14} />
+              <span>{isAuthenticated ? (user?.name?.split(' ')[0] || 'My Account') : 'Sign In'}</span>
+            </Link>
+
             {navLinks.map((link) => (
               <Link
                 key={link.name}
