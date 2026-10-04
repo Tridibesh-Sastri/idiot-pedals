@@ -2,6 +2,21 @@ import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send, HelpCircle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { sanitizeString } from '../lib/security';
+import { ApiError, api, describeApiError } from '../lib/api';
+
+/**
+ * User-facing copy for a failed contact submission, by status.
+ * Pure so it stays unit-testable (see client/tests/contactForm.test.ts).
+ */
+export function contactSubmitError(error: unknown): string {
+  if (error instanceof ApiError) {
+    // 400 carries field-level detail — unpack it, don't show a generic line.
+    if (error.status === 400) return describeApiError(error);
+    if (error.status === 429 && error.message) return error.message;
+    if (error.status === 429) return 'Too many messages sent. Please wait a while and try again later.';
+  }
+  return 'Could not send your message right now. Please try again later.';
+}
 
 export const ContactPage: React.FC = () => {
   const { showToast } = useToast();
@@ -9,6 +24,7 @@ export const ContactPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('technical');
   const [message, setMessage] = useState('');
+  const [website, setWebsite] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -24,7 +40,19 @@ export const ContactPage: React.FC = () => {
     setName(cleanName);
     setMessage(cleanMessage);
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      await api.post('/contact', {
+        name: cleanName,
+        email: email.trim(),
+        subject,
+        message: cleanMessage,
+        website,
+      });
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      showToast(contactSubmitError(err), 'error');
+      return;
+    }
     setIsSubmitting(false);
     setSubmitted(true);
     showToast('Your message was sent straight to the workbench team!');
@@ -212,6 +240,17 @@ export const ContactPage: React.FC = () => {
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl p-4 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                 </div>
+
+                {/* Honeypot: invisible to humans, irresistible to bots. */}
+                <input
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="sr-only"
+                />
 
                 <button
                   type="submit"
