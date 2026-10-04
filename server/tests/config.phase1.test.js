@@ -174,6 +174,15 @@ test('test Razorpay key with NODE_ENV=production is refused', async () => {
   assert.match(result.output, /test keys cannot be used with NODE_ENV=production/)
 })
 
+test('an invalid COOKIE_SAMESITE is refused', async () => {
+  const result = await loadConfig({
+    envFile: `${buildEnvFile()}COOKIE_SAMESITE=sideways\n`,
+  })
+
+  assert.equal(result.ok, false)
+  assert.match(result.output, /COOKIE_SAMESITE/)
+})
+
 test('missing required MONGO_URI is refused with a clear message', async () => {
   // Empty value (not a dropped line): the harness strips inherited variables
   // only for names the synthetic file declares, so the line must stay to

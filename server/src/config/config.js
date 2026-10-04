@@ -122,6 +122,14 @@ const SPEC = {
   ACCESS_TOKEN_SECRET: { type: 'secret', required: true, minLength: APP_SECRET_MIN_LENGTH },
   REFRESH_TOKEN_SECRET: { type: 'secret', required: true, minLength: APP_SECRET_MIN_LENGTH },
   COOKIE_SECRET: { type: 'secret', required: true, minLength: APP_SECRET_MIN_LENGTH },
+  /*
+   * SameSite posture for the session (refresh) cookie. 'strict' is the
+   * default and correct when frontend and backend share one origin or one
+   * parent domain. 'none' is for split-domain layouts (e.g. app on one
+   * domain, API on another): browsers only send it cross-site with Secure,
+   * so 'none' forces secure=true regardless of NODE_ENV.
+   */
+  COOKIE_SAMESITE: { type: 'enum', values: ['strict', 'none'], default: 'strict' },
 
   /* Frontend / tokens ---------------------------------------------------- */
   FRONTEND_URL: { type: 'originList', required: true },
@@ -561,6 +569,7 @@ const config = {
   ACCESS_TOKEN_SECRET: resolved.ACCESS_TOKEN_SECRET,
   REFRESH_TOKEN_SECRET: resolved.REFRESH_TOKEN_SECRET,
   COOKIE_SECRET: resolved.COOKIE_SECRET,
+  COOKIE_SAMESITE: resolved.COOKIE_SAMESITE,
 
   /*
    * Frontend origin. `FRONTEND_URL` is the primary origin (used for the
