@@ -107,7 +107,7 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li className="pt-2 text-[11px] text-[#8A6A54]/80 leading-normal">
-                Ships nationwide via Shiprocket with live SMS & tracking updates.
+                Ships nationwide via Shiprocket. Tracking details are shared once your order ships.
               </li>
             </ul>
           </div>
