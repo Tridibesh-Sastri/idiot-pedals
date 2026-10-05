@@ -624,9 +624,9 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
-                    Email Address (for Invoice & Tracking Link) *
-                  </label>
+                    <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
+                      Email Address *
+                    </label>
                   <input
                     type="email"
                     required
@@ -848,9 +848,9 @@ export const CheckoutPage: React.FC = () => {
                     <Truck size={14} className="text-[#FF5E1E]" />
                     <span>Estimated Arrival: 2 - 4 Business Days</span>
                   </div>
-                  <p className="font-light">
-                    Dispatches directly from Burdwan Audio Labs. Tracking link sent via SMS upon handover.
-                  </p>
+                    <p className="font-light">
+                      Dispatched directly from our Burdwan workbench.
+                    </p>
                 </div>
               </div>
             </div>

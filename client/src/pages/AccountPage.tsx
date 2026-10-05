@@ -650,7 +650,7 @@ export const AccountPage: React.FC = () => {
               </div>
               <div>
                 <div className="text-sm font-bold text-[#2A1A12] font-mono-tech">Shipments & Orders</div>
-                <div className="text-xs text-[#8A6A54]">Track live delivery status</div>
+                <div className="text-xs text-[#8A6A54]">View your orders and their status</div>
               </div>
             </div>
             <ArrowRight size={16} className="text-[#8A6A54] group-hover:text-[#FF5E1E] transition-colors" />

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
-  Truck,
   ShieldCheck,
   MapPin,
   Printer,
@@ -272,32 +271,12 @@ export const OrderDetailPage: React.FC = () => {
               <div className="text-sm font-bold text-emerald-600">
                 {"Awaiting dispatch"}
               </div>
-              <div className="text-[11px] text-[#8A6A54]">
-                Courier: {order.courierName || "Not assigned yet"}
-              </div>
             </div>
           </div>
 
-          {/* Tracking Number Card */}
-          {order.trackingNumber && (
-            <div className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono-tech">
-              <div className="flex items-center gap-3">
-                <Truck size={20} className="text-[#FF5E1E] shrink-0" />
-                <div>
-                  <div className="text-[11px] uppercase text-[#8A6A54]">
-                    Live Tracking AWB Number
-                  </div>
-                  <div className="text-sm font-bold text-[#2A1A12]">
-                    {order.trackingNumber}
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs text-emerald-600 font-bold uppercase flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live Courier Sync
-              </span>
-            </div>
-          )}
+          <div className="text-xs text-[#8A6A54] font-mono-tech leading-relaxed">
+            We share dispatch and tracking details with you directly once your order ships.
+          </div>
         </div>
 
         {/* Visual Shipping Journey Timeline */}
