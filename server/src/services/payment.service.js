@@ -94,7 +94,7 @@ const createRazorpayPaymentOrder = async ({ orderId, userId }) => {
     {
       $set: { "payment.razorpayOrderId": razorpayOrder.id },
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!claimed) {

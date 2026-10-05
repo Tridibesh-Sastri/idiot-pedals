@@ -349,7 +349,7 @@ export const updateProduct = async (productId, data) => {
         $set: updateData,
       },
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
         context: "query",
       }

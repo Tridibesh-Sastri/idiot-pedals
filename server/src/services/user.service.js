@@ -59,7 +59,7 @@ export const updateUserProfile = async ({ userId, updates }) => {
       .findByIdAndUpdate(
         userId,
         { $set: patch },
-        { new: true, runValidators: true, context: 'query' }
+        { returnDocument: 'after', runValidators: true, context: 'query' }
       )
       .select(PUBLIC_USER_FIELDS)
       .lean()

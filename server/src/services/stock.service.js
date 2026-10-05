@@ -198,7 +198,7 @@ export const releaseExpiredReservations = async ({ now = new Date() } = {}) => {
                     'payment.failureReason': 'reservation_expired',
                 },
             },
-            { new: true }
+            { returnDocument: 'after' }
         )
 
         if (!claimed) continue
