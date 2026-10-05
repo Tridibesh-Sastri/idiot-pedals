@@ -10,7 +10,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { selectCheckoutContact } from '../src/pages/CheckoutPage';
+import { buildSavedAddressEntry, selectCheckoutContact } from '../src/pages/CheckoutPage';
 import type { User } from '../src/types';
 
 const address = (overrides = {}) => ({
@@ -95,5 +95,33 @@ describe('selectCheckoutContact', () => {
 
     assert.equal(selection.phone, '   ');
     assert.equal(selection.hasPhone, false);
+  });
+});
+
+describe('buildSavedAddressEntry', () => {
+  const fields = {
+    name: 'Test User',
+    phone: '9876543210',
+    addressLine1: '1 Test Street',
+    addressLine2: '',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    postalCode: '700001',
+  };
+
+  it('labels the first saved address Home and makes it default', () => {
+    const entry = buildSavedAddressEntry(fields, 0);
+
+    assert.equal(entry.label, 'Home');
+    assert.equal(entry.isDefault, true);
+    assert.equal(entry.country, 'India');
+    assert.equal(entry.phone, '9876543210');
+  });
+
+  it('labels later addresses distinctly without forcing default', () => {
+    const entry = buildSavedAddressEntry(fields, 2);
+
+    assert.equal(entry.label, 'Address 3');
+    assert.equal(entry.isDefault, false);
   });
 });

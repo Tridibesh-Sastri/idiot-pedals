@@ -11,6 +11,7 @@ import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
 import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode } from '../lib/validation';
 import { ShippingAddress, PaymentMethod, User, UserAddress } from '../types';
+import { userService } from '../services/userService';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { LoadingState } from '../components/common/AsyncState';
 
@@ -40,9 +41,39 @@ export function selectCheckoutContact(user: User | null | undefined): CheckoutCo
   };
 }
 
+export interface NewAddressFields {
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+}
+
+/**
+ * Builds the saved-address entry for a newly typed address. Labels it
+ * 'Home' for a first address, 'Address N' afterwards so picker rows stay
+ * distinguishable. Pure and unit-tested.
+ */
+export function buildSavedAddressEntry(fields: NewAddressFields, existingCount: number): UserAddress {
+  return {
+    label: existingCount <= 0 ? 'Home' : `Address ${existingCount + 1}`,
+    name: fields.name,
+    phone: fields.phone,
+    addressLine1: fields.addressLine1,
+    addressLine2: fields.addressLine2 || undefined,
+    city: fields.city,
+    state: fields.state,
+    postalCode: fields.postalCode,
+    country: 'India',
+    isDefault: existingCount <= 0,
+  };
+}
+
 export const CheckoutPage: React.FC = () => {
   const { items, subtotal, total, clearCart, replaceItem, removeItem, updateQuantity } = useCart();
-  const { user, isAuthenticated, initializing } = useAuth();
+  const { user, isAuthenticated, initializing, refreshUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -62,6 +93,14 @@ export const CheckoutPage: React.FC = () => {
   const [checkingCart, setCheckingCart] = useState(true);
   const [cartWarning, setCartWarning] = useState<string[]>([]);
   const [priceNotice, setPriceNotice] = useState<string[]>([]);
+
+  // Saved-contact reuse: summary mode shows the preselected phone + address
+  // with a Change action; edit mode shows the picker + full form.
+  const [editingContact, setEditingContact] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [addressNotice, setAddressNotice] = useState('');
+  const contactInitRef = useRef(false);
 
   const submittedRef = useRef(false);
 
@@ -85,6 +124,50 @@ export const CheckoutPage: React.FC = () => {
       setPostalCode((prev) => prev || address.postalCode);
     }
   }, [user]);
+
+  // One-time contact setup: users with a phone and a saved address start in
+  // summary mode with the default preselected; everyone else gets the form.
+  useEffect(() => {
+    if (!user || contactInitRef.current) return;
+    contactInitRef.current = true;
+    const selection = selectCheckoutContact(user);
+    const addresses = Array.isArray(user.addresses) ? user.addresses : [];
+    if (selection.hasPhone && selection.hasAddress && selection.address) {
+      const defaultIndex = addresses.indexOf(selection.address);
+      setSelectedIndex(defaultIndex >= 0 ? defaultIndex : 0);
+      setEditingContact(false);
+    }
+    setSaveAddress(true);
+  }, [user]);
+
+  const fillFieldsFromAddress = (address: UserAddress) => {
+    setAddressLine1(address.addressLine1 ?? '');
+    setAddressLine2(address.addressLine2 ?? '');
+    setCity(address.city ?? '');
+    setState(address.state ?? '');
+    setPostalCode(address.postalCode ?? '');
+  };
+
+  const clearAddressFields = () => {
+    setAddressLine1('');
+    setAddressLine2('');
+    setCity('');
+    setState('');
+    setPostalCode('');
+  };
+
+  const chooseSavedAddress = (index: number) => {
+    const addresses = Array.isArray(user?.addresses) ? user.addresses : [];
+    const address = addresses[index];
+    if (!address) return;
+    setSelectedIndex(index);
+    fillFieldsFromAddress(address);
+  };
+
+  const chooseNewAddress = () => {
+    setSelectedIndex(null);
+    clearAddressFields();
+  };
 
   /* ---------------------------------------------------------------------- */
   /* Reconcile the cart against the live catalogue (stale/deleted products)  */
@@ -192,6 +275,48 @@ export const CheckoutPage: React.FC = () => {
     if (!isValidPinCode(cleanPostal)) {
       setSubmitError(new ApiError('validation', 'Please enter a valid 6-digit postal PIN code.'));
       return;
+    }
+
+    setAddressNotice('');
+
+    // Ask-once phone: the profile lacks one, so save it before ordering.
+    // A failure blocks here — the order needs a reachable number anyway.
+    if (user && !selectCheckoutContact(user).hasPhone) {
+      try {
+        await userService.updateProfile({ phone: cleanPhone });
+        await refreshUser();
+      } catch (error) {
+        setSubmitError(new ApiError('validation', `Could not save your phone number: ${describeApiError(error)}`));
+        return;
+      }
+    }
+
+    // Ask-once address: persist a newly typed address when asked. Best
+    // effort — a save failure must never block the order itself.
+    const savedAddresses = Array.isArray(user?.addresses) ? user.addresses : [];
+    if (user && saveAddress && selectedIndex === null) {
+      try {
+        await userService.updateProfile({
+          addresses: [
+            ...savedAddresses,
+            buildSavedAddressEntry(
+              {
+                name: cleanName,
+                phone: cleanPhone,
+                addressLine1: cleanAddress1,
+                addressLine2: cleanAddress2 || undefined,
+                city: cleanCity,
+                state: cleanState,
+                postalCode: cleanPostal,
+              },
+              savedAddresses.length
+            ),
+          ],
+        });
+        await refreshUser();
+      } catch {
+        setAddressNotice('Note: this address could not be saved for next time, but your order can still proceed.');
+      }
     }
 
     // TOCTOU snapshot: freeze the cart the user is paying for at submit time.
@@ -331,6 +456,11 @@ export const CheckoutPage: React.FC = () => {
   const submitErrorMessage =
     submitError instanceof ApiError || submitError instanceof Error ? submitError.message : '';
 
+  const savedContactAddresses = Array.isArray(user?.addresses)
+    ? user.addresses.filter((entry): entry is UserAddress => !!entry && typeof entry === 'object')
+    : [];
+  const contactLocked = !editingContact && !!user;
+
   return (
     <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 overflow-hidden relative">
       {/* Glow */}
@@ -398,6 +528,66 @@ export const CheckoutPage: React.FC = () => {
           <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Left Column */}
             <div className="lg:col-span-7 space-y-6">
+
+              {contactLocked && user ? (
+                <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 backdrop-blur-xl">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#F0D3B8]">
+                    <div className="text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold">
+                      Deliver to
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact(true)}
+                      className="px-4 py-2 bg-[#FFF1E6] border border-[#F0D3B8] text-[11px] font-mono-tech font-bold uppercase rounded-full text-[#2A1A12] hover:border-[#FF5E1E] transition-colors cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                  <div className="text-sm font-bold text-[#2A1A12]">{fullName || user.name}</div>
+                  <div className="text-xs text-[#8A6A54] font-mono-tech">{phone}</div>
+                  <div className="text-xs text-[#8A6A54] font-mono-tech leading-relaxed">
+                    {addressLine1}
+                    {addressLine2 ? `, ${addressLine2}` : ''}, {city}, {state} - {postalCode}
+                  </div>
+                </div>
+              ) : (
+              <>
+
+              {editingContact && savedContactAddresses.length > 0 && (
+                <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-3 backdrop-blur-xl">
+                  <div className="text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
+                    Saved addresses
+                  </div>
+                  {savedContactAddresses.map((saved, index) => (
+                    <label
+                      key={saved.id ?? `${saved.addressLine1}-${index}`}
+                      className="flex items-start gap-2.5 p-3 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl text-xs cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="saved-address"
+                        checked={selectedIndex === index}
+                        onChange={() => chooseSavedAddress(index)}
+                        className="mt-0.5 accent-[#FF5E1E]"
+                      />
+                      <span className="text-[#2A1A12]">
+                        <span className="font-bold">{saved.label || 'Address'}</span>
+                        {saved.isDefault ? ' (Default)' : ''} — {saved.addressLine1}, {saved.city} - {saved.postalCode}
+                      </span>
+                    </label>
+                  ))}
+                  <label className="flex items-start gap-2.5 p-3 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl text-xs cursor-pointer">
+                    <input
+                      type="radio"
+                      name="saved-address"
+                      checked={selectedIndex === null}
+                      onChange={chooseNewAddress}
+                      className="mt-0.5 accent-[#FF5E1E]"
+                    />
+                    <span className="text-[#2A1A12]">Use a new address</span>
+                  </label>
+                </div>
+              )}
 
               {/* Step 1: Contact */}
               <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
@@ -534,7 +724,23 @@ export const CheckoutPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {selectedIndex === null && (
+                  <label className="flex items-center gap-2 text-xs font-mono-tech text-[#8A6A54] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      className="accent-[#FF5E1E]"
+                    />
+                    <span>Save this address for next time</span>
+                  </label>
+                )}
+                {addressNotice && (
+                  <p className="text-[11px] text-[#8A6A54] font-mono-tech">{addressNotice}</p>
+                )}
               </div>
+              </>)}
 
               {/* Step 3: Payment */}
               <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
