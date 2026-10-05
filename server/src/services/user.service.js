@@ -9,7 +9,31 @@ import { PUBLIC_USER_FIELDS } from '../utils/serializeUser.js'
  * `phoneVerified`, `passwordHash`, `authProviders` and `email` can never be
  * written from a request body.
  */
-const UPDATABLE_FIELDS = ['name', 'phone']
+const UPDATABLE_FIELDS = ['name', 'phone', 'addresses']
+
+/**
+ * Normalizes a replacement address list to exactly zero-or-one defaults:
+ * the first marked entry wins, the rest are cleared; if nothing is marked
+ * and the list is non-empty, the first entry becomes the default.
+ */
+const normalizeDefaultAddress = (addresses) => {
+  if (!Array.isArray(addresses) || addresses.length === 0) return addresses
+
+  if (!addresses.some((address) => address?.isDefault === true)) {
+    return addresses.map((address, index) =>
+      index === 0 ? { ...address, isDefault: true } : address
+    )
+  }
+
+  let defaultSeen = false
+  return addresses.map((address) => {
+    if (address?.isDefault === true && !defaultSeen) {
+      defaultSeen = true
+      return address
+    }
+    return { ...address, isDefault: false }
+  })
+}
 
 export const getPublicUserById = async (userId) =>
   userModel.findById(userId).select(PUBLIC_USER_FIELDS).lean()
@@ -18,8 +42,8 @@ export const updateUserProfile = async ({ userId, updates }) => {
   const patch = {}
 
   for (const field of UPDATABLE_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(updates ?? {}, field)) {
-      patch[field] = updates[field]
+    if (Object.prototype.hasOwnProperty.call(updates ?? {}, field) && updates[field] !== undefined) {
+      patch[field] = field === 'addresses' ? normalizeDefaultAddress(updates[field]) : updates[field]
     }
   }
 

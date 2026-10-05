@@ -151,7 +151,7 @@ export const CartDrawer: React.FC = () => {
               <div className="p-4 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl text-xs font-mono-tech space-y-2 text-[#8A6A54]">
                 <div className="flex items-center gap-2">
                   <Truck size={14} className="text-[#FF5E1E]" />
-                  <span>Free insured dispatch via Blue Dart Express</span>
+                  <span>Free insured dispatch via Shiprocket</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={14} className="text-[#FF5E1E]" />

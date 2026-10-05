@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { CreditCard, Banknote, ArrowRight, Lock, Truck, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { CreditCard, ArrowRight, Lock, Truck, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -9,13 +9,71 @@ import { paymentService } from '../services/paymentService';
 import { getActiveProducts } from '../services/productService';
 import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
-import { ShippingAddress, PaymentMethod } from '../types';
+import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode, validateContactFields } from '../lib/validation';
+import { ShippingAddress, User, UserAddress } from '../types';
+import { userService } from '../services/userService';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { LoadingState } from '../components/common/AsyncState';
 
+/**
+ * Picks the checkout contact from a profile. Pure and null-safe: the User
+ * type promises a string phone and an address array, but any un-normalised
+ * shape (stale cache, future producer) must degrade to empty, never throw.
+ */
+export interface CheckoutContactSelection {
+  phone: string;
+  address: UserAddress | null;
+  hasPhone: boolean;
+  hasAddress: boolean;
+}
+
+export function selectCheckoutContact(user: User | null | undefined): CheckoutContactSelection {
+  const phone = typeof user?.phone === 'string' ? user.phone : '';
+  const addresses = Array.isArray(user?.addresses)
+    ? user.addresses.filter((entry): entry is UserAddress => !!entry && typeof entry === 'object')
+    : [];
+  const address = addresses.find((entry) => entry.isDefault) ?? addresses[0] ?? null;
+  return {
+    phone,
+    address,
+    hasPhone: phone.trim().length > 0,
+    hasAddress: address !== null,
+  };
+}
+
+export interface NewAddressFields {
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+}
+
+/**
+ * Builds the saved-address entry for a newly typed address. Labels it
+ * 'Home' for a first address, 'Address N' afterwards so picker rows stay
+ * distinguishable. Pure and unit-tested.
+ */
+export function buildSavedAddressEntry(fields: NewAddressFields, existingCount: number): UserAddress {
+  return {
+    label: existingCount <= 0 ? 'Home' : `Address ${existingCount + 1}`,
+    name: fields.name,
+    phone: fields.phone,
+    addressLine1: fields.addressLine1,
+    addressLine2: fields.addressLine2 || undefined,
+    city: fields.city,
+    state: fields.state,
+    postalCode: fields.postalCode,
+    country: 'India',
+    isDefault: existingCount <= 0,
+  };
+}
+
 export const CheckoutPage: React.FC = () => {
   const { items, subtotal, total, clearCart, replaceItem, removeItem, updateQuantity } = useCart();
-  const { user, isAuthenticated, initializing } = useAuth();
+  const { user, isAuthenticated, initializing, refreshUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -27,14 +85,43 @@ export const CheckoutPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('razorpay');
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [submitError, setSubmitError] = useState<unknown>(null);
+  const [touchedFields, setTouchedFields] = useState<ReadonlySet<string>>(new Set());
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const touchField = (field: string) =>
+    setTouchedFields((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
+
+  // Live errors (recomputed every render, so fixing a value clears it
+  // immediately); shown only for touched fields or after a submit attempt.
+  const liveContactErrors = validateContactFields({
+    name: fullName,
+    phone,
+    addressLine1,
+    city,
+    state,
+    postalCode,
+  });
+  const visibleContactErrors: Record<string, string> = {};
+  for (const [field, message] of Object.entries(liveContactErrors)) {
+    if (submitAttempted || touchedFields.has(field)) visibleContactErrors[field] = message;
+  }
 
   const [checkingCart, setCheckingCart] = useState(true);
   const [cartWarning, setCartWarning] = useState<string[]>([]);
   const [priceNotice, setPriceNotice] = useState<string[]>([]);
+
+  // Saved-contact reuse: summary mode shows the preselected phone + address
+  // with a Change action; edit mode shows the picker + full form.
+  const [editingContact, setEditingContact] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [addressNotice, setAddressNotice] = useState('');
+  const [phoneNotice, setPhoneNotice] = useState('');
+  const contactInitRef = useRef(false);
 
   const submittedRef = useRef(false);
 
@@ -44,19 +131,64 @@ export const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    const selection = selectCheckoutContact(user);
     setFullName((prev) => prev || user.name);
     setEmail((prev) => prev || user.email);
-    setPhone((prev) => prev || user.phone.replace(/\D/g, '').slice(0, 10));
+    setPhone((prev) => prev || selection.phone.replace(/\D/g, '').slice(0, 10));
 
-    const defaultAddress = user.addresses.find((address) => address.isDefault) ?? user.addresses[0];
-    if (defaultAddress) {
-      setAddressLine1((prev) => prev || defaultAddress.addressLine1);
-      setAddressLine2((prev) => prev || defaultAddress.addressLine2 || '');
-      setCity((prev) => prev || defaultAddress.city);
-      setState((prev) => prev || defaultAddress.state);
-      setPostalCode((prev) => prev || defaultAddress.postalCode);
+    if (selection.address) {
+      const { address } = selection;
+      setAddressLine1((prev) => prev || address.addressLine1);
+      setAddressLine2((prev) => prev || address.addressLine2 || '');
+      setCity((prev) => prev || address.city);
+      setState((prev) => prev || address.state);
+      setPostalCode((prev) => prev || address.postalCode);
     }
   }, [user]);
+
+  // One-time contact setup: users with a phone and a saved address start in
+  // summary mode with the default preselected; everyone else gets the form.
+  useEffect(() => {
+    if (!user || contactInitRef.current) return;
+    contactInitRef.current = true;
+    const selection = selectCheckoutContact(user);
+    const addresses = Array.isArray(user.addresses) ? user.addresses : [];
+    if (selection.hasPhone && selection.hasAddress && selection.address) {
+      const defaultIndex = addresses.indexOf(selection.address);
+      setSelectedIndex(defaultIndex >= 0 ? defaultIndex : 0);
+      setEditingContact(false);
+    }
+    setSaveAddress(true);
+  }, [user]);
+
+  const fillFieldsFromAddress = (address: UserAddress) => {
+    setAddressLine1(address.addressLine1 ?? '');
+    setAddressLine2(address.addressLine2 ?? '');
+    setCity(address.city ?? '');
+    setState(address.state ?? '');
+    setPostalCode(address.postalCode ?? '');
+  };
+
+  const clearAddressFields = () => {
+    setAddressLine1('');
+    setAddressLine2('');
+    setCity('');
+    setState('');
+    setPostalCode('');
+  };
+
+  const chooseSavedAddress = (index: number) => {
+    const addresses = Array.isArray(user?.addresses) ? user.addresses : [];
+    const address = addresses[index];
+    if (!address) return;
+    setSelectedIndex(index);
+    fillFieldsFromAddress(address);
+  };
+
+  const chooseNewAddress = () => {
+    setSelectedIndex(null);
+    clearAddressFields();
+  };
 
   /* ---------------------------------------------------------------------- */
   /* Reconcile the cart against the live catalogue (stale/deleted products)  */
@@ -131,39 +263,96 @@ export const CheckoutPage: React.FC = () => {
     if (!isAuthenticated) return;
 
     setSubmitError(null);
+    setSubmitAttempted(true);
 
     if (items.length === 0) {
       setSubmitError(new ApiError('validation', 'Your cart is empty. Add a pedal before checking out.'));
       return;
     }
 
+    if (Object.keys(liveContactErrors).length > 0) {
+      setEditingContact(true);
+      const fieldOrder = ['name', 'phone', 'addressLine1', 'city', 'state', 'postalCode'];
+      const firstInvalidField = fieldOrder.find((f) => f in liveContactErrors) || Object.keys(liveContactErrors)[0];
+      const fieldIdMap: Record<string, string> = {
+        name: 'checkout-name',
+        phone: 'checkout-phone',
+        addressLine1: 'checkout-addressLine1',
+        city: 'checkout-city',
+        state: 'checkout-state',
+        postalCode: 'checkout-postalCode',
+      };
+      setTimeout(() => {
+        const el = document.getElementById(fieldIdMap[firstInvalidField]);
+        if (el) el.focus();
+      }, 0);
+      return;
+    }
+
     const cleanName = sanitizeString(fullName);
     const cleanEmail = email.trim().toLowerCase().slice(0, 254);
-    const cleanPhone = phone.trim().replace(/\D/g, '').slice(0, 20);
+    const cleanPhone = normalizePhoneDigits(phone.trim());
     const cleanAddress1 = sanitizeString(addressLine1);
     const cleanAddress2 = sanitizeString(addressLine2);
     const cleanCity = sanitizeString(city);
     const cleanState = sanitizeString(state);
-    const cleanPostal = postalCode.trim().replace(/\D/g, '');
+    const cleanPostal = normalizePinCode(postalCode.trim());
 
-    if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress1 || !cleanCity || !cleanState || !cleanPostal) {
-      setSubmitError(new ApiError('validation', 'Please fill in all required shipping fields.'));
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setSubmitError(new ApiError('validation', 'Please enter a valid email address.'));
+      setTimeout(() => {
+        const el = document.getElementById('checkout-email');
+        if (el) el.focus();
+      }, 0);
       return;
     }
 
-    if (cleanPhone.length < 10) {
-      setSubmitError(new ApiError('validation', 'Please enter a valid 10-digit phone number.'));
-      return;
+    // Lock against double-submit BEFORE the first await so that any async
+    // path (phone save, address save, order create, Razorpay) is protected.
+    setIsProcessing(true);
+    submittedRef.current = true;
+
+    setPhoneNotice('');
+    setAddressNotice('');
+
+    // Ask-once phone: saving the phone to the profile is best-effort.
+    // On ANY failure (including 409 PHONE_IN_USE), continue ordering with the
+    // typed phone and show a small non-blocking notice.
+    if (user && !selectCheckoutContact(user).hasPhone) {
+      try {
+        await userService.updateProfile({ phone: cleanPhone });
+        await refreshUser();
+      } catch {
+        setPhoneNotice('Note: this phone could not be saved to your profile, but your order will proceed with it.');
+      }
     }
 
-    if (cleanPostal.length !== 6) {
-      setSubmitError(new ApiError('validation', 'Please enter a valid 6-digit postal PIN code.'));
-      return;
+    // Ask-once address: persist a newly typed address when asked. Best
+    // effort — a save failure must never block the order itself.
+    const savedAddresses = Array.isArray(user?.addresses) ? user.addresses : [];
+    if (user && saveAddress && selectedIndex === null) {
+      try {
+        await userService.updateProfile({
+          addresses: [
+            ...savedAddresses,
+            buildSavedAddressEntry(
+              {
+                name: cleanName,
+                phone: cleanPhone,
+                addressLine1: cleanAddress1,
+                addressLine2: cleanAddress2 || undefined,
+                city: cleanCity,
+                state: cleanState,
+                postalCode: cleanPostal,
+              },
+              savedAddresses.length
+            ),
+          ],
+        });
+        await refreshUser();
+      } catch {
+        setAddressNotice('Note: this address could not be saved for next time, but your order can still proceed.');
+      }
     }
 
     // TOCTOU snapshot: freeze the cart the user is paying for at submit time.
@@ -181,27 +370,18 @@ export const CheckoutPage: React.FC = () => {
       country: 'India',
     };
 
-    setIsProcessing(true);
-    submittedRef.current = true;
-
     let createdOrderId: string | null = null;
 
     try {
       // 1. Create the order server-side (client sends productId + quantity only).
+      // Razorpay-only storefront: the method is fixed, never chosen in UI.
       const order = await orderService.createOrder({
         items: orderItems,
-        paymentMethod,
+        paymentMethod: 'razorpay',
         shippingAddress,
       });
 
       createdOrderId = order.id;
-
-      if (paymentMethod === 'cod') {
-        clearCart();
-        showToast('Order confirmed via Cash on Delivery!');
-        navigate(`/orders/${order.id}`);
-        return;
-      }
 
       // 2. Razorpay: create payment order -> modal -> server verification.
       if (!order.serverId) {
@@ -303,6 +483,11 @@ export const CheckoutPage: React.FC = () => {
   const submitErrorMessage =
     submitError instanceof ApiError || submitError instanceof Error ? submitError.message : '';
 
+  const savedContactAddresses = Array.isArray(user?.addresses)
+    ? user.addresses.filter((entry): entry is UserAddress => !!entry && typeof entry === 'object')
+    : [];
+  const contactLocked = !editingContact && !!user;
+
   return (
     <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 overflow-hidden relative">
       {/* Glow */}
@@ -320,7 +505,7 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-600 font-mono-tech">
             <Lock size={14} />
-            <span>256-Bit Encrypted</span>
+            <span>Secure payments by Razorpay</span>
           </div>
         </div>
 
@@ -371,6 +556,66 @@ export const CheckoutPage: React.FC = () => {
             {/* Left Column */}
             <div className="lg:col-span-7 space-y-6">
 
+              {contactLocked && user ? (
+                <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 backdrop-blur-xl">
+                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#F0D3B8]">
+                    <div className="text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold">
+                      Deliver to
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact(true)}
+                      className="px-4 py-2 bg-[#FFF1E6] border border-[#F0D3B8] text-[11px] font-mono-tech font-bold uppercase rounded-full text-[#2A1A12] hover:border-[#FF5E1E] transition-colors cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                  <div className="text-sm font-bold text-[#2A1A12]">{fullName || user.name}</div>
+                  <div className="text-xs text-[#8A6A54] font-mono-tech">{phone}</div>
+                  <div className="text-xs text-[#8A6A54] font-mono-tech leading-relaxed">
+                    {addressLine1}
+                    {addressLine2 ? `, ${addressLine2}` : ''}, {city}, {state} - {postalCode}
+                  </div>
+                </div>
+              ) : (
+              <>
+
+              {editingContact && savedContactAddresses.length > 0 && (
+                <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-3 backdrop-blur-xl">
+                  <div className="text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
+                    Saved addresses
+                  </div>
+                  {savedContactAddresses.map((saved, index) => (
+                    <label
+                      key={saved.id ?? `${saved.addressLine1}-${index}`}
+                      className="flex items-start gap-2.5 p-3 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl text-xs cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="saved-address"
+                        checked={selectedIndex === index}
+                        onChange={() => chooseSavedAddress(index)}
+                        className="mt-0.5 accent-[#FF5E1E]"
+                      />
+                      <span className="text-[#2A1A12]">
+                        <span className="font-bold">{saved.label || 'Address'}</span>
+                        {saved.isDefault ? ' (Default)' : ''} — {saved.addressLine1}, {saved.city} - {saved.postalCode}
+                      </span>
+                    </label>
+                  ))}
+                  <label className="flex items-start gap-2.5 p-3 bg-[#FFF1E6] border border-[#F0D3B8] rounded-2xl text-xs cursor-pointer">
+                    <input
+                      type="radio"
+                      name="saved-address"
+                      checked={selectedIndex === null}
+                      onChange={chooseNewAddress}
+                      className="mt-0.5 accent-[#FF5E1E]"
+                    />
+                    <span className="text-[#2A1A12]">Use a new address</span>
+                  </label>
+                </div>
+              )}
+
               {/* Step 1: Contact */}
               <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
                 <div className="flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-[#2A1A12] font-bold pb-2 border-b border-[#F0D3B8]">
@@ -386,13 +631,16 @@ export const CheckoutPage: React.FC = () => {
                       Full Name *
                     </label>
                     <input
+                      id="checkout-name"
                       type="text"
                       required
                       maxLength={150}
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      onBlur={() => touchField('name')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.name && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.name}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -400,22 +648,27 @@ export const CheckoutPage: React.FC = () => {
                       Phone (for Delivery SMS) *
                     </label>
                     <input
+                      id="checkout-phone"
                       type="tel"
                       required
                       maxLength={20}
                       inputMode="numeric"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onBlur={() => touchField('phone')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.phone && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.phone}</p>}
+                    {phoneNotice && <p className="text-[11px] text-[#8A6A54] font-mono-tech">{phoneNotice}</p>}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
-                    Email Address (for Invoice & Tracking Link) *
-                  </label>
+                    <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
+                      Email Address *
+                    </label>
                   <input
+                    id="checkout-email"
                     type="email"
                     required
                     maxLength={254}
@@ -439,15 +692,18 @@ export const CheckoutPage: React.FC = () => {
                   <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Address Line 1 (Flat, House, Building, Street) *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={500}
-                    value={addressLine1}
-                    onChange={(e) => setAddressLine1(e.target.value)}
-                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
-                  />
-                </div>
+                    <input
+                      id="checkout-addressLine1"
+                      type="text"
+                      required
+                      maxLength={500}
+                      value={addressLine1}
+                      onChange={(e) => setAddressLine1(e.target.value)}
+                      onBlur={() => touchField('addressLine1')}
+                      className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    />
+                    {visibleContactErrors.addressLine1 && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.addressLine1}</p>}
+                  </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
@@ -468,13 +724,16 @@ export const CheckoutPage: React.FC = () => {
                       City *
                     </label>
                     <input
+                      id="checkout-city"
                       type="text"
                       required
                       maxLength={100}
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
+                      onBlur={() => touchField('city')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.city && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.city}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -482,13 +741,16 @@ export const CheckoutPage: React.FC = () => {
                       State *
                     </label>
                     <input
+                      id="checkout-state"
                       type="text"
                       required
                       maxLength={100}
                       value={state}
                       onChange={(e) => setState(e.target.value)}
+                      onBlur={() => touchField('state')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.state && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.state}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -496,17 +758,36 @@ export const CheckoutPage: React.FC = () => {
                       PIN Code *
                     </label>
                     <input
+                      id="checkout-postalCode"
                       type="text"
                       required
                       maxLength={6}
                       inputMode="numeric"
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onBlur={() => touchField('postalCode')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.postalCode && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.postalCode}</p>}
                   </div>
                 </div>
+
+                {selectedIndex === null && (
+                  <label className="flex items-center gap-2 text-xs font-mono-tech text-[#8A6A54] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                      className="accent-[#FF5E1E]"
+                    />
+                    <span>Save this address for next time</span>
+                  </label>
+                )}
+                {addressNotice && (
+                  <p className="text-[11px] text-[#8A6A54] font-mono-tech">{addressNotice}</p>
+                )}
               </div>
+              </>)}
 
               {/* Step 3: Payment */}
               <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 backdrop-blur-xl">
@@ -517,14 +798,9 @@ export const CheckoutPage: React.FC = () => {
                   <span>Payment Method</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <label
-                    onClick={() => setPaymentMethod('razorpay')}
-                    className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
-                      paymentMethod === 'razorpay'
-                        ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                        : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
-                    }`}
+                <div className="grid grid-cols-1 gap-4">
+                  <div
+                    className="p-5 rounded-2xl border flex flex-col justify-between space-y-2.5 transition-all bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -532,43 +808,15 @@ export const CheckoutPage: React.FC = () => {
                         <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">Razorpay Secure</span>
                       </div>
                       <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          paymentMethod === 'razorpay' ? 'border-[#FF5E1E] bg-[#FF5E1E]' : 'border-[#E4C3A5]'
-                        }`}
+                        className="w-4 h-4 rounded-full border flex items-center justify-center border-[#FF5E1E] bg-[#FF5E1E]"
                       >
-                        {paymentMethod === 'razorpay' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
                       </div>
                     </div>
                     <p className="text-[11px] text-[#8A6A54] font-light">
                       UPI (GPay / PhonePe / Paytm), Credit / Debit Cards, Netbanking.
                     </p>
-                  </label>
-
-                  <label
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
-                      paymentMethod === 'cod'
-                        ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                        : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <Banknote size={18} className="text-[#FF5E1E]" />
-                        <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">Cash on Delivery</span>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          paymentMethod === 'cod' ? 'border-[#FF5E1E] bg-[#FF5E1E]' : 'border-[#E4C3A5]'
-                        }`}
-                      >
-                        {paymentMethod === 'cod' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-[#8A6A54] font-light">
-                      Pay cash upon delivery to the express courier.
-                    </p>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -643,9 +891,7 @@ export const CheckoutPage: React.FC = () => {
                   <span>
                     {isProcessing
                       ? 'Connecting to Workbench...'
-                      : paymentMethod === 'razorpay'
-                        ? `Pay ₹${total.toLocaleString('en-IN')} via Razorpay`
-                        : `Confirm Order (Cash on Delivery) — ₹${total.toLocaleString('en-IN')}`}
+                      : `Pay ₹${total.toLocaleString('en-IN')} via Razorpay`}
                   </span>
                   <ArrowRight size={14} />
                 </button>
@@ -655,9 +901,9 @@ export const CheckoutPage: React.FC = () => {
                     <Truck size={14} className="text-[#FF5E1E]" />
                     <span>Estimated Arrival: 2 - 4 Business Days</span>
                   </div>
-                  <p className="font-light">
-                    Dispatches directly from Burdwan Audio Labs. Tracking link sent via SMS upon handover.
-                  </p>
+                    <p className="font-light">
+                      Dispatched directly from our Burdwan workbench.
+                    </p>
                 </div>
               </div>
             </div>

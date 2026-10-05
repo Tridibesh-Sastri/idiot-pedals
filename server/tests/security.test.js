@@ -237,6 +237,157 @@ describe('product authorization', () => {
 })
 
 /* ========================================================================== */
+/* 1b. Profile address book (PATCH /api/users/me accepts addresses)              */
+/* ========================================================================== */
+
+describe('profile addresses', () => {
+  const address = (overrides = {}) => ({
+    label: 'Home',
+    name: 'Security User',
+    phone: '9876543210',
+    addressLine1: '1 Test Street',
+    addressLine2: '',
+    city: 'Kolkata',
+    state: 'West Bengal',
+    postalCode: '700001',
+    country: 'India',
+    isDefault: false,
+    ...overrides,
+  })
+
+  const authedUser = async () => {
+    const user = await createUser({ role: 'customer' })
+    const token = await accessTokenGenerator({ userId: user._id, role: 'customer' })
+    return { user, token }
+  }
+
+  test('add addresses: first becomes default when none is marked', async () => {
+    const { user, token } = await authedUser()
+
+    const res = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address(), address({ label: 'Work', addressLine1: '2 Work Road' })] },
+    })
+    assert.equal(res.status, 200, res.text)
+
+    const after = await userModel.findById(user._id).lean()
+    assert.equal(after.addresses.length, 2)
+    assert.deepEqual(
+      after.addresses.map((entry) => entry.isDefault),
+      [true, false]
+    )
+  })
+
+  test('edit and delete replace the whole list; explicit default is kept', async () => {
+    const { user, token } = await authedUser()
+    await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address({ label: 'A' }), address({ label: 'B' })] },
+    })
+
+    const edited = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address({ label: 'B2', isDefault: true })] },
+    })
+    assert.equal(edited.status, 200, edited.text)
+
+    const afterEdit = await userModel.findById(user._id).lean()
+    assert.equal(afterEdit.addresses.length, 1)
+    assert.equal(afterEdit.addresses[0].label, 'B2')
+    assert.equal(afterEdit.addresses[0].isDefault, true)
+
+    const cleared = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [] },
+    })
+    assert.equal(cleared.status, 200, cleared.text)
+    assert.deepEqual((await userModel.findById(user._id).lean()).addresses, [])
+  })
+
+  test('multiple defaults normalize to exactly one (first marked wins)', async () => {
+    const { user, token } = await authedUser()
+
+    const res = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address({ isDefault: true }), address({ isDefault: true })] },
+    })
+    assert.equal(res.status, 200, res.text)
+
+    const after = await userModel.findById(user._id).lean()
+    assert.deepEqual(
+      after.addresses.map((entry) => entry.isDefault),
+      [true, false]
+    )
+  })
+
+  test('over 20 items, unknown fields and malformed items are 400', async () => {
+    const { token } = await authedUser()
+
+    const tooMany = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: Array.from({ length: 21 }, (_, i) => address({ label: `L${i}` })) },
+    })
+    assert.equal(tooMany.status, 400, tooMany.text)
+
+    const unknownField = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address({ role: 'admin' })] },
+    })
+    assert.equal(unknownField.status, 400, unknownField.text)
+
+    const missingCity = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [{ ...address(), city: '' }] },
+    })
+    assert.equal(missingCity.status, 400, missingCity.text)
+  })
+
+  test('privileged fields are still rejected alongside valid addresses', async () => {
+    const { user, token } = await authedUser()
+
+    const res = await request('/api/users/me', {
+      method: 'PATCH',
+      token,
+      body: { addresses: [address()], role: 'admin', emailVerified: true },
+    })
+    assert.equal(res.status, 400, res.text)
+
+    const after = await userModel.findById(user._id).lean()
+    assert.equal(after.role, 'customer')
+    assert.deepEqual(after.addresses ?? [], [])
+  })
+
+  test('taken phone still 409s and empty patch still 400s', async () => {
+    const first = await authedUser()
+    const second = await authedUser()
+    const firstDoc = await userModel.findById(first.user._id).lean()
+
+    const conflict = await request('/api/users/me', {
+      method: 'PATCH',
+      token: second.token,
+      body: { phone: firstDoc.phone },
+    })
+    assert.equal(conflict.status, 409, conflict.text)
+
+    const empty = await request('/api/users/me', {
+      method: 'PATCH',
+      token: second.token,
+      body: {},
+    })
+    assert.equal(empty.status, 400, empty.text)
+    assert.equal(empty.json.code, 'NO_UPDATABLE_FIELDS')
+  })
+})
+
+/* ========================================================================== */
 /* 2 + 3. Token forgery and role trust                                          */
 /* ========================================================================== */
 

@@ -23,6 +23,7 @@ import config from '../src/config/config.js'
 import userModel from '../src/models/user.model.js'
 import productModel from '../src/models/product.model.js'
 import orderModel from '../src/models/order.model.js'
+import webhookEventModel from '../src/models/webhookEvent.model.js'
 import { accessTokenGenerator } from '../src/utils/tokenManager.js'
 import {
   multiplyMinor,
@@ -149,7 +150,7 @@ before(async () => {
   await mongoose.connect(testMongoUri)
   await mongoose.connection.dropDatabase()
 
-  await Promise.all([userModel.init(), productModel.init(), orderModel.init()])
+  await Promise.all([userModel.init(), productModel.init(), orderModel.init(), webhookEventModel.init()])
 
   user = await userModel.create({
     name: 'Phase Two User',
@@ -803,7 +804,55 @@ describe('webhook handling', () => {
 })
 
 /* ========================================================================== */
-/* 5. Order cancellation                                                         */
+/* 5. Order contact validation (phone + PIN parity with the client)                */
+/* ========================================================================== */
+
+describe('order contact validation', () => {
+  const postOrder = (productId, overrides = {}) =>
+    apiFetch('/api/order', {
+      method: 'POST',
+      body: {
+        ...orderPayload(productId, 1),
+        customer: { name: 'Phase Two', email: 'phase2@mailhost.test', phone: '9000000123' },
+        shippingAddress: {
+          name: 'Phase Two',
+          phone: '9000000123',
+          addressLine1: '1 Test Street',
+          city: 'Kolkata',
+          state: 'West Bengal',
+          postalCode: '700001',
+          country: 'India',
+        },
+        ...overrides,
+      },
+    })
+
+  test('garbage phones and PINs are rejected with 400', async () => {
+    const product = await createProduct({ price: 1000, stock: 5 })
+
+    for (const patch of [
+      { customer: { name: 'Phase Two', email: 'phase2@mailhost.test', phone: 'abc' } },
+      { customer: { name: 'Phase Two', email: 'phase2@mailhost.test', phone: '0123456789' } },
+      { shippingAddress: { name: 'Phase Two', phone: 'xyz', addressLine1: '1 Test Street', city: 'Kolkata', state: 'West Bengal', postalCode: '700001', country: 'India' } },
+      { shippingAddress: { name: 'Phase Two', phone: '9000000123', addressLine1: '1 Test Street', city: 'Kolkata', state: 'West Bengal', postalCode: '12345', country: 'India' } },
+    ]) {
+      const res = await postOrder(product._id, patch)
+      assert.equal(res.status, 400, `expected 400, got ${res.status}: ${res.text}`)
+    }
+  })
+
+  test('valid contact details are accepted on razorpay and COD paths', async () => {
+    for (const paymentMethod of ['razorpay', 'cod']) {
+      const product = await createProduct({ price: 1000, stock: 5 })
+
+      const res = await postOrder(product._id, { paymentMethod })
+      assert.equal(res.status, 201, `${paymentMethod}: got ${res.status}: ${res.text}`)
+    }
+  })
+})
+
+/* ========================================================================== */
+/* 6. Order cancellation                                                         */
 /* ========================================================================== */
 
 describe('order cancellation', () => {
@@ -975,7 +1024,7 @@ describe('order cancellation', () => {
 })
 
 /* ========================================================================== */
-/* 6. Log redaction                                                            */
+/* 7. Log redaction                                                            */
 /* ========================================================================== */
 
 describe('log redaction', () => {

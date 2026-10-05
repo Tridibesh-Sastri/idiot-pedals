@@ -7,12 +7,12 @@ import { useToast } from '../context/ToastContext';
 import { authService } from '../services/authService';
 import { describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
+import { validateContactFields, PROFILE_CONTACT_CAPS } from '../lib/validation';
 import { useResendCountdown } from '../lib/useResendCountdown';
 import type { UserAddress } from '../types';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^[6-9]\d{9}$/;
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
@@ -35,40 +35,74 @@ export const RegisterPage: React.FC = () => {
   const [error, setError] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
+  const [touchedFields, setTouchedFields] = useState<ReadonlySet<string>>(new Set());
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const touchField = (field: string) =>
+    setTouchedFields((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
+
+  const cleanName = sanitizeString(name);
+  const cleanAddress1 = sanitizeString(addressLine1);
+  const cleanCity = sanitizeString(city);
+  const cleanState = sanitizeString(state);
+
+  // Address item validation matches server auth.validator.js limits
+  const contactErrors = validateContactFields(
+    {
+      name: cleanName,
+      phone,
+      addressLine1: cleanAddress1,
+      city: cleanCity,
+      state: cleanState,
+      postalCode,
+    },
+    PROFILE_CONTACT_CAPS
+  );
+
+  const allErrors: Record<string, string> = { ...contactErrors };
+
+  if (!allErrors.name) {
+    if (cleanName.length < 2 || cleanName.length > 50) {
+      allErrors.name = 'Name must be between 2 and 50 characters.';
+    } else if (!NAME_RE.test(cleanName)) {
+      allErrors.name = 'Name contains invalid characters.';
+    }
+  }
+
+  if (!email.trim()) {
+    allErrors.email = 'Email address is required.';
+  } else if (!EMAIL_RE.test(email.trim())) {
+    allErrors.email = 'Please enter a valid email address.';
+  }
+
+  if (password.length < 8 || password.length > 128) {
+    allErrors.password = 'Password must be between 8 and 128 characters.';
+  } else if (new TextEncoder().encode(password).length > 72) {
+    allErrors.password = 'Password must be at most 72 bytes.';
+  }
+
+  if (password !== confirmPassword) {
+    allErrors.confirmPassword = 'Passwords do not match.';
+  }
+
+  const visibleErrors: Record<string, string> = {};
+  for (const [field, message] of Object.entries(allErrors)) {
+    if (submitAttempted || touchedFields.has(field)) {
+      visibleErrors[field] = message;
+    }
+  }
+
   const [resendBusy, setResendBusy] = useState(false);
   const [resendNotice, setResendNotice] = useState('');
   const { startCountdown, isCounting, label: countdownLabel } = useResendCountdown();
 
-  const validate = (): string | null => {
-    const cleanName = sanitizeString(name);
-    if (cleanName.length < 2 || cleanName.length > 50) return 'Name must be between 2 and 50 characters.';
-    if (!NAME_RE.test(cleanName)) return 'Name contains invalid characters.';
-
-    if (!EMAIL_RE.test(email.trim())) return 'Please enter a valid email address.';
-
-    const digits = phone.replace(/\D/g, '');
-    if (!PHONE_RE.test(digits)) return 'Enter a valid 10-digit Indian phone number (starting 6–9).';
-
-    if (password.length < 8 || password.length > 128) return 'Password must be between 8 and 128 characters.';
-    // bcrypt truncates past 72 bytes: mirror the server rule (Buffer.byteLength there).
-    if (new TextEncoder().encode(password).length > 72) return 'Password must be at most 72 bytes.';
-    if (password !== confirmPassword) return 'Passwords do not match.';
-
-    if (!sanitizeString(addressLine1)) return 'Address line 1 is required.';
-    if (!sanitizeString(city)) return 'City is required.';
-    if (!sanitizeString(state)) return 'State is required.';
-    if (postalCode.replace(/\D/g, '').length !== 6) return 'Please enter a valid 6-digit PIN code.';
-
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitAttempted(true);
 
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    if (Object.keys(allErrors).length > 0) {
+      setError(Object.values(allErrors)[0]);
       return;
     }
 
@@ -253,10 +287,12 @@ export const RegisterPage: React.FC = () => {
                   placeholder="e.g. Rahul Das"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={() => touchField('name')}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
                 <User size={15} className="absolute left-3.5 top-3.5 text-[#8A6A54]" />
               </div>
+              {visibleErrors.name && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.name}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -273,10 +309,12 @@ export const RegisterPage: React.FC = () => {
                     placeholder="rahul@guitarist.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => touchField('email')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-3.5 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                   <Mail size={15} className="absolute left-3.5 top-3.5 text-[#8A6A54]" />
                 </div>
+                {visibleErrors.email && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.email}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -293,10 +331,12 @@ export const RegisterPage: React.FC = () => {
                     placeholder="9876543210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    onBlur={() => touchField('phone')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-3.5 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                   <Phone size={15} className="absolute left-3.5 top-3.5 text-[#8A6A54]" />
                 </div>
+                {visibleErrors.phone && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.phone}</p>}
               </div>
             </div>
 
@@ -314,10 +354,12 @@ export const RegisterPage: React.FC = () => {
                     placeholder="Min 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => touchField('password')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-3.5 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                   <Lock size={14} className="absolute left-3.5 top-3.5 text-[#8A6A54]" />
                 </div>
+                {visibleErrors.password && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.password}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -333,10 +375,12 @@ export const RegisterPage: React.FC = () => {
                     placeholder="Repeat password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => touchField('confirmPassword')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full pl-10 pr-3.5 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
                   <Lock size={14} className="absolute left-3.5 top-3.5 text-[#8A6A54]" />
                 </div>
+                {visibleErrors.confirmPassword && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.confirmPassword}</p>}
               </div>
             </div>
 
@@ -358,8 +402,10 @@ export const RegisterPage: React.FC = () => {
                   placeholder="Flat, House, Building, Street"
                   value={addressLine1}
                   onChange={(e) => setAddressLine1(e.target.value)}
+                  onBlur={() => touchField('addressLine1')}
                   className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                 />
+                {visibleErrors.addressLine1 && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.addressLine1}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -387,8 +433,10 @@ export const RegisterPage: React.FC = () => {
                     maxLength={100}
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
+                    onBlur={() => touchField('city')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
+                  {visibleErrors.city && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.city}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -401,8 +449,10 @@ export const RegisterPage: React.FC = () => {
                     maxLength={100}
                     value={state}
                     onChange={(e) => setState(e.target.value)}
+                    onBlur={() => touchField('state')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
+                  {visibleErrors.state && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.state}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -416,8 +466,10 @@ export const RegisterPage: React.FC = () => {
                     inputMode="numeric"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onBlur={() => touchField('postalCode')}
                     className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                   />
+                  {visibleErrors.postalCode && <p className="text-[11px] text-[#FF5E1E] font-mono-tech mt-1">{visibleErrors.postalCode}</p>}
                 </div>
               </div>
             </div>

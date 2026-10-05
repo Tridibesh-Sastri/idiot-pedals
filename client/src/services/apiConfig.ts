@@ -54,6 +54,9 @@ export const STORAGE_KEYS = {
   AUTH_USER: 'idiot_pedals_user',
   CART: 'idiot_pedals_cart',
   ORDERS: 'idiot_pedals_orders',
+  // Set on explicit logout; cleared on any proven-authenticated state.
+  // Distinct from the cached profile: it records intent ("stay out"), not data.
+  SIGNED_OUT: 'idiot_pedals_signed_out',
 } as const;
 
 /**

@@ -1,11 +1,13 @@
 import { ApiError, api } from '../lib/api';
 import { normalizeUser } from '../lib/normalize';
-import type { User } from '../types';
+import { sanitizeAddressForPayload, type CleanAddressPayload } from '../lib/validation';
+import type { User, UserAddress } from '../types';
 
 /** Only the fields the API actually accepts on PATCH /api/users/me. */
 export interface ProfileUpdate {
   name?: string;
   phone?: string;
+  addresses?: (UserAddress | CleanAddressPayload)[];
 }
 
 interface MeEnvelope {
@@ -39,18 +41,23 @@ class UserService {
   }
 
   /**
-   * Updates the caller's name and/or phone.
+   * Updates the caller's name, phone and/or full address list.
    *
-   * The server whitelists these two fields and rejects everything else, so any
-   * other key is stripped here rather than being sent and 400ed.
+   * The server whitelists these fields and rejects everything else, so any
+   * other key is stripped here rather than being sent and 400ed. Addresses
+   * always replace the whole list (add/edit/delete/set-default all send the
+   * resulting array).
    */
   async updateProfile(updates: ProfileUpdate): Promise<User> {
-    const payload: ProfileUpdate = {};
+    const payload: { name?: string; phone?: string; addresses?: CleanAddressPayload[] } = {};
 
     if (typeof updates.name === 'string') payload.name = updates.name.trim();
     if (typeof updates.phone === 'string') payload.phone = updates.phone.trim();
+    if (Array.isArray(updates.addresses)) {
+      payload.addresses = updates.addresses.map((a) => sanitizeAddressForPayload(a));
+    }
 
-    if (payload.name === undefined && payload.phone === undefined) {
+    if (payload.name === undefined && payload.phone === undefined && payload.addresses === undefined) {
       throw new ApiError('validation', 'Nothing to update.');
     }
 

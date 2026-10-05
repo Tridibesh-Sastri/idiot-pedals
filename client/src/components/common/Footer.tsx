@@ -47,7 +47,7 @@ export const Footer: React.FC = () => {
             </div>
             <div>
               <div className="text-xs font-mono-tech font-bold text-[#2A1A12] uppercase tracking-wider">
-                Six Months Warranty
+                1-Year Warranty
               </div>
               <div className="text-xs text-[#8A6A54] pt-0.5">Comprehensive repair & technical player support.</div>
             </div>
@@ -107,7 +107,7 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li className="pt-2 text-[11px] text-[#8A6A54]/80 leading-normal">
-                Ships nationwide via Blue Dart Express with live SMS & tracking updates.
+                Ships nationwide via Shiprocket. Tracking details are shared once your order ships.
               </li>
             </ul>
           </div>

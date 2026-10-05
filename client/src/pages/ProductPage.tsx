@@ -375,7 +375,7 @@ export const ProductDetailPage: React.FC = () => {
                         ✓ Delivery available in ~{pincodeResult.estDays} business days
                       </div>
                       <div className="text-[11px] text-[#8A6A54]">
-                        COD & Razorpay online payment both supported for {pincode}.
+                        Secure Razorpay online payment supported for {pincode}.
                       </div>
                     </>
                   ) : (
