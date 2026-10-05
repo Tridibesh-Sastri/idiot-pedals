@@ -1,6 +1,7 @@
 import { body, cookie, validationResult } from 'express-validator'
 
 import { buildRefreshCookieOptions } from '../services/auth.service.js'
+import { INDIAN_PHONE_RE as PHONE_PATTERN } from './patterns.js'
 
 /*
  * Address item shape, mirroring pendingRegistration addressSchema so a
@@ -65,7 +66,6 @@ const PASSWORD_MAX_LENGTH = 128
  * byte rule so previously registered passwords always still verify.
  */
 const PASSWORD_MAX_BYTES = 72
-const PHONE_PATTERN = /^[6-9]\d{9}$/
 
 export const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req)

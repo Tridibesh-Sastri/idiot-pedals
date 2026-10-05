@@ -1,5 +1,6 @@
 import { body } from 'express-validator'
 import { handleValidationErrors, rejectUnknownFields, validateAddressItem } from './auth.validator.js'
+import { INDIAN_PHONE_RE as PHONE_PATTERN } from './patterns.js'
 
 /*
  * ============================================================================
@@ -16,7 +17,6 @@ import { handleValidationErrors, rejectUnknownFields, validateAddressItem } from
 
 const NAME_MIN_LENGTH = 2
 const NAME_MAX_LENGTH = 100
-const PHONE_PATTERN = /^[6-9]\d{9}$/
 
 export const updateMeValidator = [
   rejectUnknownFields(['name', 'phone', 'addresses']),

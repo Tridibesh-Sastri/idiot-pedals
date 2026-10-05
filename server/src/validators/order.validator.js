@@ -1,5 +1,6 @@
 import { body, param, query,validationResult } from "express-validator";
 import mongoose from "mongoose";
+import { INDIAN_PHONE_RE, INDIAN_PINCODE_RE } from "./patterns.js";
 
 export const createOrderValidator = [
   body("items")
@@ -35,6 +36,9 @@ export const createOrderValidator = [
     .trim()
     .notEmpty()
     .withMessage("Customer phone is required.")
+    .matches(INDIAN_PHONE_RE)
+    .withMessage("Enter a valid 10-digit Indian phone number.")
+    .bail()
     .isLength({ max: 20 })
     .withMessage("Customer phone is too long."),
 
@@ -48,6 +52,9 @@ export const createOrderValidator = [
     .trim()
     .notEmpty()
     .withMessage("Shipping phone is required.")
+    .matches(INDIAN_PHONE_RE)
+    .withMessage("Enter a valid 10-digit Indian phone number for shipping.")
+    .bail()
     .isLength({ max: 20 }),
 
   body("shippingAddress.addressLine1")
@@ -77,6 +84,9 @@ export const createOrderValidator = [
     .trim()
     .notEmpty()
     .withMessage("Postal code is required.")
+    .matches(INDIAN_PINCODE_RE)
+    .withMessage("Enter a valid 6-digit PIN code.")
+    .bail()
     .isLength({ max: 20 }),
 
   body("shippingAddress.country")
