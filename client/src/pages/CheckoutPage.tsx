@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { CreditCard, Banknote, ArrowRight, Lock, Truck, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { CreditCard, ArrowRight, Lock, Truck, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -10,7 +10,7 @@ import { getActiveProducts } from '../services/productService';
 import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
 import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode } from '../lib/validation';
-import { ShippingAddress, PaymentMethod, User, UserAddress } from '../types';
+import { ShippingAddress, User, UserAddress } from '../types';
 import { userService } from '../services/userService';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { LoadingState } from '../components/common/AsyncState';
@@ -85,7 +85,7 @@ export const CheckoutPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('razorpay');
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [submitError, setSubmitError] = useState<unknown>(null);
@@ -341,20 +341,14 @@ export const CheckoutPage: React.FC = () => {
 
     try {
       // 1. Create the order server-side (client sends productId + quantity only).
+      // Razorpay-only storefront: the method is fixed, never chosen in UI.
       const order = await orderService.createOrder({
         items: orderItems,
-        paymentMethod,
+        paymentMethod: 'razorpay',
         shippingAddress,
       });
 
       createdOrderId = order.id;
-
-      if (paymentMethod === 'cod') {
-        clearCart();
-        showToast('Order confirmed via Cash on Delivery!');
-        navigate(`/orders/${order.id}`);
-        return;
-      }
 
       // 2. Razorpay: create payment order -> modal -> server verification.
       if (!order.serverId) {
@@ -751,14 +745,9 @@ export const CheckoutPage: React.FC = () => {
                   <span>Payment Method</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <label
-                    onClick={() => setPaymentMethod('razorpay')}
-                    className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
-                      paymentMethod === 'razorpay'
-                        ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                        : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
-                    }`}
+                <div className="grid grid-cols-1 gap-4">
+                  <div
+                    className="p-5 rounded-2xl border flex flex-col justify-between space-y-2.5 transition-all bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -766,43 +755,15 @@ export const CheckoutPage: React.FC = () => {
                         <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">Razorpay Secure</span>
                       </div>
                       <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          paymentMethod === 'razorpay' ? 'border-[#FF5E1E] bg-[#FF5E1E]' : 'border-[#E4C3A5]'
-                        }`}
+                        className="w-4 h-4 rounded-full border flex items-center justify-center border-[#FF5E1E] bg-[#FF5E1E]"
                       >
-                        {paymentMethod === 'razorpay' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
                       </div>
                     </div>
                     <p className="text-[11px] text-[#8A6A54] font-light">
                       UPI (GPay / PhonePe / Paytm), Credit / Debit Cards, Netbanking.
                     </p>
-                  </label>
-
-                  <label
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`p-5 rounded-2xl border cursor-pointer flex flex-col justify-between space-y-2.5 transition-all ${
-                      paymentMethod === 'cod'
-                        ? 'bg-[#FFF1E6] border-[#FF5E1E] shadow-lg shadow-[#FF5E1E]/10 glow-neon-subtle'
-                        : 'bg-[#FFF1E6] border-[#F0D3B8] text-[#8A6A54] hover:border-[#FF5E1E]/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <Banknote size={18} className="text-[#FF5E1E]" />
-                        <span className="text-xs font-bold font-mono-tech text-[#2A1A12]">Cash on Delivery</span>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                          paymentMethod === 'cod' ? 'border-[#FF5E1E] bg-[#FF5E1E]' : 'border-[#E4C3A5]'
-                        }`}
-                      >
-                        {paymentMethod === 'cod' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-[#8A6A54] font-light">
-                      Pay cash upon delivery to the express courier.
-                    </p>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -877,9 +838,7 @@ export const CheckoutPage: React.FC = () => {
                   <span>
                     {isProcessing
                       ? 'Connecting to Workbench...'
-                      : paymentMethod === 'razorpay'
-                        ? `Pay ₹${total.toLocaleString('en-IN')} via Razorpay`
-                        : `Confirm Order (Cash on Delivery) — ₹${total.toLocaleString('en-IN')}`}
+                      : `Pay ₹${total.toLocaleString('en-IN')} via Razorpay`}
                   </span>
                   <ArrowRight size={14} />
                 </button>

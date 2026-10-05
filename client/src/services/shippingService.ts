@@ -28,7 +28,6 @@ export interface ShipmentTrackingInfo {
 export interface PincodeDeliverability {
   deliverable: boolean;
   estDays: number;
-  codAvailable: boolean;
 }
 
 /**
@@ -75,8 +74,7 @@ class ShippingService {
   }
 
   /**
-   * Validates whether a 6-digit Indian PIN code is serviceable for courier delivery
-   * and Cash on Delivery.
+   * Validates whether a 6-digit Indian PIN code is serviceable for courier delivery.
    *
    * @param pincode 6-digit postal code string
    * @returns Deliverability and estimated business days
@@ -85,13 +83,12 @@ class ShippingService {
     await sleep(250);
 
     if (!pincode || pincode.length !== 6 || !/^\d{6}$/.test(pincode)) {
-      return { deliverable: false, estDays: 0, codAvailable: false };
+      return { deliverable: false, estDays: 0 };
     }
 
     return {
       deliverable: true,
       estDays: 3,
-      codAvailable: true,
     };
   }
 }
