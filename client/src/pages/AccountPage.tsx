@@ -6,12 +6,53 @@ import { useToast } from '../context/ToastContext';
 import { LoadingState } from '../components/common/AsyncState';
 import { userService } from '../services/userService';
 import { describeApiError } from '../lib/api';
-import { isValidPhone } from '../lib/validation';
+import { isValidPhone, isValidPinCode } from '../lib/validation';
+import type { UserAddress } from '../types';
 
 /** Mirrors the server-side rules for PATCH /api/users/me. */
 const NAME_MIN_LENGTH = 2;
 const NAME_MAX_LENGTH = 50;
 const PHONE_LENGTH = 10;
+const MAX_ADDRESSES = 20;
+
+interface AddressDraft {
+  label: string;
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}
+
+const blankAddressDraft = (fallbackName: string): AddressDraft => ({
+  label: 'Home',
+  name: fallbackName,
+  phone: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'India',
+  isDefault: false,
+});
+
+const draftFromAddress = (address: UserAddress): AddressDraft => ({
+  label: address.label ?? 'Home',
+  name: address.name ?? '',
+  phone: address.phone ?? '',
+  addressLine1: address.addressLine1 ?? '',
+  addressLine2: address.addressLine2 ?? '',
+  city: address.city ?? '',
+  state: address.state ?? '',
+  postalCode: address.postalCode ?? '',
+  country: address.country ?? 'India',
+  isDefault: address.isDefault ?? false,
+});
 
 export const AccountPage: React.FC = () => {
   const { user, logout, isAuthenticated, initializing, refreshUser } = useAuth();
@@ -23,6 +64,12 @@ export const AccountPage: React.FC = () => {
   const [saving, setSaving] = React.useState(false);
   const [profileError, setProfileError] = React.useState('');
   const [fieldErrors, setFieldErrors] = React.useState<{ name?: string; phone?: string }>({});
+  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [draft, setDraft] = React.useState<AddressDraft>(() => blankAddressDraft(''));
+  const [addrSaving, setAddrSaving] = React.useState(false);
+  const [addrError, setAddrError] = React.useState('');
+  const [addrFieldErrors, setAddrFieldErrors] = React.useState<Record<string, string>>({});
 
   // Seed the form from the loaded profile, and re-seed whenever it changes
   // (for example after a successful save).
@@ -80,6 +127,90 @@ export const AccountPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const validateAddressDraft = (candidate: AddressDraft): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (candidate.name.trim().length < 2) errors.name = 'Name is required.';
+    if (!isValidPhone(candidate.phone)) errors.phone = 'Enter a valid 10-digit Indian phone number.';
+    if (!candidate.addressLine1.trim()) errors.addressLine1 = 'Address line 1 is required.';
+    if (!candidate.city.trim()) errors.city = 'City is required.';
+    if (!candidate.state.trim()) errors.state = 'State is required.';
+    if (!isValidPinCode(candidate.postalCode)) errors.postalCode = 'Enter a valid 6-digit PIN code.';
+    return errors;
+  };
+
+  const persistAddresses = async (addresses: UserAddress[], successCopy: string) => {
+    setAddrSaving(true);
+    setAddrError('');
+    try {
+      await userService.updateProfile({ addresses });
+      await refreshUser();
+      showToast(successCopy);
+      setEditingIndex(null);
+      setShowAddForm(false);
+    } catch (error) {
+      const message = describeApiError(error);
+      setAddrError(message);
+      showToast(message, 'error');
+    } finally {
+      setAddrSaving(false);
+    }
+  };
+
+  const openAddForm = () => {
+    setDraft(blankAddressDraft(user?.name ?? ''));
+    setAddrFieldErrors({});
+    setAddrError('');
+    setEditingIndex(null);
+    setShowAddForm(true);
+  };
+
+  const openEditForm = (index: number) => {
+    setDraft(draftFromAddress(safeAddresses[index]));
+    setAddrFieldErrors({});
+    setAddrError('');
+    setShowAddForm(false);
+    setEditingIndex(index);
+  };
+
+  const handleAddressSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const errors = validateAddressDraft(draft);
+    setAddrFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    const entry: UserAddress = {
+      label: draft.label.trim() || 'Home',
+      name: draft.name.trim(),
+      phone: draft.phone.replace(/[\s-]/g, ''),
+      addressLine1: draft.addressLine1.trim(),
+      addressLine2: draft.addressLine2.trim() || undefined,
+      city: draft.city.trim(),
+      state: draft.state.trim(),
+      postalCode: draft.postalCode.replace(/\D/g, ''),
+      country: draft.country.trim() || 'India',
+      isDefault: draft.isDefault,
+    };
+
+    const current = safeAddresses;
+    const next =
+      editingIndex === null ? [...current, entry] : current.map((item, i) => (i === editingIndex ? entry : item));
+    await persistAddresses(next, editingIndex === null ? 'Address added.' : 'Address updated.');
+  };
+
+  const handleAddressDelete = async (index: number) => {
+    await persistAddresses(
+      safeAddresses.filter((_, i) => i !== index),
+      'Address deleted.'
+    );
+  };
+
+  const handleSetDefault = async (index: number) => {
+    await persistAddresses(
+      safeAddresses.map((item, i) => ({ ...item, isDefault: i === index })),
+      'Default address updated.'
+    );
   };
 
   const handleLogout = async () => {
@@ -205,33 +336,238 @@ export const AccountPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Addresses (read-only) */}
-          {safeAddresses.length > 0 && (
-            <div className="space-y-3">
+          {/* Saved addresses */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold">
                 Saved Addresses
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono-tech text-[#8A6A54]">
-                {safeAddresses.map((address, index) => (
-                  <div
-                    key={address.id ?? `${address.addressLine1}-${index}`}
-                    className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1"
-                  >
-                    <div className="text-[11px] uppercase text-[#FF5E1E] font-bold">
-                      {address.label || 'Address'}
-                    </div>
-                    <div className="font-bold text-[#2A1A12]">{address.name}</div>
-                    <div>{address.addressLine1}</div>
-                    {address.addressLine2 && <div>{address.addressLine2}</div>}
-                    <div>
-                      {address.city}, {address.state} - {address.postalCode}
-                    </div>
-                    <div>{address.country}</div>
-                  </div>
-                ))}
-              </div>
+              {safeAddresses.length < MAX_ADDRESSES && !showAddForm && editingIndex === null && (
+                <button
+                  type="button"
+                  onClick={openAddForm}
+                  disabled={addrSaving}
+                  className="px-4 py-2 bg-[#FFF1E6] border border-[#F0D3B8] text-[11px] font-mono-tech font-bold uppercase rounded-full text-[#2A1A12] hover:border-[#FF5E1E] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  + Add address
+                </button>
+              )}
             </div>
-          )}
+
+            {addrError && (
+              <div className="p-3 bg-red-50 border border-red-500/40 rounded-xl text-xs text-[#2A1A12]">
+                {addrError}
+              </div>
+            )}
+
+            {safeAddresses.length === 0 && !showAddForm && (
+              <p className="text-xs text-[#8A6A54] font-mono-tech">
+                No saved addresses yet. Add one and checkout will reuse it.
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono-tech text-[#8A6A54]">
+              {safeAddresses.map((address, index) => (
+                <div
+                  key={address.id ?? `${address.addressLine1}-${index}`}
+                  className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1"
+                >
+                  <div className="text-[11px] uppercase text-[#FF5E1E] font-bold flex items-center justify-between">
+                    <span>{address.label || 'Address'}</span>
+                    {address.isDefault && (
+                      <span className="px-2 py-0.5 bg-[#FF5E1E]/15 text-[#FF5E1E] rounded-full">Default</span>
+                    )}
+                  </div>
+                  <div className="font-bold text-[#2A1A12]">{address.name}</div>
+                  <div>{address.addressLine1}</div>
+                  {address.addressLine2 && <div>{address.addressLine2}</div>}
+                  <div>
+                    {address.city}, {address.state} - {address.postalCode}
+                  </div>
+                  <div>{address.country}</div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(index)}
+                      disabled={addrSaving}
+                      className="px-3 py-1.5 bg-white border border-[#F0D3B8] rounded-full text-[11px] font-bold uppercase text-[#2A1A12] hover:border-[#FF5E1E] transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAddressDelete(index)}
+                      disabled={addrSaving}
+                      className="px-3 py-1.5 bg-white border border-[#F0D3B8] rounded-full text-[11px] font-bold uppercase text-[#2A1A12] hover:border-[#FF5E1E] transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                    {!address.isDefault && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDefault(index)}
+                        disabled={addrSaving}
+                        className="px-3 py-1.5 bg-white border border-[#F0D3B8] rounded-full text-[11px] font-bold uppercase text-[#2A1A12] hover:border-[#FF5E1E] transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        Set default
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {(showAddForm || editingIndex !== null) && (
+              <form
+                onSubmit={handleAddressSave}
+                className="p-5 bg-white border border-[#F0D3B8] rounded-2xl space-y-4 shadow-xl"
+              >
+                <h4 className="text-sm font-bold font-mono-tech uppercase tracking-wide text-[#2A1A12]">
+                  {editingIndex === null ? 'Add address' : 'Edit address'}
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Label</label>
+                    <input
+                      type="text"
+                      value={draft.label}
+                      onChange={(event) => setDraft({ ...draft, label: event.target.value })}
+                      disabled={addrSaving}
+                      placeholder="Home"
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Full name *</label>
+                    <input
+                      type="text"
+                      value={draft.name}
+                      onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                      disabled={addrSaving}
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                    {addrFieldErrors.name && <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.name}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Phone *</label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={draft.phone}
+                      onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+                      disabled={addrSaving}
+                      placeholder="10-digit mobile number"
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                    {addrFieldErrors.phone && <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.phone}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">PIN code *</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={draft.postalCode}
+                      onChange={(event) => setDraft({ ...draft, postalCode: event.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      disabled={addrSaving}
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                    {addrFieldErrors.postalCode && (
+                      <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.postalCode}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Address line 1 *</label>
+                  <input
+                    type="text"
+                    value={draft.addressLine1}
+                    onChange={(event) => setDraft({ ...draft, addressLine1: event.target.value })}
+                    disabled={addrSaving}
+                    className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                  />
+                  {addrFieldErrors.addressLine1 && (
+                    <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.addressLine1}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Address line 2</label>
+                  <input
+                    type="text"
+                    value={draft.addressLine2}
+                    onChange={(event) => setDraft({ ...draft, addressLine2: event.target.value })}
+                    disabled={addrSaving}
+                    className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">City *</label>
+                    <input
+                      type="text"
+                      value={draft.city}
+                      onChange={(event) => setDraft({ ...draft, city: event.target.value })}
+                      disabled={addrSaving}
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                    {addrFieldErrors.city && <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.city}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">State *</label>
+                    <input
+                      type="text"
+                      value={draft.state}
+                      onChange={(event) => setDraft({ ...draft, state: event.target.value })}
+                      disabled={addrSaving}
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                    {addrFieldErrors.state && <p className="text-[11px] text-[#FF5E1E]">{addrFieldErrors.state}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] uppercase font-bold text-[#8A6A54]">Country</label>
+                    <input
+                      type="text"
+                      value={draft.country}
+                      onChange={(event) => setDraft({ ...draft, country: event.target.value })}
+                      disabled={addrSaving}
+                      className="w-full px-3.5 py-2.5 bg-[#FFF8F1] border border-[#F0D3B8] rounded-xl text-sm text-[#2A1A12] focus:outline-none focus:border-[#FF5E1E] disabled:opacity-60"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-mono-tech text-[#8A6A54] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.isDefault}
+                    onChange={(event) => setDraft({ ...draft, isDefault: event.target.checked })}
+                    disabled={addrSaving}
+                  />
+                  Set as default address
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={addrSaving}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FF5E1E] text-white rounded-xl text-sm font-bold disabled:opacity-60 transition hover:bg-[#FF4500] cursor-pointer"
+                  >
+                    <Save size={15} />
+                    {addrSaving ? 'Saving…' : 'Save address'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingIndex(null);
+                      setAddrError('');
+                      setAddrFieldErrors({});
+                    }}
+                    disabled={addrSaving}
+                    className="px-4 py-2.5 bg-white border border-[#F0D3B8] rounded-xl text-sm font-bold text-[#2A1A12] disabled:opacity-60 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
 
           <form
             onSubmit={handleProfileSave}
