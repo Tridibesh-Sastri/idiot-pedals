@@ -202,4 +202,38 @@ describe('auth session across reload', () => {
     );
     assert.equal(localStorage.getItem(STORAGE_KEYS.SIGNED_OUT), null);
   });
+
+  it('an email login clears the signed-out flag so bootstrap refresh works again', async () => {
+    localStorage.setItem(STORAGE_KEYS.SIGNED_OUT, 'true');
+
+    setFetch(async (url) => {
+      if (url.endsWith('/auth/login')) {
+        return jsonResponse({ data: { accessToken: 'fresh-login-token', user: signedInUser } });
+      }
+      throw new Error(`unexpected request ${url}`);
+    });
+
+    const user = await authService.login({ email: 'test@example.com', password: 'x'.repeat(12) });
+    assert.equal(user?.email, 'test@example.com');
+    assert.equal(localStorage.getItem(STORAGE_KEYS.SIGNED_OUT), null);
+
+    // Bootstrap afterwards must attempt (not refuse) silent refresh.
+    requestedUrls.length = 0;
+    setFetch(async (url, init) => {
+      if (url.endsWith('/auth/me')) {
+        const auth = (init.headers as Record<string, string>)?.Authorization ?? '';
+        if (auth === 'Bearer fresh-login-token') {
+          return jsonResponse({ data: { user: signedInUser } });
+        }
+        return jsonResponse({ message: 'Unauthorized' }, 401);
+      }
+      if (url.endsWith('/auth/refresh')) {
+        return jsonResponse({ accessToken: 'refreshed-token' });
+      }
+      throw new Error(`unexpected request ${url}`);
+    });
+
+    const reloaded = await authService.bootstrapSession();
+    assert.equal(reloaded?.email, 'test@example.com');
+  });
 });
