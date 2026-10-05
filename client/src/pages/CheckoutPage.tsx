@@ -120,6 +120,7 @@ export const CheckoutPage: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [saveAddress, setSaveAddress] = useState(true);
   const [addressNotice, setAddressNotice] = useState('');
+  const [phoneNotice, setPhoneNotice] = useState('');
   const contactInitRef = useRef(false);
 
   const submittedRef = useRef(false);
@@ -306,17 +307,18 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    setPhoneNotice('');
     setAddressNotice('');
 
-    // Ask-once phone: the profile lacks one, so save it before ordering.
-    // A failure blocks here — the order needs a reachable number anyway.
+    // Ask-once phone: saving the phone to the profile is best-effort.
+    // On ANY failure (including 409 PHONE_IN_USE), continue ordering with the
+    // typed phone and show a small non-blocking notice.
     if (user && !selectCheckoutContact(user).hasPhone) {
       try {
         await userService.updateProfile({ phone: cleanPhone });
         await refreshUser();
-      } catch (error) {
-        setSubmitError(new ApiError('validation', `Could not save your phone number: ${describeApiError(error)}`));
-        return;
+      } catch {
+        setPhoneNotice('Note: this phone could not be saved to your profile, but your order will proceed with it.');
       }
     }
 
@@ -655,6 +657,7 @@ export const CheckoutPage: React.FC = () => {
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
                     {visibleContactErrors.phone && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.phone}</p>}
+                    {phoneNotice && <p className="text-[11px] text-[#8A6A54] font-mono-tech">{phoneNotice}</p>}
                   </div>
                 </div>
 
