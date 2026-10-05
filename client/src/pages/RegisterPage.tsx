@@ -7,12 +7,12 @@ import { useToast } from '../context/ToastContext';
 import { authService } from '../services/authService';
 import { describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
+import { isValidPhone, isValidPinCode } from '../lib/validation';
 import { useResendCountdown } from '../lib/useResendCountdown';
 import type { UserAddress } from '../types';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^[6-9]\d{9}$/;
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
@@ -46,8 +46,7 @@ export const RegisterPage: React.FC = () => {
 
     if (!EMAIL_RE.test(email.trim())) return 'Please enter a valid email address.';
 
-    const digits = phone.replace(/\D/g, '');
-    if (!PHONE_RE.test(digits)) return 'Enter a valid 10-digit Indian phone number (starting 6–9).';
+    if (!isValidPhone(phone)) return 'Enter a valid 10-digit Indian phone number (starting 6–9).';
 
     if (password.length < 8 || password.length > 128) return 'Password must be between 8 and 128 characters.';
     // bcrypt truncates past 72 bytes: mirror the server rule (Buffer.byteLength there).
@@ -57,7 +56,7 @@ export const RegisterPage: React.FC = () => {
     if (!sanitizeString(addressLine1)) return 'Address line 1 is required.';
     if (!sanitizeString(city)) return 'City is required.';
     if (!sanitizeString(state)) return 'State is required.';
-    if (postalCode.replace(/\D/g, '').length !== 6) return 'Please enter a valid 6-digit PIN code.';
+    if (!isValidPinCode(postalCode)) return 'Please enter a valid 6-digit PIN code.';
 
     return null;
   };

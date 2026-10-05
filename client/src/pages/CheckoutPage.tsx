@@ -9,6 +9,7 @@ import { paymentService } from '../services/paymentService';
 import { getActiveProducts } from '../services/productService';
 import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
+import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode } from '../lib/validation';
 import { ShippingAddress, PaymentMethod, User, UserAddress } from '../types';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { LoadingState } from '../components/common/AsyncState';
@@ -166,12 +167,12 @@ export const CheckoutPage: React.FC = () => {
 
     const cleanName = sanitizeString(fullName);
     const cleanEmail = email.trim().toLowerCase().slice(0, 254);
-    const cleanPhone = phone.trim().replace(/\D/g, '').slice(0, 20);
+    const cleanPhone = normalizePhoneDigits(phone.trim());
     const cleanAddress1 = sanitizeString(addressLine1);
     const cleanAddress2 = sanitizeString(addressLine2);
     const cleanCity = sanitizeString(city);
     const cleanState = sanitizeString(state);
-    const cleanPostal = postalCode.trim().replace(/\D/g, '');
+    const cleanPostal = normalizePinCode(postalCode.trim());
 
     if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress1 || !cleanCity || !cleanState || !cleanPostal) {
       setSubmitError(new ApiError('validation', 'Please fill in all required shipping fields.'));
@@ -183,12 +184,12 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (cleanPhone.length < 10) {
+    if (!isValidPhone(cleanPhone)) {
       setSubmitError(new ApiError('validation', 'Please enter a valid 10-digit phone number.'));
       return;
     }
 
-    if (cleanPostal.length !== 6) {
+    if (!isValidPinCode(cleanPostal)) {
       setSubmitError(new ApiError('validation', 'Please enter a valid 6-digit postal PIN code.'));
       return;
     }

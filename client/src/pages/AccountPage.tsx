@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { LoadingState } from '../components/common/AsyncState';
 import { userService } from '../services/userService';
 import { describeApiError } from '../lib/api';
+import { isValidPhone } from '../lib/validation';
 
 /** Mirrors the server-side rules for PATCH /api/users/me. */
 const NAME_MIN_LENGTH = 2;
@@ -40,9 +41,9 @@ export const AccountPage: React.FC = () => {
       errors.name = `Name must be between ${NAME_MIN_LENGTH} and ${NAME_MAX_LENGTH} characters.`;
     }
 
-    // The phone is optional, but a supplied value must be a 10-digit number.
-    if (trimmedPhone.length > 0 && !/^\d{10}$/.test(trimmedPhone)) {
-      errors.phone = `Phone must be exactly ${PHONE_LENGTH} digits.`;
+    // The phone is optional, but a supplied value must pass the shared rule.
+    if (trimmedPhone.length > 0 && !isValidPhone(trimmedPhone)) {
+      errors.phone = 'Enter a valid 10-digit Indian phone number.';
     }
 
     setFieldErrors(errors);
