@@ -5,6 +5,10 @@ export const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
     if (hash) {
       const element = document.querySelector(hash);
       if (element) {
@@ -12,8 +16,13 @@ export const ScrollToTop = () => {
         return;
       }
     }
-    window.scrollTo(0, 0);
+
+    // Force immediate scroll to top across mobile and desktop
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [pathname, hash]);
 
   return null;
 };
+

@@ -52,7 +52,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* ================= SPECIFICATIONS DATA SHEET ================= */}
-      <div className="relative z-10 bg-[#FFF8F1]">
+      <div id="specs" className="relative z-10 bg-[#FFF8F1] scroll-mt-28">
         <Specifications />
       </div>
 

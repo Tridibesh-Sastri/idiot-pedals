@@ -54,7 +54,7 @@ class UserService {
     if (typeof updates.name === 'string') payload.name = updates.name.trim();
     if (typeof updates.phone === 'string') payload.phone = updates.phone.trim();
     if (Array.isArray(updates.addresses)) {
-      payload.addresses = updates.addresses.map((a) => sanitizeAddressForPayload(a));
+      payload.addresses = updates.addresses.map((a) => sanitizeAddressForPayload(a as unknown as Record<string, unknown>));
     }
 
     if (payload.name === undefined && payload.phone === undefined && payload.addresses === undefined) {
