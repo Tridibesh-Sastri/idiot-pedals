@@ -23,6 +23,7 @@ import config from '../src/config/config.js'
 import userModel from '../src/models/user.model.js'
 import productModel from '../src/models/product.model.js'
 import orderModel from '../src/models/order.model.js'
+import webhookEventModel from '../src/models/webhookEvent.model.js'
 import { accessTokenGenerator } from '../src/utils/tokenManager.js'
 import {
   multiplyMinor,
@@ -149,7 +150,7 @@ before(async () => {
   await mongoose.connect(testMongoUri)
   await mongoose.connection.dropDatabase()
 
-  await Promise.all([userModel.init(), productModel.init(), orderModel.init()])
+  await Promise.all([userModel.init(), productModel.init(), orderModel.init(), webhookEventModel.init()])
 
   user = await userModel.create({
     name: 'Phase Two User',

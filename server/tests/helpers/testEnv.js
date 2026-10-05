@@ -15,6 +15,15 @@
 
 process.env.NODE_ENV = 'test'
 
+/*
+ * Pin the values a developer's real .env must never change test behavior
+ * through. Cookie posture and the frontend origin feed auth flows (session
+ * cookie flags, verification links, OAuth redirects), so a production-like
+ * local .env would otherwise silently rewrite what the suite asserts.
+ */
+process.env.COOKIE_SAMESITE = 'strict'
+process.env.FRONTEND_URL = 'http://localhost:3000'
+
 const { installNetworkGuard } = await import('./networkGuard.js')
 const { fakeRazorpay } = await import('./fakeRazorpay.js')
 const { setRazorpayProvider } = await import('../../src/integrations/razorpay/razorpay.client.js')
