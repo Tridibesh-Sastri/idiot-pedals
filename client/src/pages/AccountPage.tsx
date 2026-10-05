@@ -125,6 +125,12 @@ export const AccountPage: React.FC = () => {
     );
   }
 
+  // Null-safe view of the address list: the type promises an array, but any
+  // un-normalised shape must render empty instead of throwing.
+  const safeAddresses = Array.isArray(user.addresses)
+    ? user.addresses.filter((entry) => !!entry)
+    : [];
+
   return (
     <div className="bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 min-h-screen relative overflow-hidden">
       {/* Glow */}
@@ -199,13 +205,13 @@ export const AccountPage: React.FC = () => {
           </div>
 
           {/* Addresses (read-only) */}
-          {user.addresses.length > 0 && (
+          {safeAddresses.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-xs font-mono-tech uppercase tracking-[0.2em] text-[#2A1A12] font-bold">
                 Saved Addresses
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono-tech text-[#8A6A54]">
-                {user.addresses.map((address, index) => (
+                {safeAddresses.map((address, index) => (
                   <div
                     key={address.id ?? `${address.addressLine1}-${index}`}
                     className="p-4 bg-[#FFF1E6] rounded-2xl border border-[#F0D3B8] space-y-1"

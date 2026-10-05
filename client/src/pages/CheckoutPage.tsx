@@ -9,9 +9,35 @@ import { paymentService } from '../services/paymentService';
 import { getActiveProducts } from '../services/productService';
 import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
-import { ShippingAddress, PaymentMethod } from '../types';
+import { ShippingAddress, PaymentMethod, User, UserAddress } from '../types';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
 import { LoadingState } from '../components/common/AsyncState';
+
+/**
+ * Picks the checkout contact from a profile. Pure and null-safe: the User
+ * type promises a string phone and an address array, but any un-normalised
+ * shape (stale cache, future producer) must degrade to empty, never throw.
+ */
+export interface CheckoutContactSelection {
+  phone: string;
+  address: UserAddress | null;
+  hasPhone: boolean;
+  hasAddress: boolean;
+}
+
+export function selectCheckoutContact(user: User | null | undefined): CheckoutContactSelection {
+  const phone = typeof user?.phone === 'string' ? user.phone : '';
+  const addresses = Array.isArray(user?.addresses)
+    ? user.addresses.filter((entry): entry is UserAddress => !!entry && typeof entry === 'object')
+    : [];
+  const address = addresses.find((entry) => entry.isDefault) ?? addresses[0] ?? null;
+  return {
+    phone,
+    address,
+    hasPhone: phone.trim().length > 0,
+    hasAddress: address !== null,
+  };
+}
 
 export const CheckoutPage: React.FC = () => {
   const { items, subtotal, total, clearCart, replaceItem, removeItem, updateQuantity } = useCart();
@@ -44,17 +70,18 @@ export const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    const selection = selectCheckoutContact(user);
     setFullName((prev) => prev || user.name);
     setEmail((prev) => prev || user.email);
-    setPhone((prev) => prev || user.phone.replace(/\D/g, '').slice(0, 10));
+    setPhone((prev) => prev || selection.phone.replace(/\D/g, '').slice(0, 10));
 
-    const defaultAddress = user.addresses.find((address) => address.isDefault) ?? user.addresses[0];
-    if (defaultAddress) {
-      setAddressLine1((prev) => prev || defaultAddress.addressLine1);
-      setAddressLine2((prev) => prev || defaultAddress.addressLine2 || '');
-      setCity((prev) => prev || defaultAddress.city);
-      setState((prev) => prev || defaultAddress.state);
-      setPostalCode((prev) => prev || defaultAddress.postalCode);
+    if (selection.address) {
+      const { address } = selection;
+      setAddressLine1((prev) => prev || address.addressLine1);
+      setAddressLine2((prev) => prev || address.addressLine2 || '');
+      setCity((prev) => prev || address.city);
+      setState((prev) => prev || address.state);
+      setPostalCode((prev) => prev || address.postalCode);
     }
   }, [user]);
 
