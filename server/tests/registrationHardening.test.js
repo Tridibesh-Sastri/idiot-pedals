@@ -360,6 +360,70 @@ describe("validateAddressItem", () => {
     );
   });
 
+  test("phone must match 10-digit Indian mobile format (good and garbage values)", () => {
+    assert.equal(
+      validateAddressItem({ ...validItem(), phone: "6123456789" }),
+      null,
+    );
+    assert.equal(
+      validateAddressItem({ ...validItem(), phone: "9876543210" }),
+      null,
+    );
+
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "0123456789" }),
+      /valid 10-digit Indian phone number/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "1234567890" }),
+      /valid 10-digit Indian phone number/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "5876543210" }),
+      /valid 10-digit Indian phone number/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "98765" }),
+      /valid 10-digit Indian phone number/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "987654321099" }),
+      /valid 10-digit Indian phone number/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), phone: "abcdefghij" }),
+      /valid 10-digit Indian phone number/,
+    );
+  });
+
+  test("postalCode must match 6-digit Indian PIN format (good and garbage values)", () => {
+    assert.equal(
+      validateAddressItem({ ...validItem(), postalCode: "110001" }),
+      null,
+    );
+    assert.equal(
+      validateAddressItem({ ...validItem(), postalCode: "700001" }),
+      null,
+    );
+
+    assert.match(
+      validateAddressItem({ ...validItem(), postalCode: "12345" }),
+      /valid 6-digit Indian PIN code/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), postalCode: "1234567" }),
+      /valid 6-digit Indian PIN code/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), postalCode: "70000a" }),
+      /valid 6-digit Indian PIN code/,
+    );
+    assert.match(
+      validateAddressItem({ ...validItem(), postalCode: "abcdef" }),
+      /valid 6-digit Indian PIN code/,
+    );
+  });
+
   test("a malformed address item in register returns 400, not 500", async () => {
     const body = registerBody();
     body.addresses = [

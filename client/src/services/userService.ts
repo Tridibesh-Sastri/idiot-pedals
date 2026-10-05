@@ -1,12 +1,13 @@
 import { ApiError, api } from '../lib/api';
 import { normalizeUser } from '../lib/normalize';
+import { sanitizeAddressForPayload, type CleanAddressPayload } from '../lib/validation';
 import type { User, UserAddress } from '../types';
 
 /** Only the fields the API actually accepts on PATCH /api/users/me. */
 export interface ProfileUpdate {
   name?: string;
   phone?: string;
-  addresses?: UserAddress[];
+  addresses?: (UserAddress | CleanAddressPayload)[];
 }
 
 interface MeEnvelope {
@@ -48,11 +49,13 @@ class UserService {
    * resulting array).
    */
   async updateProfile(updates: ProfileUpdate): Promise<User> {
-    const payload: ProfileUpdate = {};
+    const payload: { name?: string; phone?: string; addresses?: CleanAddressPayload[] } = {};
 
     if (typeof updates.name === 'string') payload.name = updates.name.trim();
     if (typeof updates.phone === 'string') payload.phone = updates.phone.trim();
-    if (Array.isArray(updates.addresses)) payload.addresses = updates.addresses;
+    if (Array.isArray(updates.addresses)) {
+      payload.addresses = updates.addresses.map((a) => sanitizeAddressForPayload(a));
+    }
 
     if (payload.name === undefined && payload.phone === undefined && payload.addresses === undefined) {
       throw new ApiError('validation', 'Nothing to update.');

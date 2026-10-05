@@ -89,3 +89,62 @@ export function validateContactFields(
 
   return errors;
 }
+
+export interface CleanAddressPayload {
+  label?: string;
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country?: string;
+  isDefault?: boolean;
+}
+
+/**
+ * Builds a clean address payload containing strictly allowed server fields.
+ * Strips client-only or server-generated fields like `id` and `_id` so that
+ * round-tripped addresses never fail the server's strict whitelist validator.
+ */
+export function sanitizeAddressForPayload(address: {
+  id?: string;
+  _id?: string;
+  label?: string;
+  name?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  isDefault?: boolean;
+  [key: string]: unknown;
+}): CleanAddressPayload {
+  const payload: CleanAddressPayload = {
+    name: typeof address.name === 'string' ? address.name.trim() : '',
+    phone: typeof address.phone === 'string' ? normalizePhoneDigits(address.phone) : '',
+    addressLine1: typeof address.addressLine1 === 'string' ? address.addressLine1.trim() : '',
+    city: typeof address.city === 'string' ? address.city.trim() : '',
+    state: typeof address.state === 'string' ? address.state.trim() : '',
+    postalCode: typeof address.postalCode === 'string' ? normalizePinCode(address.postalCode) : '',
+  };
+
+  if (typeof address.label === 'string' && address.label.trim()) {
+    payload.label = address.label.trim();
+  }
+  if (typeof address.addressLine2 === 'string' && address.addressLine2.trim()) {
+    payload.addressLine2 = address.addressLine2.trim();
+  }
+  if (typeof address.country === 'string' && address.country.trim()) {
+    payload.country = address.country.trim();
+  }
+  if (typeof address.isDefault === 'boolean') {
+    payload.isDefault = address.isDefault;
+  }
+
+  return payload;
+}
+

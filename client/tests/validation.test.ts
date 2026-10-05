@@ -16,6 +16,7 @@ import {
   normalizePhoneDigits,
   normalizePinCode,
   validateContactFields,
+  sanitizeAddressForPayload,
   ORDER_CONTACT_CAPS,
   PROFILE_CONTACT_CAPS,
   type ContactFields,
@@ -172,3 +173,83 @@ describe('validateContactFields', () => {
     assert.equal(overState.state, 'State is too long.');
   });
 });
+
+describe('sanitizeAddressForPayload', () => {
+  const ALLOWED_KEYS = new Set([
+    'label',
+    'name',
+    'phone',
+    'addressLine1',
+    'addressLine2',
+    'city',
+    'state',
+    'postalCode',
+    'country',
+    'isDefault',
+  ]);
+
+  it('strips id, _id and unexpected fields so payload passes strict whitelist validator', () => {
+    const rawFromApi = {
+      id: '66fa38b123456789abcdef01',
+      _id: '66fa38b123456789abcdef01',
+      __v: 0,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-01T00:00:00.000Z',
+      label: 'Home',
+      name: 'Rahul Sharma',
+      phone: '98765-43210',
+      addressLine1: '12 GT Road',
+      addressLine2: 'Apt 4B',
+      city: 'Burdwan',
+      state: 'West Bengal',
+      postalCode: '713 101',
+      country: 'India',
+      isDefault: true,
+      extraField: 'should be stripped',
+    };
+
+    const clean = sanitizeAddressForPayload(rawFromApi);
+
+    // Assert id, _id, __v, extraField are gone
+    assert.equal('id' in clean, false);
+    assert.equal('_id' in clean, false);
+    assert.equal('__v' in clean, false);
+    assert.equal('extraField' in clean, false);
+
+    // Assert every key in clean is in the allowed whitelist
+    for (const key of Object.keys(clean)) {
+      assert.equal(ALLOWED_KEYS.has(key), true, `Unexpected key: ${key}`);
+    }
+
+    // Assert required fields and normalized values are preserved
+    assert.equal(clean.name, 'Rahul Sharma');
+    assert.equal(clean.phone, '9876543210');
+    assert.equal(clean.addressLine1, '12 GT Road');
+    assert.equal(clean.addressLine2, 'Apt 4B');
+    assert.equal(clean.city, 'Burdwan');
+    assert.equal(clean.state, 'West Bengal');
+    assert.equal(clean.postalCode, '713101');
+    assert.equal(clean.country, 'India');
+    assert.equal(clean.isDefault, true);
+  });
+
+  it('omits empty optional fields (label, addressLine2, country)', () => {
+    const minimal = {
+      name: 'Priya Sen',
+      phone: '9876543210',
+      addressLine1: '4 Park Street',
+      city: 'Kolkata',
+      state: 'West Bengal',
+      postalCode: '700016',
+      label: '  ',
+      addressLine2: '',
+    };
+
+    const clean = sanitizeAddressForPayload(minimal);
+    assert.equal('label' in clean, false);
+    assert.equal('addressLine2' in clean, false);
+    assert.equal(clean.name, 'Priya Sen');
+    assert.equal(clean.postalCode, '700016');
+  });
+});
+

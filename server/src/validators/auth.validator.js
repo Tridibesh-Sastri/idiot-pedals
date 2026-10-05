@@ -1,7 +1,7 @@
 import { body, cookie, validationResult } from 'express-validator'
 
 import { buildRefreshCookieOptions } from '../services/auth.service.js'
-import { INDIAN_PHONE_RE as PHONE_PATTERN } from './patterns.js'
+import { INDIAN_PHONE_RE as PHONE_PATTERN, INDIAN_PINCODE_RE } from './patterns.js'
 
 /*
  * Address item shape, mirroring pendingRegistration addressSchema so a
@@ -47,6 +47,14 @@ export const validateAddressItem = (item) => {
         ) {
             return `Address ${field} is too long.`
         }
+    }
+
+    if (!PHONE_PATTERN.test(item.phone)) {
+        return 'Address phone must be a valid 10-digit Indian phone number.'
+    }
+
+    if (!INDIAN_PINCODE_RE.test(item.postalCode)) {
+        return 'Address postalCode must be a valid 6-digit Indian PIN code.'
     }
 
     if (item.isDefault !== undefined && typeof item.isDefault !== 'boolean') {
