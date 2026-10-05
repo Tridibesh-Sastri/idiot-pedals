@@ -326,7 +326,7 @@ export const OrderDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Items & Financial Invoice Breakdown */}
+        {/* Items & Order Summary Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
           {/* Purchased Items */}
           <div className="md:col-span-7 bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-7 space-y-4 backdrop-blur-xl">

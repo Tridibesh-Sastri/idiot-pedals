@@ -33,7 +33,7 @@ export interface PincodeDeliverability {
 /**
  * ShippingService Class
  *
- * Interfaces with logistics tracking (Shiprocket / Blue Dart Express),
+ * Interfaces with logistics tracking (Shiprocket),
  * queries parcel waybill milestones, and validates PIN code deliverability.
  */
 class ShippingService {
@@ -48,7 +48,7 @@ class ShippingService {
 
     return {
       trackingNumber,
-      courier: 'Shiprocket / Blue Dart Express',
+      courier: 'Shiprocket',
       status: 'In Transit',
       origin: 'Burdwan Workshop, WB',
       destination: 'Customer Destination',

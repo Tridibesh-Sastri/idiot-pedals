@@ -73,7 +73,7 @@ export const ContactPage: React.FC = () => {
     },
     {
       q: 'How long does shipping take?',
-      a: 'All orders placed before 2 PM IST are dispatched same day or next morning via Blue Dart Express / Shiprocket with live tracking. Typical transit time is 2-4 business days.',
+      a: 'All orders placed before 2 PM IST are dispatched same day or next morning via Shiprocket courier partners. Typical transit time is 2-4 business days.',
     },
   ];
 

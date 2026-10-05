@@ -9,7 +9,7 @@ import { paymentService } from '../services/paymentService';
 import { getActiveProducts } from '../services/productService';
 import { ApiError, describeApiError } from '../lib/api';
 import { sanitizeString } from '../lib/security';
-import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode } from '../lib/validation';
+import { isValidPhone, isValidPinCode, normalizePhoneDigits, normalizePinCode, validateContactFields } from '../lib/validation';
 import { ShippingAddress, User, UserAddress } from '../types';
 import { userService } from '../services/userService';
 import { IdiotPedalsLogo } from '../components/common/IdiotPedalsLogo';
@@ -89,6 +89,26 @@ export const CheckoutPage: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [submitError, setSubmitError] = useState<unknown>(null);
+  const [touchedFields, setTouchedFields] = useState<ReadonlySet<string>>(new Set());
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const touchField = (field: string) =>
+    setTouchedFields((prev) => (prev.has(field) ? prev : new Set(prev).add(field)));
+
+  // Live errors (recomputed every render, so fixing a value clears it
+  // immediately); shown only for touched fields or after a submit attempt.
+  const liveContactErrors = validateContactFields({
+    name: fullName,
+    phone,
+    addressLine1,
+    city,
+    state,
+    postalCode,
+  });
+  const visibleContactErrors: Record<string, string> = {};
+  for (const [field, message] of Object.entries(liveContactErrors)) {
+    if (submitAttempted || touchedFields.has(field)) visibleContactErrors[field] = message;
+  }
 
   const [checkingCart, setCheckingCart] = useState(true);
   const [cartWarning, setCartWarning] = useState<string[]>([]);
@@ -242,9 +262,29 @@ export const CheckoutPage: React.FC = () => {
     if (!isAuthenticated) return;
 
     setSubmitError(null);
+    setSubmitAttempted(true);
 
     if (items.length === 0) {
       setSubmitError(new ApiError('validation', 'Your cart is empty. Add a pedal before checking out.'));
+      return;
+    }
+
+    if (Object.keys(liveContactErrors).length > 0) {
+      setEditingContact(true);
+      const fieldOrder = ['name', 'phone', 'addressLine1', 'city', 'state', 'postalCode'];
+      const firstInvalidField = fieldOrder.find((f) => f in liveContactErrors) || Object.keys(liveContactErrors)[0];
+      const fieldIdMap: Record<string, string> = {
+        name: 'checkout-name',
+        phone: 'checkout-phone',
+        addressLine1: 'checkout-addressLine1',
+        city: 'checkout-city',
+        state: 'checkout-state',
+        postalCode: 'checkout-postalCode',
+      };
+      setTimeout(() => {
+        const el = document.getElementById(fieldIdMap[firstInvalidField]);
+        if (el) el.focus();
+      }, 0);
       return;
     }
 
@@ -257,23 +297,12 @@ export const CheckoutPage: React.FC = () => {
     const cleanState = sanitizeString(state);
     const cleanPostal = normalizePinCode(postalCode.trim());
 
-    if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress1 || !cleanCity || !cleanState || !cleanPostal) {
-      setSubmitError(new ApiError('validation', 'Please fill in all required shipping fields.'));
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setSubmitError(new ApiError('validation', 'Please enter a valid email address.'));
-      return;
-    }
-
-    if (!isValidPhone(cleanPhone)) {
-      setSubmitError(new ApiError('validation', 'Please enter a valid 10-digit phone number.'));
-      return;
-    }
-
-    if (!isValidPinCode(cleanPostal)) {
-      setSubmitError(new ApiError('validation', 'Please enter a valid 6-digit postal PIN code.'));
+      setTimeout(() => {
+        const el = document.getElementById('checkout-email');
+        if (el) el.focus();
+      }, 0);
       return;
     }
 
@@ -472,7 +501,7 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-600 font-mono-tech">
             <Lock size={14} />
-            <span>256-Bit Encrypted</span>
+            <span>Secure payments by Razorpay</span>
           </div>
         </div>
 
@@ -598,13 +627,16 @@ export const CheckoutPage: React.FC = () => {
                       Full Name *
                     </label>
                     <input
+                      id="checkout-name"
                       type="text"
                       required
                       maxLength={150}
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
+                      onBlur={() => touchField('name')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.name && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.name}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -612,14 +644,17 @@ export const CheckoutPage: React.FC = () => {
                       Phone (for Delivery SMS) *
                     </label>
                     <input
+                      id="checkout-phone"
                       type="tel"
                       required
                       maxLength={20}
                       inputMode="numeric"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onBlur={() => touchField('phone')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.phone && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.phone}</p>}
                   </div>
                 </div>
 
@@ -628,6 +663,7 @@ export const CheckoutPage: React.FC = () => {
                       Email Address *
                     </label>
                   <input
+                    id="checkout-email"
                     type="email"
                     required
                     maxLength={254}
@@ -651,15 +687,18 @@ export const CheckoutPage: React.FC = () => {
                   <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
                     Address Line 1 (Flat, House, Building, Street) *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={500}
-                    value={addressLine1}
-                    onChange={(e) => setAddressLine1(e.target.value)}
-                    className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
-                  />
-                </div>
+                    <input
+                      id="checkout-addressLine1"
+                      type="text"
+                      required
+                      maxLength={500}
+                      value={addressLine1}
+                      onChange={(e) => setAddressLine1(e.target.value)}
+                      onBlur={() => touchField('addressLine1')}
+                      className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
+                    />
+                    {visibleContactErrors.addressLine1 && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.addressLine1}</p>}
+                  </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono-tech uppercase text-[#8A6A54] tracking-wider block">
@@ -680,13 +719,16 @@ export const CheckoutPage: React.FC = () => {
                       City *
                     </label>
                     <input
+                      id="checkout-city"
                       type="text"
                       required
                       maxLength={100}
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
+                      onBlur={() => touchField('city')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.city && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.city}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -694,13 +736,16 @@ export const CheckoutPage: React.FC = () => {
                       State *
                     </label>
                     <input
+                      id="checkout-state"
                       type="text"
                       required
                       maxLength={100}
                       value={state}
                       onChange={(e) => setState(e.target.value)}
+                      onBlur={() => touchField('state')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.state && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.state}</p>}
                   </div>
 
                   <div className="space-y-1.5">
@@ -708,14 +753,17 @@ export const CheckoutPage: React.FC = () => {
                       PIN Code *
                     </label>
                     <input
+                      id="checkout-postalCode"
                       type="text"
                       required
                       maxLength={6}
                       inputMode="numeric"
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onBlur={() => touchField('postalCode')}
                       className="w-full bg-[#FFF1E6] border border-[#F0D3B8] rounded-full px-4 py-3 text-xs text-[#2A1A12] font-mono-tech focus:outline-none focus:border-[#FF5E1E]"
                     />
+                    {visibleContactErrors.postalCode && <p className="text-[11px] text-[#FF5E1E]">{visibleContactErrors.postalCode}</p>}
                   </div>
                 </div>
 

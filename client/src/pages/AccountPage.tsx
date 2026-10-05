@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { LoadingState } from '../components/common/AsyncState';
 import { userService } from '../services/userService';
 import { describeApiError } from '../lib/api';
-import { isValidPhone, isValidPinCode } from '../lib/validation';
+import { isValidPhone, validateContactFields, PROFILE_CONTACT_CAPS } from '../lib/validation';
 import type { UserAddress } from '../types';
 
 /** Mirrors the server-side rules for PATCH /api/users/me. */
@@ -129,16 +129,18 @@ export const AccountPage: React.FC = () => {
     }
   };
 
-  const validateAddressDraft = (candidate: AddressDraft): Record<string, string> => {
-    const errors: Record<string, string> = {};
-    if (candidate.name.trim().length < 2) errors.name = 'Name is required.';
-    if (!isValidPhone(candidate.phone)) errors.phone = 'Enter a valid 10-digit Indian phone number.';
-    if (!candidate.addressLine1.trim()) errors.addressLine1 = 'Address line 1 is required.';
-    if (!candidate.city.trim()) errors.city = 'City is required.';
-    if (!candidate.state.trim()) errors.state = 'State is required.';
-    if (!isValidPinCode(candidate.postalCode)) errors.postalCode = 'Enter a valid 6-digit PIN code.';
-    return errors;
-  };
+  const validateAddressDraft = (candidate: AddressDraft): Record<string, string> =>
+    validateContactFields(
+      {
+        name: candidate.name,
+        phone: candidate.phone,
+        addressLine1: candidate.addressLine1,
+        city: candidate.city,
+        state: candidate.state,
+        postalCode: candidate.postalCode,
+      },
+      PROFILE_CONTACT_CAPS
+    );
 
   const persistAddresses = async (addresses: UserAddress[], successCopy: string) => {
     setAddrSaving(true);
