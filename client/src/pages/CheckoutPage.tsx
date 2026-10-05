@@ -307,6 +307,11 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    // Lock against double-submit BEFORE the first await so that any async
+    // path (phone save, address save, order create, Razorpay) is protected.
+    setIsProcessing(true);
+    submittedRef.current = true;
+
     setPhoneNotice('');
     setAddressNotice('');
 
@@ -364,9 +369,6 @@ export const CheckoutPage: React.FC = () => {
       postalCode: cleanPostal,
       country: 'India',
     };
-
-    setIsProcessing(true);
-    submittedRef.current = true;
 
     let createdOrderId: string | null = null;
 
