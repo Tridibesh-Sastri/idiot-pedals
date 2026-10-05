@@ -16,18 +16,18 @@ export const CartDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[70] overflow-hidden">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-300"
         onClick={() => setIsCartOpen(false)}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-[#FFF8F1] border-l border-[#F0D3B8] flex flex-col shadow-2xl text-[#2A1A12]">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+        <div className="w-screen max-w-full sm:max-w-md bg-[#FFF8F1] border-l border-[#F0D3B8] flex flex-col shadow-2xl text-[#2A1A12]">
 
           {/* Header */}
-          <div className="p-6 border-b border-[#F0D3B8] flex items-center justify-between bg-white">
+          <div className="p-4 sm:p-6 border-b border-[#F0D3B8] flex items-center justify-between bg-white">
             <div>
               <h2 className="text-base font-mono-tech font-bold tracking-wider uppercase flex items-center gap-2 text-[#2A1A12]">
                 <span>Workbench Cart</span>
@@ -49,7 +49,7 @@ export const CartDrawer: React.FC = () => {
           </div>
 
           {/* Cart Contents */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             {items.length === 0 ? (
               <div className="text-center py-20 space-y-5">
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-[#FFF1E6] border border-[#F0D3B8] flex items-center justify-center text-[#8A6A54]">
@@ -163,7 +163,7 @@ export const CartDrawer: React.FC = () => {
 
           {/* Footer / Summary */}
           {items.length > 0 && (
-            <div className="p-6 border-t border-[#F0D3B8] bg-white space-y-4">
+            <div className="p-4 sm:p-6 border-t border-[#F0D3B8] bg-white space-y-4">
               <div className="space-y-1.5 text-xs font-mono-tech">
                 <div className="flex justify-between text-[#8A6A54]">
                   <span>Subtotal</span>

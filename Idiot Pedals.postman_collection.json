@@ -546,7 +546,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Test Player Updated\",\n  \"phone\": \"9000000000\"\n}",
+              "raw": "{\n  \"name\": \"Test Player Updated\",\n  \"phone\": \"9000000000\",\n  \"addresses\": [\n    {\n      \"label\": \"Home\",\n      \"name\": \"Test Player\",\n      \"phone\": \"9000000000\",\n      \"addressLine1\": \"1 Test Street\",\n      \"city\": \"Kolkata\",\n      \"state\": \"West Bengal\",\n      \"postalCode\": \"700001\",\n      \"country\": \"India\",\n      \"isDefault\": true\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -564,7 +564,7 @@
                 "me"
               ]
             },
-            "description": "Only name and phone are accepted."
+            "description": "Updates name, phone and/or addresses list."
           },
           "event": [
             {

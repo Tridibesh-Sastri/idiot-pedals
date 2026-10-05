@@ -59,7 +59,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   };
 
   return (
-    <div className="bg-white border border-[#F0D3B8] rounded-3xl overflow-hidden shadow-xl hover:border-[#FF5E1E]/40 transition-all flex flex-col backdrop-blur-xl">
+    <div className="bg-white border border-[#F0D3B8] rounded-2xl sm:rounded-3xl overflow-hidden shadow-md sm:shadow-xl hover:border-[#FF5E1E]/40 transition-all flex flex-col backdrop-blur-xl">
       <Link to={`/products/${product.id}`} className="block relative">
         <div className="aspect-[4/3] bg-[#FFF1E6] flex items-center justify-center overflow-hidden">
           {image ? (
@@ -73,7 +73,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
               }}
             />
           ) : (
-            <div className="w-24 h-32 bg-[#161C28] rounded-2xl border border-[#F0D3B8] flex flex-col items-center justify-between p-2 shadow-lg">
+            <div className="w-20 sm:w-24 h-28 sm:h-32 bg-[#161C28] rounded-xl sm:rounded-2xl border border-[#F0D3B8] flex flex-col items-center justify-between p-2 shadow-lg">
               <div className="w-full flex justify-around">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#FF5E1E]" />
                 <div className="w-1.5 h-1.5 rounded-full bg-[#FF7A00]" />
@@ -89,7 +89,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
         </div>
       </Link>
 
-      <div className="p-5 sm:p-6 space-y-4 flex flex-col flex-1">
+      <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 flex flex-col flex-1">
         <div className="space-y-1.5 flex-1">
           <div className="text-[10px] font-mono-tech text-[#8A6A54] uppercase tracking-widest">
             {product.sku || product.slug}

@@ -26,24 +26,24 @@ const formatSpecValue = (value: unknown): string => {
 };
 
 const PedalPlaceholder: React.FC = () => (
-  <div className="w-60 sm:w-72 bg-[#161C28] text-[#F6F4EE] rounded-3xl p-6 shadow-2xl border border-[#F0D3B8] flex flex-col justify-between h-[420px] select-none relative">
-    <div className="absolute top-3 left-3 w-2 h-2 rounded-full bg-zinc-600 border border-zinc-400" />
-    <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-zinc-600 border border-zinc-400" />
-    <div className="absolute bottom-3 left-3 w-2 h-2 rounded-full bg-zinc-600 border border-zinc-400" />
-    <div className="absolute bottom-3 right-3 w-2 h-2 rounded-full bg-zinc-600 border border-zinc-400" />
+  <div className="w-48 sm:w-72 bg-[#161C28] text-[#F6F4EE] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border border-[#F0D3B8] flex flex-col justify-between h-[300px] sm:h-[420px] select-none relative">
+    <div className="absolute top-2.5 left-2.5 w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-zinc-600 border border-zinc-400" />
+    <div className="absolute top-2.5 right-2.5 w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-zinc-600 border border-zinc-400" />
+    <div className="absolute bottom-2.5 left-2.5 w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-zinc-600 border border-zinc-400" />
+    <div className="absolute bottom-2.5 right-2.5 w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-zinc-600 border border-zinc-400" />
 
     <div className="flex justify-between items-center px-1 pt-1">
       {['GAIN', 'TONE', 'VOL'].map((label, index) => (
         <div key={label} className="flex flex-col items-center">
-          <div className="w-12 h-12 rounded-full bg-[#0B0E14] border-2 border-zinc-700 shadow-lg relative flex items-center justify-center">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-[#0B0E14] border-2 border-zinc-700 shadow-lg relative flex items-center justify-center">
             <div
-              className={`w-1 h-4 rounded-full absolute top-1 ${
+              className={`w-0.5 sm:w-1 h-3 sm:h-4 rounded-full absolute top-1 ${
                 index === 0 ? 'bg-[#FF5E1E] -rotate-45' : index === 1 ? 'bg-amber-400 rotate-15' : 'bg-[#FF7A00] rotate-45'
               }`}
             />
-            <div className="w-4 h-4 rounded-full bg-zinc-800" />
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-zinc-800" />
           </div>
-          <span className="text-[10px] font-mono-tech font-bold tracking-widest text-[#FF5E1E] uppercase mt-2">
+          <span className="text-[8px] sm:text-[10px] font-mono-tech font-bold tracking-widest text-[#FF5E1E] uppercase mt-1 sm:mt-2">
             {label}
           </span>
         </div>
@@ -51,27 +51,27 @@ const PedalPlaceholder: React.FC = () => (
     </div>
 
     <div className="text-center my-auto flex flex-col items-center justify-center">
-      <div className="text-4xl sm:text-5xl font-editorial font-black tracking-wider text-[#F6F4EE] leading-none uppercase">
+      <div className="text-3xl sm:text-5xl font-editorial font-black tracking-wider text-[#F6F4EE] leading-none uppercase">
         IDIOT
       </div>
-      <div className="text-3xl sm:text-4xl font-script font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF4500] -mt-1 -rotate-4 tracking-wide">
+      <div className="text-2xl sm:text-4xl font-script font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF4500] -mt-1 -rotate-4 tracking-wide">
         Pedals
       </div>
     </div>
 
     <div className="flex items-center justify-between px-2 pt-2 border-t border-[#F0D3B8]">
-      <div className="flex flex-col items-center gap-1">
-        <div className="w-4 h-4 rounded-full bg-[#FF5E1E] shadow-[0_0_16px_#FF5E1E] border border-red-950 relative">
-          <div className="absolute top-0.5 left-0.5 w-1 h-1 bg-white rounded-full opacity-90" />
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1">
+        <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#FF5E1E] shadow-[0_0_12px_#FF5E1E] border border-red-950 relative">
+          <div className="absolute top-0.5 left-0.5 w-0.5 sm:w-1 h-0.5 sm:h-1 bg-white rounded-full opacity-90" />
         </div>
-        <span className="text-[7px] font-mono-tech font-bold text-[#8A6A54] uppercase">ACTIVE</span>
+        <span className="text-[6px] sm:text-[7px] font-mono-tech font-bold text-[#8A6A54] uppercase">ACTIVE</span>
       </div>
-      <div className="w-14 h-14 rounded-full border-4 border-zinc-700 bg-zinc-800 flex items-center justify-center shadow-inner">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-zinc-400 via-zinc-200 to-zinc-300 border-2 border-zinc-400 flex items-center justify-center shadow-md">
-          <div className="w-6 h-6 rounded-full bg-zinc-300 border border-zinc-500 shadow-inner" />
+      <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 sm:border-4 border-zinc-700 bg-zinc-800 flex items-center justify-center shadow-inner">
+        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-zinc-400 via-zinc-200 to-zinc-300 border border-zinc-400 flex items-center justify-center shadow-md">
+          <div className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-zinc-300 border border-zinc-500 shadow-inner" />
         </div>
       </div>
-      <div className="w-6" />
+      <div className="w-4 sm:w-6" />
     </div>
   </div>
 );
@@ -211,20 +211,20 @@ export const ProductDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pb-8">
           {/* Left: gallery / decorative pedal */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="bg-white border border-[#F0D3B8] rounded-3xl p-6 sm:p-10 flex flex-col items-center justify-center relative shadow-2xl min-h-[500px] backdrop-blur-xl glow-neon-subtle">
+            <div className="bg-white border border-[#F0D3B8] rounded-2xl sm:rounded-3xl p-4 sm:p-10 flex flex-col items-center justify-center relative shadow-xl sm:shadow-2xl min-h-[260px] sm:min-h-[500px] backdrop-blur-xl">
               {images.length > 0 ? (
                 <img
                   src={images[Math.min(activeImage, images.length - 1)]}
                   alt={product.name}
-                  className="max-h-[420px] w-auto max-w-full object-contain rounded-2xl"
+                  className="max-h-[240px] sm:max-h-[420px] w-auto max-w-full object-contain rounded-xl sm:rounded-2xl"
                 />
               ) : (
-                <div className="relative my-4">
+                <div className="relative my-2 sm:my-4">
                   <PedalPlaceholder />
                 </div>
               )}
 
-              <div className="text-center text-xs text-[#8A6A54] font-mono-tech uppercase tracking-widest mt-4">
+              <div className="text-center text-xs text-[#8A6A54] font-mono-tech uppercase tracking-widest mt-2 sm:mt-4">
                 {[product.sku, product.currency].filter(Boolean).join(' • ')}
               </div>
             </div>
@@ -433,7 +433,7 @@ export const ProductDetailPage: React.FC = () => {
       </div>
 
       {/* Mobile sticky purchase bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#FFF8F1]/95 border-t border-[#F0D3B8] p-3 sm:hidden backdrop-blur-2xl flex items-center justify-between gap-3 shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFF8F1]/95 border-t border-[#F0D3B8] p-3 sm:hidden backdrop-blur-2xl flex items-center justify-between gap-3 shadow-2xl">
         <div>
           <div className="text-xs font-bold font-mono-tech text-[#2A1A12] uppercase">{product.name}</div>
           <div className="flex items-baseline gap-1.5 font-mono-tech">

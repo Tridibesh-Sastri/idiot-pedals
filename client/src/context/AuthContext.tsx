@@ -156,13 +156,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
-    setLoading(true);
+    // Instantly purge local credentials and user state for immediate response
+    hadUserRef.current = false;
+    setUser(null);
     try {
       await authService.logout();
-    } finally {
-      hadUserRef.current = false;
-      setUser(null);
-      setLoading(false);
+    } catch {
+      // ignore network errors during signout
     }
   }, []);
 

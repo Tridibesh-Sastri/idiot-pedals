@@ -30,7 +30,7 @@ const FAILURE_ERROR_CODE = 'google_failed';
 export const AuthCallbackPage: React.FC = () => {
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
-  const [failed, setFailed] = useState(false);
+  const [, setFailed] = useState(false);
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -94,36 +94,39 @@ export const AuthCallbackPage: React.FC = () => {
   // Keep showing the spinner only until the effect settles (success navigates away).
   if (!settled) {
     return (
-      <LoadingState
-        title="Signing you in"
-        description="Completing the Google sign-in and loading your account."
-      />
+      <div className="min-h-screen bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full">
+          <LoadingState message="Completing sign-in and loading your workbench account…" />
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold text-white">Sign-in could not be completed</h1>
-      <p className="text-sm text-neutral-400">
-        Google signed you in, but we could not start a session. This usually means the
-        sign-in link was already used, has expired, or cookies are blocked for this site.
-      </p>
-      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-        <Link
-          to="/login"
-          className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-        >
-          Back to sign in
-        </Link>
-        <Link
-          to="/register"
-          className="rounded-md border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 transition hover:border-neutral-500"
-        >
-          Create an account
-        </Link>
+    <div className="min-h-screen bg-[#FFF8F1] text-[#2A1A12] pt-28 pb-20 px-4 flex items-center justify-center">
+      <div className="max-w-lg w-full bg-white border border-[#F0D3B8] rounded-3xl p-8 sm:p-10 text-center space-y-4 shadow-xl backdrop-blur-xl">
+        <h1 className="text-2xl font-editorial font-bold text-[#2A1A12]">Sign-in could not be completed</h1>
+        <p className="text-xs sm:text-sm text-[#8A6A54] font-mono-tech leading-relaxed">
+          Google signed you in, but we could not start a session. This usually means the
+          sign-in link was already used, has expired, or cookies are blocked for this site.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+          <Link
+            to="/login"
+            className="px-6 py-2.5 bg-gradient-to-r from-[#FF7A00] to-[#FF4500] text-white text-xs font-mono-tech uppercase font-bold rounded-full shadow-lg shadow-[#FF5E1E]/25 transition hover:brightness-110"
+          >
+            Back to sign in
+          </Link>
+          <Link
+            to="/register"
+            className="px-6 py-2.5 bg-[#FFF1E6] border border-[#F0D3B8] text-xs font-mono-tech uppercase font-bold text-[#2A1A12] rounded-full hover:border-[#FF5E1E] transition"
+          >
+            Create an account
+          </Link>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default AuthCallbackPage;

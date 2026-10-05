@@ -215,16 +215,10 @@ export const AccountPage: React.FC = () => {
     );
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      showToast('Signed out of workbench profile.');
-    } catch {
-      // logout() always purges local state, so this is informational only.
-      showToast('Signed out locally.', 'info');
-    } finally {
-      navigate('/');
-    }
+  const handleLogout = () => {
+    navigate('/', { replace: true });
+    void logout();
+    showToast('Signed out of workbench profile.');
   };
 
   if (initializing) {
@@ -673,6 +667,17 @@ export const AccountPage: React.FC = () => {
             </div>
             <ArrowRight size={16} className="text-[#8A6A54] group-hover:text-[#FF5E1E] transition-colors" />
           </Link>
+        </div>
+
+        {/* Mobile Sign Out Button */}
+        <div className="sm:hidden pt-2 pb-4">
+          <button
+            onClick={handleLogout}
+            className="w-full py-3.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs font-mono-tech uppercase font-bold rounded-2xl flex items-center justify-center gap-2 shadow-md transition-colors"
+          >
+            <LogOut size={15} />
+            <span>Sign Out of Profile</span>
+          </button>
         </div>
       </div>
     </div>
