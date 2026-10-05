@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initAuth = async () => {
       try {
-        const currentUser = await authService.getCurrentUser();
+        const currentUser = await authService.bootstrapSession();
         if (!cancelled) {
           setUser(currentUser);
           if (currentUser) hadUserRef.current = true;

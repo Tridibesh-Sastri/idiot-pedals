@@ -289,10 +289,25 @@ async function performRefresh(): Promise<boolean> {
 }
 
 /**
+ * Whether the user explicitly signed out in this browser profile.
+ * While set, silent refresh is refused: the server session may still be
+ * alive (logout never reached it), and refreshing would resurrect it.
+ * Cleared on any proven-authenticated state (see authService).
+ */
+function isSignedOut(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.SIGNED_OUT) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Attempts one silent token refresh. Concurrent callers share a single request
  * so a burst of 401s never triggers a refresh storm.
  */
 export function refreshAccessToken(): Promise<boolean> {
+  if (isSignedOut()) return Promise.resolve(false);
   if (!refreshInFlight) {
     refreshInFlight = performRefresh().finally(() => {
       refreshInFlight = null;

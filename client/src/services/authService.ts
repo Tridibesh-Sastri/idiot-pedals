@@ -92,6 +92,30 @@ class AuthService {
     }
   }
 
+  private isSignedOutFlag(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.SIGNED_OUT) === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  private setSignedOutFlag(): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SIGNED_OUT, 'true');
+    } catch {
+      /* storage unavailable — refresh gate simply stays open */
+    }
+  }
+
+  private clearSignedOutFlag(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.SIGNED_OUT);
+    } catch {
+      /* ignore */
+    }
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Login                                                                   */
   /* ---------------------------------------------------------------------- */
@@ -111,7 +135,28 @@ class AuthService {
 
     setAccessToken(accessToken);
     this.cacheUser(user);
+    this.clearSignedOutFlag();
     return user;
+  }
+
+  /**
+   * Bootstraps the session on page load. If a previous explicit logout never
+   * reached the server (its session may still be alive), make a best-effort
+   * cleanup call first so a stale refresh cookie cannot resurrect the session
+   * below. The flag is consumed only when the cleanup actually reaches the
+   * server; otherwise it stays set and keeps refusing silent refresh.
+   */
+  async bootstrapSession(): Promise<User | null> {
+    if (this.isSignedOutFlag()) {
+      try {
+        await api.post('/auth/logout', undefined, { retryOn401: false, timeoutMs: 5000 });
+        this.clearSignedOutFlag();
+      } catch {
+        /* unreachable server: flag stays set, refresh stays refused */
+      }
+    }
+
+    return this.getCurrentUser();
   }
 
   /* ---------------------------------------------------------------------- */
@@ -172,6 +217,7 @@ class AuthService {
       }
 
       this.cacheUser(user);
+      this.clearSignedOutFlag();
       return user;
     } catch (error) {
       if (error instanceof ApiError && (error.kind === 'unauthorized' || error.kind === 'forbidden')) {
@@ -302,6 +348,9 @@ class AuthService {
       setAccessToken(null);
       this.clearCachedUser();
       secureStorage.clearAuthData();
+      // Record the explicit intent AFTER purging: if the server call above
+      // never landed, the refresh cookie may still be alive server-side.
+      this.setSignedOutFlag();
     }
   }
 }
